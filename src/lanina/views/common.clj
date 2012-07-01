@@ -42,7 +42,7 @@
    (head [] (get content :title ""))
    [:body
     [:header
-     [:h1#title "Lonja Mercantil La Niña"]]
+     (link-to {:id "logo"} "/" [:h1#title "Lonja Mercantil La Niña"])]
     (:nav-bar content)
     (when (session/flash-get :messages)
       [:div#messages

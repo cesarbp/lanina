@@ -24,3 +24,13 @@ if the admin doesn't exist."
       (insert! :users {:name "admin" :pass (crypt/encrypt pass)})
       (session/put! :admin true)
       (session/put! :name "admin"))))
+
+(defn verify-pass [pass]
+  "Requires that the admin user is already created or it explodes"
+  (db/maybe-init)
+  (crypt/compare pass (:pass (fetch-one :users :where {:name "admin"} :only [:pass]))))
+
+(defn reset-pass! [pass]
+  (when (<= 6 (count pass))
+    (let [usr (fetch-one :users :where {:name "admin" }) ]
+      (update! :users usr (merge usr {:pass (crypt/encrypt pass)})))))
