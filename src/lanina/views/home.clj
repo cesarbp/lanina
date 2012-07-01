@@ -8,7 +8,9 @@
             [lanina.models.user :as users]))
 
 (defpage "/" []
-  (resp/redirect "/inicio/"))
+  (if (users/admin?)
+    (resp/redirect "/inicio/")
+    (resp/redirect "/entrar/")))
 
 (defpartial logrow [{:keys [date content link]}]
   [:li date
