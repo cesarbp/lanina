@@ -1,7 +1,8 @@
 (ns lanina.views.common
   (:use [noir.core :only [defpartial]]
         [hiccup.page :only [include-css include-js html5]]
-        [hiccup.element :only [link-to]]))
+        [hiccup.element :only [link-to]])
+  (:require [noir.session :as session]))
 
 ;;; Head includes here
 (def includes
@@ -13,33 +14,40 @@
 ;;; Links on the nav
 (def nav-items
   [{:name "Artículos" :url "/articulos/"}
-   {:name "Inicio" :url "/inicio/"}])
+   {:name "Inicio"    :url "/inicio/"}
+   {:name "Salir"     :url "/salir/"}])
 
-(defpartial head [incls]
+(defpartial head [incls title]
   [:head
    [:meta {:charset "UTF-8"}]
-   [:title "La Niña"]
+   [:title (if (seq title) (str title " | Lonja Mercantil La Niña")
+               "Lonja Mercantil La Niña")]
    (map #(get includes %) incls)])
 
-(defpartial link [{:keys [text url]}]
+(defpartial link [{:keys [name url]}]
   [:li
-   (link-to url text)])
+   (link-to url name)])
 
 (defpartial nav-bar [lnks]
   [:nav
    [:ul
     (map link lnks)]])
 
+(defpartial disp-message [msg]
+  [:li {:class (:type msg)} (:text msg)])
+
 ;;; Content needs to include a :content and an optional :title
 (defpartial main-layout [content]
   (html5 {:lang "es-MX"}
-   (head [:less])
+   (head [] (get content :title ""))
    [:body
     [:header
-     [:h1#title (if (:title content)
-                  (str (:title content) " | " "Lonja Mercantil La Nina")
-                  "Lonja Mercantil La Nina")]]
+     [:h1#title "Lonja Mercantil La Niña"]]
     (nav-bar nav-items)
+    (when (session/flash-get :messages)
+      [:div#messages
+       [:ul
+        (map disp-message (session/flash-get :messages))]])
     [:section {:class "body"}
      [:h2 "Bienvenido"]
      [:p "Sitio de prueba"]

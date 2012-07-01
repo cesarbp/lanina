@@ -1,6 +1,6 @@
 # lanina
 
-A website written in noir. 
+A small website for a small supermarket
 
 ## Usage
 
@@ -13,7 +13,7 @@ lein run
 
 ## License
 
-Copyright (C) 2011 FIXME
+Copyright (C) 2011 cesarbp
 
 Distributed under the Eclipse Public License, the same as Clojure.
 
