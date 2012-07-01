@@ -43,7 +43,7 @@
    [:body
     [:header
      [:h1#title "Lonja Mercantil La Niña"]]
-    (nav-bar nav-items)
+    (:nav-bar content)
     (when (session/flash-get :messages)
       [:div#messages
        [:ul
@@ -54,3 +54,6 @@
      (:content content)]
     [:footer
      [:p "Gracias por visitar"]]]))
+
+(defpartial home-layout [content]
+  (main-layout (into content {:nav-bar (nav-bar nav-items)})))

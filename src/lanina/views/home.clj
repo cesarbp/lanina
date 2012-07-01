@@ -35,6 +35,7 @@
 
 (pre-route "/inicio/" {}
            (when-not (users/admin?)
+             (session/flash-put! :messages '({:type "error" :text "Necesita estar firmado para accesar esta página"}))
              (resp/redirect "/entrar/")))
 
 (defpage "/inicio/" []
@@ -42,7 +43,7 @@
               {:date "27/06/2012" :content "Se eliminó un artículo" :link "/logs/27062012"}]
         content {:title "Inicio"
                  :content (home-content logs)}]
-    (main-layout content)))
+    (home-layout content)))
 
 (defpage "/entrar/" []
   (let [content {:title "Ingresar"
