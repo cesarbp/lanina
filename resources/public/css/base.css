@@ -1,0 +1,213 @@
+@import url("/css/reset.css/");
+body {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font-weight: inherit;
+  font-style: inherit;
+  font-size: 100%;
+  font-family: arial,helvetica,sans-serif;
+  vertical-align: baseline;
+  background-color: #011218; }
+
+body a {
+  color: #cdb380;
+  text-decoration: none; }
+
+a:hover {
+  text-decoration: underline; }
+
+body p, ul li, ol li {
+  color: #e8ddcb; }
+
+body ol {
+  padding: 10px;
+  list-style: none;
+  position: relative;
+  width: 50%;
+  left: 25%;
+  background-color: #021d27;
+  -moz-border-radius: 6px;
+  -webkit-border-radius: 6px; }
+
+body ol li {
+  list-style: none;
+  text-align: left; }
+
+section#home {
+  display: block;
+  background-color: #011218;
+  border-top: 1px solid #542437;
+  border-bottom: 1px solid #542437;
+  margin-bottom: 18px; }
+
+/* header */
+#home {
+  font-family: "CorbelRegular", "Helvetica Neue", Helvetica, Arial, Geneva, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  font-weight: normal;
+  padding: 20px 0 24px 0;
+  text-align: center;
+  text-shadow: 0 1px 1px #000; }
+
+#home h1 {
+  color: #036564;
+  font-size: 36px;
+  margin: 8px 0;
+  position: relative; }
+
+#home h2 {
+  color: #cdb380;
+  font-size: 25px;
+  position: relative; }
+
+/* Header */
+header {
+  display: block;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font-weight: inherit;
+  font-style: inherit;
+  font-size: 100%;
+  font-family: arial,helvetica,sans-serif;
+  vertical-align: baseline;
+  background-color: #022431;
+  border-bottom-style: solid;
+  border-bottom-width: 3px;
+  border-bottom-color: #031634;
+  height: 91px; }
+
+header {
+  display: block; }
+
+header img {
+  float: left; }
+
+header ul {
+  list-style-type: none;
+  overflow: hidden;
+  display: inline-block;
+  float: right;
+  margin-top: 20px;
+  padding: 10px; }
+
+header ul li {
+  float: left;
+  margin-left: 10px; }
+
+header ul li:first-child {
+  margin-left: 0; }
+
+header ul li {
+  border-left-style: solid;
+  border-left-width: 2px;
+  border-left-color: #e8ddcb;
+  padding-left: 10px;
+  font-size: 16px; }
+
+header ul li:first-child {
+  border-left: none;
+  padding-left: 0; }
+
+header ul li a {
+  color: #cdb380;
+  text-decoration: none;
+  font-weight: normal; }
+
+header ul li a:hover {
+  color: white; }
+
+header ul li a.active {
+  color: #049795; }
+
+header ul {
+  background-color: #011218;
+  padding-left: 15px;
+  padding-right: 15px;
+  margin-right: 25px;
+  margin-left: 10px;
+  -moz-border-radius: 7px;
+  -webkit-border-radius: 7px; }
+
+header ul li a {
+  color: #049795; }
+
+header ul li a:hover {
+  color: #cdb380; }
+
+header ul li a.active {
+  color: #e8ddcb; }
+
+header ul li a.active:hover {
+  color: #e8ddcb; }
+
+/* ******************************************** */
+article {
+  display: block; }
+
+/* Password forms ***************************** */
+div.dialog {
+  position: relative;
+  left: 25%;
+  width: 50%;
+  color: #cdb380; }
+
+.dialog form {
+  padding-top: 20px;
+  padding-bottom: 20px;
+  background-color: #021d27;
+  -moz-border-radius: 14px;
+  -webkit-border-radius: 14px;
+  -moz-box-shadow: 2px 2px 6px #010b0e;
+  -webkit-box-shadow: 2px 2px 6px #010b0e; }
+
+.dialog form fieldset {
+  position: relative;
+  left: 10%;
+  height: 3em;
+  margin-bottom: 25px; }
+
+.dialog form fieldset .field {
+  text-align: left; }
+
+.dialog form fieldset .field input {
+  width: 70%;
+  -moz-border-radius: 10px;
+  -webkit-border-radius: 10px;
+  padding-top: 5px;
+  padding-bottom: 5px;
+  background-color: #C9C3E6;
+  padding-left: 5%;
+  padding-right: 5%; }
+
+.submit {
+  text-align: right;
+  position: relative;
+  right: 20%; }
+
+.submit p {
+  float: left; }
+
+input.submit {
+  -moz-border-radius: 14px;
+  -webkit-border-radius: 14px;
+  background-color: #036564;
+  font-size: 14px;
+  padding: 7px 20px 7px 20px;
+  border: 0;
+  background-image: -webkit-gradient(linear, 0% 0%, 0% 100%, color-stop(0%, #022431), color-stop(100%, #033649));
+  background-image: -moz-linear-gradient(top, #022431 0%, #033649 100%);
+  color: #cdb380; }
+
+input.submit:hover {
+  background-image: -webkit-gradient(linear, 0% 0%, 0% 100%, color-stop(0%, #033649), color-stop(100%, #044861));
+  background-image: -moz-linear-gradient(top, #033649 0%, #044861 100%); }
+
+/* ******************************************** */
+/* Messages */
+.error {
+  color: #d95b43; }
+
+.success {
+  color: #53777a; }

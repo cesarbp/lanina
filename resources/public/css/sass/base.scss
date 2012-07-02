@@ -1,0 +1,282 @@
+@import url("/css/reset.css/");
+
+$darkest:  #031634;		// Darkest blue
+$dark:     darken(#033649, 5%);
+$normal:   #036564;
+$light:    #cdb380;
+$lightest: #e8ddcb;
+
+$blue:		#53777A;
+$purple:	#542437;
+$red:		#D95B43;
+$orange:	#D95B43;
+$yellow:	#ECD078;
+
+$light-blue:		 lighten($blue, 10%);
+$lighter-blue:		 lighten($blue, 20%);
+$light-purple:		 lighten($purple, 10%);
+$lighter-purple:         lighten($purple, 20%);
+$light-red:		 lighten($red, 10%);
+$lighter-red:		 lighten($red, 20%);
+$light-orange:		 lighten($orange, 10%);
+$lighter-orange:	 lighten($orange, 20%);
+$light-yellow:		 lighten($yellow, 10%);
+$lighter-yellow:	 lighten($yellow, 20%); 
+
+$dark-blue:	 darken($blue, 10%);
+$darker-blue:	 darken($blue, 20%);
+$dark-purple:	 darken($purple, 10%);
+$darker-purple:	 darken($purple, 20%);
+$dark-red:	 darken($red, 10%);
+$darker-red:	 darken($red, 20%);
+$dark-orange:	 darken($orange, 10%);
+$darker-orange:	 darken($orange, 20%);
+$dark-yellow:	 darken($yellow, 10%);
+$darker-yellow:	 darken($yellow, 20%);
+
+body {
+    margin:0;
+    padding:0;
+    border:0;
+    font-weight:inherit;
+    font-style:inherit;
+    font-size:100%;
+    font-family:arial,helvetica,sans-serif;
+    vertical-align:baseline;
+    background-color:darken($dark, 5%);
+}
+
+body a {
+    color:$light;
+    text-decoration:none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+body p, ul li, ol li {
+    color: $lightest;
+}
+
+body ol {
+    padding: 10px;
+    list-style: none;
+    position: relative;
+    width:50%;
+    left: 25%;
+    background-color: darken($dark, 2%);
+    -moz-border-radius: 6px;
+    -webkit-border-radius: 6px;
+}
+body ol li {
+    list-style: none;
+    text-align: left;
+}
+
+section#home {
+    display: block;
+    background-color: darken($dark, 5%);
+    border-top: 1px solid $purple;
+    border-bottom: 1px solid $purple;
+    margin-bottom: 18px;
+
+}
+
+/* header */
+#home {
+    font-family: "CorbelRegular", "Helvetica Neue", Helvetica, Arial, Geneva, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    font-weight: normal;
+    padding: 20px 0 24px 0;
+    text-align: center;
+    text-shadow: 0 1px 1px #000;
+}
+
+#home h1 {
+    color: $normal;  
+    font-size: 36px;
+    margin: 8px 0;
+    position: relative;
+}
+
+#home h2 {
+    color: $light;
+    font-size: 25px;
+    position: relative;
+}
+
+/* Header */
+header {
+    display:block;
+    margin:0;
+    padding:0;
+    border:0;
+    font-weight:inherit;
+    font-style:inherit;
+    font-size:100%;
+    font-family:arial,helvetica,sans-serif;
+    vertical-align:baseline;
+    background-color:$dark;
+    border-bottom-style:solid;
+    border-bottom-width:3px;
+    border-bottom-color:$darkest;
+    height:91px;
+}
+header {
+    display: block;
+}
+
+header img {
+    float:left;
+}
+
+header ul  {
+    list-style-type:none;
+    overflow:hidden;
+    display:inline-block;
+    float:right;
+    margin-top:20px;
+    padding:10px;
+}
+
+header ul li {
+    float:left;
+    margin-left:10px;
+}
+
+header ul li:first-child {
+    margin-left:0;
+}
+
+header ul li, {
+    border-left-style:solid;
+    border-left-width:2px;
+    border-left-color:$lightest;
+    padding-left:10px;
+    font-size:16px;
+}
+
+header ul li:first-child {
+    border-left:none;
+    padding-left:0;
+}
+
+header ul li a {
+    color:$light;
+    text-decoration:none;
+    font-weight:normal;
+}
+
+header ul li a:hover {
+    color:white;
+}
+
+header ul li a.active {
+    color:lighten($normal, 10%);
+}
+header ul {
+    background-color:darken($dark,5%);
+    padding-left:15px;
+    padding-right:15px;
+    margin-right:25px;
+    margin-left:10px;
+    -moz-border-radius:7px;
+    -webkit-border-radius:7px;
+}
+header ul li a {
+    color:lighten($normal,10%);
+}
+header ul li a:hover {
+    color:$light;
+}
+header ul li a.active {
+    color:$lightest;
+}
+header ul li a.active:hover {
+    color: $lightest;
+}
+/* ******************************************** */
+
+article {
+    display: block;
+}
+
+/* Password forms ***************************** */
+div.dialog {
+    position: relative;
+    left:25%;
+    width:50%;
+    color: $light;
+    
+}
+
+.dialog form {
+    padding-top: 20px;
+    padding-bottom: 20px;
+    background-color: darken($dark, 2%);
+    -moz-border-radius:14px;
+    -webkit-border-radius:14px;
+    -moz-box-shadow:2px 2px 6px darken($dark, 7%);
+    -webkit-box-shadow:2px 2px 6px darken($dark, 7%);
+}
+.dialog form fieldset {
+    position:relative;
+    left: 10%;
+    height: 3em;
+    margin-bottom:25px;
+
+}
+
+.dialog form fieldset .field {
+    text-align: left;
+}
+
+.dialog form fieldset .field input {
+    width: 70%;
+    -moz-border-radius:10px;
+    -webkit-border-radius:10px;
+    padding-top:5px;
+    padding-bottom:5px;
+    background-color:#C9C3E6;
+    padding-left:5%;
+    padding-right: 5%;
+}
+
+.submit {
+    text-align: right;
+    position:relative;
+    right:20%;
+}
+
+.submit p {
+    float: left;
+    
+}
+
+input.submit {
+    -moz-border-radius:14px;
+    -webkit-border-radius:14px;
+    background-color:$normal;
+    font-size:14px;
+    padding:7px 20px 7px 20px;
+    border: 0;
+    background-image: -webkit-gradient(linear, 0% 0%, 0% 100%, color-stop(0%, $dark), color-stop(100%, lighten($dark, 5%)));
+    background-image: -moz-linear-gradient(top, $dark 0%, lighten($dark, 5%) 100%);
+    color: $light;
+}
+
+input.submit:hover {
+    background-image: -webkit-gradient(linear, 0% 0%, 0% 100%, color-stop(0%, lighten($dark, 5%)), color-stop(100%, lighten($dark, 10%)));
+    background-image: -moz-linear-gradient(top, lighten($dark, 5%) 0%, lighten($dark, 10%) 100%);    
+}
+
+/* ******************************************** */
+
+/* Messages */
+.error {
+    color: $red;
+}
+.success {
+    color: $blue;
+}

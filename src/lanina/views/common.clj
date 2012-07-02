@@ -1,12 +1,13 @@
 (ns lanina.views.common
   (:use [noir.core :only [defpartial]]
         [hiccup.page :only [include-css include-js html5]]
-        [hiccup.element :only [link-to]])
+        [hiccup.element :only [link-to image]])
   (:require [noir.session :as session]))
 
 ;;; Head includes here
 (def includes
   {
+   :base-css (include-css "/css/base.css")
    :less (include-js "/js/less.js")
    :jquery (include-js "http://ajax.googleapis.com/ajax/libs/jquery/1.6.1/jquery.min.js")
    })
@@ -39,18 +40,17 @@
 ;;; Content needs to include a :content and an optional :title
 (defpartial main-layout [content]
   (html5 {:lang "es-MX"}
-   (head [] (get content :title ""))
+   (head [:base-css] (get content :title ""))
    [:body
     [:header
-     (link-to {:id "logo"} "/" [:h1#title "Lonja Mercantil La Niña"])]
-    (:nav-bar content)
+     (link-to {:id "logo"} "/" (image {:class "logo"} "/img/lisp.gif" [:h1#title "Lonja Mercantil La Niña"]))
+     (:nav-bar content)]
     (when (session/flash-get :messages)
       [:div#messages
        [:ul
         (map disp-message (session/flash-get :messages))]])
-    [:section {:class "body"}
-     [:h2 "Bienvenido"]
-     [:p "Sitio de prueba"]
+    [:section#home
+     [:h1 "Sitio de administración"]
      (:content content)]
     [:footer
      [:p "Gracias por visitar"]]]))

@@ -26,27 +26,28 @@
 
 (defpartial login-form []
   [:div {:class "dialog"}
-   (form-to {:name "login-form"} [:post "/entrar/"]
+   (form-to {:id "login-form"} [:post "/entrar/"]
      [:fieldset
       [:div.field
        (label {:id "password-label"} "password" "Contraseña")
        (password-field {:id "password"} "password")]]
      [:fieldset.submit
       [:p (link-to {:id "reset-password"} "/auth/reset_pass/" "Reiniciar contraseña")]
-      (submit-button {:name "submit"} "Entrar")])])
+      (submit-button {:class "submit" :name "submit"} "Entrar")])])
 
 (defpartial reset-pass-form []
   [:div {:class "dialog"}
-   (form-to {:name "reset-pass"} [:post "/auth/reset_pass/"]
+   (form-to {:id "login-form" :name "reset-pass"} [:post "/auth/reset_pass/"]
      [:fieldset
       [:div.field
        (label {:id "old-password-label"} "old-password" "Vieja contraseña")
-       (password-field {:id "old-password"} "old-password")]
+       (password-field {:id "old-password"} "old-password")]]
+     [:fieldset
       [:div.field
        (label {:id "new-password-label"} "new-password" "Nueva contraseña")
        (password-field {:id "new-password"} "new-password")]]
      [:fieldset.submit
-      (submit-button {:name "submit"} "Entrar")])])
+      (submit-button {:class "submit" :name "submit"} "Cambiar")])])
 
 (pre-route "/inicio/" {}
            (when-not (users/admin?)
@@ -68,7 +69,7 @@
 (defpage [:post "/entrar/"] {:as user}
   (if (users/login-init! (:password user))
     (resp/redirect "/inicio/")
-    (do (session/flash-put! :messages '({:type "error" :text "Contraseña inválido"}))
+    (do (session/flash-put! :messages '({:type "error" :text "Contraseña inválida"}))
         (render "/entrar/"))))
 
 (defpage "/salir/" []
@@ -85,8 +86,8 @@
     (if (users/reset-pass! (:new-password pass))
       (do (session/flash-put! :messages '({:type "success" :text "Su contraseña ha sido cambiada"}))
           (resp/redirect "/entrar/"))
-      (do (session/flash-put! :messages '({:type "error" :text "Contaseña demasiado corta, mínimo 6 caracteres"}))
+      (do (session/flash-put! :messages '({:type "error" :text "Contraseña demasiado corta, mínimo 6 caracteres"}))
           (render "/auth/reset_pass/")))
-    (do (session/flash-put! :messages '({:type "error" :text "Su vieja contaseña no es correcta"}))
+    (do (session/flash-put! :messages '({:type "error" :text "Su vieja contraseña no es correcta"}))
         (render "/auth/reset_pass/"))))
 
