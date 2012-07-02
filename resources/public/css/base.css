@@ -8,7 +8,8 @@ body {
   font-size: 100%;
   font-family: arial,helvetica,sans-serif;
   vertical-align: baseline;
-  background-color: #011218; }
+  background-color: #011218;
+  text-align: center; }
 
 body a {
   color: #cdb380;
@@ -148,10 +149,9 @@ article {
 
 /* Password forms ***************************** */
 div.dialog {
-  position: relative;
-  left: 25%;
-  width: 50%;
-  color: #cdb380; }
+  color: #cdb380;
+  max-width: 350px;
+  margin: auto; }
 
 .dialog form {
   padding-top: 20px;

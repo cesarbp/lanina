@@ -44,6 +44,7 @@ body {
     font-family:arial,helvetica,sans-serif;
     vertical-align:baseline;
     background-color:darken($dark, 5%);
+    text-align: center;
 }
 
 body a {
@@ -204,11 +205,9 @@ article {
 
 /* Password forms ***************************** */
 div.dialog {
-    position: relative;
-    left:25%;
-    width:50%;
     color: $light;
-    
+    max-width: 350px;
+    margin: auto;
 }
 
 .dialog form {
