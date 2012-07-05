@@ -1,7 +1,6 @@
 (ns lanina.models.user
   (:use
-   somnium.congomongo
-   [somnium.congomongo.config :only [*mongo-config*]])
+   somnium.congomongo)
   (:require
    [noir.util.crypt     :as crypt]
    [noir.validation     :as vali]

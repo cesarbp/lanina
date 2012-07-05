@@ -1,0 +1,32 @@
+cod_bar       | nom_art
+--------------+--------------
+2223326153779 | agua para perro
+7060518707579 | chocolate amargo
+4064759087683 | comida fria
+9486387099747 | agua para perro
+6121255384748 | comida negro
+0535303317086 | leche para gato
+2091048764826 | blusa negro
+4362458483987 | blusa para gato
+7219453627640 | chocolate rojo
+3578972647452 | pantalon para perro
+1503180580206 | carne amargo
+5387082303666 | leche condensada
+2115170353339 | chocolate rojo
+6399494986972 | chocolate amargo
+2079332603876 | carne fria
+5669594011500 | comida para joven
+7968134697579 | blusa para perro
+5579919912041 | zapato negro
+4153877816674 | chocolate mineral
+6821523123551 | leche azul
+4575361290110 | agua amargo
+2533547815707 | carne para nina
+8540174202953 | leche condensada
+6715152068909 | leche amargo
+5536048385921 | pantalon mineral
+1780637631871 | blusa para gato
+6897770375936 | agua para perro
+7095115458476 | blusa rojo
+4113848397992 | comida negro
+2770978641665 | blusa azul

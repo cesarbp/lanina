@@ -9,7 +9,7 @@
   {
    :base-css (include-css "/css/base.css")
    :less (include-js "/js/less.js")
-   :jquery (include-js "http://ajax.googleapis.com/ajax/libs/jquery/1.6.1/jquery.min.js")
+   :jquery (include-js "/js/jquery.js")
    })
 
 ;;; Links on the nav
