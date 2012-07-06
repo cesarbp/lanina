@@ -1,7 +1,8 @@
 (ns lanina.models.utils
   (:use
    somnium.congomongo
-   [somnium.congomongo.config :only [*mongo-config*]]))
+   [somnium.congomongo.config :only [*mongo-config*]])
+  (:require [clojure.data.json :as json]))
 
 (defn split-mongo-url [url]
   "Parses mongodb url from heroku, like mongodb://user:pass@localhost:1234/db"
@@ -20,3 +21,10 @@
       (authenticate (:user config) (:pass config))
       (when-not (collection-exists? :users)
           (create-collection! :users)))))
+
+;;; Extend json
+(defn- write-json-mongodb-objectid [x out escape-unicode?]
+  (json/write-json (str x) out escape-unicode?))
+ 
+(extend org.bson.types.ObjectId json/Write-JSON
+  {:write-json write-json-mongodb-objectid})

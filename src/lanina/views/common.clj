@@ -10,6 +10,7 @@
    :base-css (include-css "/css/base.css")
    :less (include-js "/js/less.js")
    :jquery (include-js "/js/jquery.js")
+   :test-js (include-js "/js/test.js")
    })
 
 ;;; Links on the nav
@@ -38,9 +39,9 @@
   [:li {:class (:type msg)} (:text msg)])
 
 ;;; Content needs to include a :content and an optional :title
-(defpartial main-layout [content]
+(defpartial main-layout-incl [content includes]
   (html5 {:lang "es-MX"}
-   (head [:base-css] (get content :title ""))
+   (head includes (get content :title ""))
    [:body
     [:header
      (link-to {:id "logo"} "/" (image {:class "logo"} "/img/lisp.gif" [:h1#title "Lonja Mercantil La Niña"]))
@@ -54,6 +55,9 @@
      (:content content)]
     [:footer
      [:p "Gracias por visitar"]]]))
+
+(defpartial main-layout [content]
+  (main-layout-incl content [:base-css]))
 
 (defpartial home-layout [content]
   (main-layout (into content {:nav-bar (nav-bar nav-items)})))

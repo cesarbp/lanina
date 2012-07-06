@@ -2,7 +2,7 @@
   (:use noir.core
         lanina.views.common
         [hiccup.element :only [link-to]]
-        [hiccup.form])
+        hiccup.form)
   (:require [noir.response :as resp]
             [noir.session :as session]
             [lanina.models.user :as users]))

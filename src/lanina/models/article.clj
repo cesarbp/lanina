@@ -1,82 +1,71 @@
 (ns lanina.models.article
   (:use
    somnium.congomongo)
-  (:require [lanina.models.utils :as db]))
+  (:require [lanina.models.utils :as db]
+            [clojure.string :as str]))
 
-;;; Playing around
+(def article-coll :articles)
 
-(defn rand-barcode []
-  (apply str (repeatedly 13 #(rand-int 10))))
+;;; Use the db
 
-(def articles
-  {:names ["agua"
-           "leche"
-           "carne"
-           "chocolate"
-           "pantalon"
-           "blusa"
-           "zapato"
-           "lente"
-           "comida"]
-   :adjectives ["mineral"
-                "condensada"
-                "fria"
-                "amargo"
-                "para joven"
-                "para nina"
-                "negro"
-                "azul"
-                "rojo"
-                "para perro"
-                "para gato"]})
+(defn get-article [barcode]
+  (fetch-one article-coll :where {:codigo barcode} :only [:nom_art :codigo]))
 
-(defn rand-article []
-  (str ((:names articles) (rand-int (count (:names articles))))
-       " "
-       ((:adjectives articles) (rand-int (count (:adjectives articles))))))
-
-(def test-file "src/lanina/models/testfiles/testarticles.txt")
-
-(defn fill-testfile [n]
-  "Fill test file with n articles"
-  (let [first-line (format "%-13s | nom_art\n" "cod_bar")
-        second-line (apply str (concat (repeat 14 \-) "+" (repeat 14 \-) "\n"))]
-    (->> (zipmap (repeatedly n rand-barcode) (repeatedly n rand-article))
-         (reduce (fn [p [b a]] (concat p  "\n" b " | " a)) "")
-         (rest)
-         (apply str)
-         (str first-line second-line)
-         (spit test-file))))
-
-;;; After filling a test file
 ;;; fill the db
-(def test-coll :test-arts)
-(def article-fields #{:code :name})
-(require '[clojure.string :as str])
+(def db-file "src/lanina/models/db-csv/tienda.csv")
 
-(defn f-to-maps [f]
-  "Create a secuence of maps of each line in the file"
-  (let [ls (str/split (slurp test-file) #"\n")
+(defn csv-to-maps [f]
+  "Takes a csv file and creates a map for each row of column: column-value"
+  (let [ls (str/split (slurp f) #"\n")
         cs (first ls)
         rs (rest (rest ls))
-        colls (map keyword (str/split cs #","))
+        colls (map (comp keyword #(.toLowerCase %)) (str/split cs #","))
         regs (map #(str/split % #",") rs)]
     (map (fn [r]
            (zipmap colls r))
          regs)))
 
-(defn fill-test-coll! [ms]
-  "Fill the test-coll on the db with the collection of maps supplied"
-  (db/maybe-init)
-  (when-not (collection-exists? test-coll)
-    (create-collection! test-coll)
-    (println (str "Created collection " test-coll)))
-  (doseq [m ms]
-    (insert! test-coll m)))
+(defn is-int [s]
+  (try (Integer/parseInt s)
+       true
+       (catch Exception e
+         false)))
 
-(defn setup! [n]
-  "n is the number of documents to add, randomly generated"
-  (fill-testfile n)
-  (->> test-file
-       f-to-maps
-       fill-test-coll!))
+(defn is-double [s]
+  (and (not (is-int s))
+       (try (Double/parseDouble s)
+            true
+            (catch Exception e
+              false))))
+
+(defn coerce-to-useful-types [ms]
+  (map (fn [m]
+         (reduce (fn [acc [k v]]
+                   (cond (= k :codigo) (into acc {k v})          ;Leave barcodes as strings
+                         (is-int v) (into acc  {k (Integer/parseInt v)})
+                         (is-double v) (into acc {k (Double/parseDouble v)})
+                         :else (into acc {k v})))
+                 {}
+                 m))
+       ms))
+
+(defn fill-article-coll! [ms]
+  "Appends the maps to the article collection"
+  (db/maybe-init)
+  (when-not (collection-exists? article-coll)
+    (create-collection! article-coll)
+    (println (str "Created collection " article-coll)))
+  (doseq [m ms]
+    (insert! article-coll m)))
+
+(defn setup! []
+  "Dangerous! drops articles collection if exists and creates a new one with the
+csv of the articles"
+  (db/maybe-init)
+  (when (collection-exists? article-coll)
+    (drop-coll! article-coll)
+    (println (str "Deleted collection " article-coll)))
+  (-> db-file
+      (csv-to-maps)
+      (coerce-to-useful-types)
+      (fill-article-coll!)))
