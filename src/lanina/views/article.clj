@@ -4,7 +4,11 @@
         hiccup.form
         [hiccup.element :only [link-to]])
   (:require [lanina.models.article :as article]
-            [clojure.data.json :as json]))
+            [clojure.data.json :as json]
+            [lanina.views.utils :as utils]
+            [lanina.models.user :as users]
+            [noir.session :as session]
+            [noir.response :as resp]))
 
 ;;; Used by js to get the article in an ajax way
 (defpage "/json/article" {:keys [barcode]}
@@ -14,13 +18,37 @@
       "{}")))
 
 (defpartial barcode-form []
-  (form-to {:id "barcode-form"} [:get "/test/"]
+  [:div.dialog
+   (form-to {:id "barcode-form"} [:get "/test/"]
+     [:fieldset
+      [:div.field
+       (label {:id "barcode-label"} "barcode" "Código de barras")
+       (text-field {:id "barcode-field"} "barcode")]]
+     [:h3 "Fecha: " (utils/now)])])
+
+(defpartial item-list []
+  [:table.articles-table
+   [:tr
+    [:th#barcode-header "Código"]
+    [:th#name-header "Artículo"]
+    [:th#price-header "Precio"]]])
+
+(pre-route "/ventas/" []
+  (when-not (users/admin?)
+    (session/flash-put! :messages '({:type "error" :text "Necesita estar firmado para accesar esta página"}))
+    (resp/redirect "/entrar/")))
+
+(defpage "/ventas/" []
+  (let [content {:title "Ventas"
+                 :content [:article (barcode-form) (item-list)]
+                 :footer [:p "Gracias por su compra."]
+                 :nav-bar true}]
+    (main-layout-incl content [:base-css :jquery :test-js])))
+
+(defpartial search-article []
+  (form-to {:id "search-form"}
     [:fieldset
-     [:div.field
-      (text-field {:id "barcode-field1"} "barcode-field")]]))
-
-(defpartial test-js []
-  (link-to {} "#" "test"))
-
-(defpage "/test/" []
-  (main-layout-incl {:content (barcode-form)} [:base-css :jquery :test-js]))
+     [:div.fied
+      (label {:id "search-field"} "search" "Buscar")
+      (text-field {:id "search"} "search")]]
+    (submit-button {:class "submit" :name "submit"} "Buscar")))

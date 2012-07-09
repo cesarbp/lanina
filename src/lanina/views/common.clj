@@ -10,12 +10,13 @@
    :base-css (include-css "/css/base.css")
    :less (include-js "/js/less.js")
    :jquery (include-js "/js/jquery.js")
-   :test-js (include-js "/js/test.js")
+   :barcode-js (include-js "/js/barcode.js")
    })
 
 ;;; Links on the nav
 (def nav-items
-  [{:name "Artículos" :url "/articulos/"}
+  [{:name "Ventas"    :url "/ventas/"}
+   {:name "Artículos" :url "/articulos/"}
    {:name "Inicio"    :url "/inicio/"}
    {:name "Salir"     :url "/salir/"}])
 
@@ -45,19 +46,21 @@
    [:body
     [:header
      (link-to {:id "logo"} "/" (image {:class "logo"} "/img/lisp.gif" [:h1#title "Lonja Mercantil La Niña"]))
-     (:nav-bar content)]
+     (when (:nav-bar content)
+       (nav-bar nav-items))]
     (when (session/flash-get :messages)
       [:div#messages
        [:ul
         (map disp-message (session/flash-get :messages))]])
     [:section#home
-     [:h1 "Sitio de administración"]
+     [:h1 (get content :title "Sitio de administración")]
      (:content content)]
     [:footer
-     [:p "Gracias por visitar"]]]))
+     (get content :footer
+          [:p "Gracias por visitar"])]]))
 
 (defpartial main-layout [content]
   (main-layout-incl content [:base-css]))
 
 (defpartial home-layout [content]
-  (main-layout (into content {:nav-bar (nav-bar nav-items)})))
+  (main-layout (into content {:nav-bar true})))

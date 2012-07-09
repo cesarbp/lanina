@@ -25,7 +25,7 @@
      (map logrow logs)]]])
 
 (defpartial login-form []
-  [:div {:class "dialog"}
+  [:div.dialog
    (form-to {:id "login-form"} [:post "/entrar/"]
      [:fieldset
       [:div.field
