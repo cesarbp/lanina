@@ -62,6 +62,11 @@ section#home {
   font-size: 25px;
   position: relative; }
 
+#home h3 {
+  color: #e8ddcb;
+  font-size: 18px;
+  position: relative; }
+
 /* Header */
 header {
   display: block;
@@ -211,3 +216,16 @@ input.submit:hover {
 
 .success {
   color: #53777a; }
+
+/* Articles table */
+.articles-table {
+  margin: auto;
+  color: #e8ddcb;
+  font-size: 14px; }
+
+.articles-table th, td {
+  padding: 10px;
+  padding-right: 15px;
+  color: #cdb380;
+  font-size: 16px;
+  border-bottom: 2px solid #036564; }

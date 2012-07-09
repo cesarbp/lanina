@@ -107,6 +107,12 @@ section#home {
     position: relative;
 }
 
+#home h3 {
+    color: $lightest;
+    font-size: 18px;
+    position: relative;
+}
+
 /* Header */
 header {
     display:block;
@@ -279,3 +285,20 @@ input.submit:hover {
 .success {
     color: $blue;
 }
+
+/* Articles table */
+
+.articles-table {
+    margin: auto;
+    color: $lightest;
+    font-size: 14px;
+}
+
+.articles-table th, td {
+    padding: 10px;
+    padding-right: 15px;
+    color: $light;
+    font-size:16px;
+    border-bottom: 2px solid $normal;
+}
+
