@@ -51,6 +51,18 @@ section#home {
   text-align: center;
   text-shadow: 0 1px 1px #000; }
 
+header h1 {
+  top: 20px;
+  float: left;
+  position: relative;
+  z-index: 0;
+  text-align: center;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  font-size: 36px;
+  color: #cdb380; }
+
 #home h1 {
   color: #036564;
   font-size: 36px;
@@ -69,6 +81,7 @@ section#home {
 
 /* Header */
 header {
+  min-width: 900px;
   display: block;
   margin: 0;
   padding: 0;
@@ -84,8 +97,14 @@ header {
   border-bottom-color: #031634;
   height: 91px; }
 
-header {
-  display: block; }
+div.logo {
+  float: left;
+  width: 35%;
+  height: 100%; }
+
+div.title {
+  float: left;
+  width: 30%; }
 
 header img {
   float: left; }
@@ -95,8 +114,8 @@ header ul {
   overflow: hidden;
   display: inline-block;
   float: right;
-  margin-top: 20px;
-  padding: 10px; }
+  padding: 10px;
+  margin-top: 20px; }
 
 header ul li {
   float: left;
@@ -218,12 +237,12 @@ input.submit:hover {
   color: #53777a; }
 
 /* Articles table */
-.articles-table {
+#articles-table {
   margin: auto;
   color: #e8ddcb;
   font-size: 14px; }
 
-.articles-table th, td {
+#articles-table th, td {
   padding: 10px;
   padding-right: 15px;
   color: #cdb380;

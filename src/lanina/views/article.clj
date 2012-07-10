@@ -19,19 +19,21 @@
 
 (defpartial barcode-form []
   [:div.dialog
-   (form-to {:id "barcode-form"} [:get "/test/"]
+   (form-to {:id "barcode-form"} [:get "#"]
      [:fieldset
       [:div.field
        (label {:id "barcode-label"} "barcode" "Código de barras")
        (text-field {:id "barcode-field"} "barcode")]]
-     [:h3 "Fecha: " (utils/now)])])
+     [:h3#total "Total: 0.00"])])
 
 (defpartial item-list []
-  [:table.articles-table
+  [:table#articles-table
    [:tr
     [:th#barcode-header "Código"]
     [:th#name-header "Artículo"]
-    [:th#price-header "Precio"]]])
+    [:th#price-header "Precio"]
+    [:th#quantity-header "Cantidad"]
+    [:th#total-header "Total"]]])
 
 (pre-route "/ventas/" []
   (when-not (users/admin?)
@@ -43,7 +45,7 @@
                  :content [:article (barcode-form) (item-list)]
                  :footer [:p "Gracias por su compra."]
                  :nav-bar true}]
-    (main-layout-incl content [:base-css :jquery :test-js])))
+    (main-layout-incl content [:base-css :jquery :barcode-js])))
 
 (defpartial search-article []
   (form-to {:id "search-form"}

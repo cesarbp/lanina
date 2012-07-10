@@ -32,9 +32,8 @@
    (link-to url name)])
 
 (defpartial nav-bar [lnks]
-  [:nav
-   [:ul
-    (map link lnks)]])
+  [:ul
+   (map link lnks)])
 
 (defpartial disp-message [msg]
   [:li {:class (:type msg)} (:text msg)])
@@ -45,7 +44,10 @@
    (head includes (get content :title ""))
    [:body
     [:header
-     (link-to {:id "logo"} "/" (image {:class "logo"} "/img/lisp.gif" [:h1#title "Lonja Mercantil La Niña"]))
+     [:div.logo
+      (link-to {:id "logo"} "/" (image {:class "logo-image"} "/img/lisp.gif" [:h1#title "Lonja Mercantil La Niña"]))]
+     [:div.title
+      [:h1 (get content :title "Sitio de administración")]]
      (when (:nav-bar content)
        (nav-bar nav-items))]
     (when (session/flash-get :messages)
@@ -53,7 +55,6 @@
        [:ul
         (map disp-message (session/flash-get :messages))]])
     [:section#home
-     [:h1 (get content :title "Sitio de administración")]
      (:content content)]
     [:footer
      (get content :footer
