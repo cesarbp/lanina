@@ -11,6 +11,7 @@
    :less (include-js "/js/less.js")
    :jquery (include-js "/js/jquery.js")
    :barcode-js (include-js "/js/barcode.js")
+   :trie-js (include-js "/js/trie.js")
    })
 
 ;;; Links on the nav

@@ -17,6 +17,13 @@
       response
       "{}")))
 
+(defpage "/json/article_starts_with" {:keys [letter]}
+  (let [re (re-pattern (str "(?i)^" letter))
+        response (json/json-str (article/get-articles-regex re))]
+    (if (not= "null" response)
+      response
+      "{}")))
+
 (defpartial barcode-form []
   [:div.dialog
    (form-to {:id "barcode-form"} [:get "#"]

@@ -11,6 +11,9 @@
 (defn get-article [barcode]
   (fetch-one article-coll :where {:codigo barcode} :only [:nom_art :codigo :prev_con :prev_sin]))
 
+(defn get-articles-regex [regex]
+  (fetch article-coll :where {:nom_art regex} :only [:nom_art]))
+
 ;;; fill the db
 (def db-file "src/lanina/models/db-csv/tienda.csv")
 
