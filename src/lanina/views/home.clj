@@ -36,7 +36,7 @@
       (submit-button {:class "submit" :name "submit"} "Entrar")])])
 
 (defpartial reset-pass-form []
-  [:div {:class "dialog"}
+  [:div.dialog
    (form-to {:id "login-form" :name "reset-pass"} [:post "/auth/reset_pass/"]
      [:fieldset
       [:div.field

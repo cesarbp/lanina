@@ -28,3 +28,9 @@
  
 (extend org.bson.types.ObjectId json/Write-JSON
   {:write-json write-json-mongodb-objectid})
+
+(defn valid-id? [s]
+  (try (object-id s)
+       true
+       (catch IllegalArgumentException e
+         false)))

@@ -8,10 +8,13 @@
 (def includes
   {
    :base-css (include-css "/css/base.css")
+   :search-css (include-css "/css/search.css")
    :less (include-js "/js/less.js")
    :jquery (include-js "/js/jquery.js")
    :barcode-js (include-js "/js/barcode.js")
    :trie-js (include-js "/js/trie.js")
+   :search-js (include-js "/js/search.js")
+   :jquery-ui (include-js "/js/jquery-ui.js")
    })
 
 ;;; Links on the nav

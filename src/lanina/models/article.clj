@@ -5,14 +5,44 @@
             [clojure.string :as str]))
 
 (def article-coll :articles)
+(def unmodifiable-props #{})
 
 ;;; Use the db
 
+(defn id-to-str [doc]
+  (assoc doc :_id (str (:_id doc))))
+
 (defn get-article [barcode]
-  (fetch-one article-coll :where {:codigo barcode} :only [:nom_art :codigo :prev_con :prev_sin]))
+  (id-to-str (fetch-one article-coll :where {:codigo barcode} :only [:nom_art :codigo :prev_con :prev_sin])))
 
 (defn get-articles-regex [regex]
-  (fetch article-coll :where {:nom_art regex} :only [:nom_art]))
+  (map id-to-str
+       (fetch article-coll :where {:nom_art regex} :only [:nom_art] :sort {:nom_art 1})))
+
+(defn get-by-id [id]
+  (when (db/valid-id? id)
+    (id-to-str
+     (fetch-one article-coll :where {:_id (object-id id)}))))
+
+(defn get-by-id-only [id only]
+  (when (db/valid-id? id)
+    (id-to-str
+     (fetch-one article-coll :where {:_id (object-id id)} :only only))))
+
+(defn get-keys
+  "Get the keys of the articles collection documents"
+  []
+  (keys (fetch-one article-coll)))
+
+(defn get-type-of
+  "Gets the type of the key in the articles collection"
+  [k]
+  (class (k (fetch-one article-coll))))
+
+(defn update-article [new]
+  (let [old (fetch-one article-coll :where {:_id (object-id (:_id new))})]
+    (update! article-coll old
+             (into old (first (coerce-to-useful-types (list (dissoc new :_id))))))))
 
 ;;; fill the db
 (def db-file "src/lanina/models/db-csv/tienda.csv")
@@ -40,6 +70,13 @@
             true
             (catch Exception e
               false))))
+
+(defn coerce-to-useful-type
+  [[k v]]
+  (let [cl (get-type-of k)]
+    (if (= cl java.lang.String)
+      [k (.toUpperCase (eval `(new ~cl ~v)))]
+      [k (eval `(new ~cl ~v))])))
 
 (defn coerce-to-useful-types [ms]
   (map (fn [m]
@@ -72,3 +109,21 @@ csv of the articles"
       (csv-to-maps)
       (coerce-to-useful-types)
       (fill-article-coll!)))
+
+;;; Searching an article
+
+(defn valid-barcode? [s]
+  (and (or (= 13 (count s))
+           (= 8 (count s)))
+       (every? (comp is-int str) s)))
+
+(defn get-by-barcode
+  "Get an article by its barcode"
+  [bc]
+  (fetch-one article-coll :where {:codigo bc} :only [:_id :codigo :nom_art :prev_con :prev_sin]))
+
+(defn get-by-search
+  "Search for an article name"
+  [q]
+  (let [query (re-pattern (str "(?i)^.*" q ".*$"))]
+    (fetch article-coll :where {:nom_art query} :only [:_id :codigo :nom_art :prev_con :prev_sin])))

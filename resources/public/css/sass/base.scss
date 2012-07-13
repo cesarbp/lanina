@@ -95,10 +95,8 @@ section#home {
 }
 
 header h1 {
-    top: 20px;
     float: left;
     position: relative;
-    z-index: 0;
     text-align: center;
     width: 100%;
     margin-left: auto;
@@ -128,6 +126,7 @@ header h1 {
 
 /* Header */
 header {
+    overflow: hidden;
     min-width: 900px;
     display:block;
     margin:0;
@@ -142,7 +141,7 @@ header {
     border-bottom-style:solid;
     border-bottom-width:3px;
     border-bottom-color:$darkest;
-    height:91px;
+    min-height:91px;
 }
 
 div.logo {
@@ -152,8 +151,10 @@ div.logo {
 }
 
 div.title {
+    margin-top: 20px;
     float:left;
     width: 30%;
+    overflow: hidden;
 }
 header img {
     float:left;
@@ -165,7 +166,7 @@ header ul  {
     display:inline-block;
     float:right;
     padding:10px;
-    margin-top: 20px
+    margin-top: 20px;
 }
 
 header ul li {
@@ -277,7 +278,6 @@ div.dialog {
 
 .submit p {
     float: left;
-    
 }
 
 input.submit {
@@ -321,5 +321,37 @@ input.submit:hover {
     color: $light;
     font-size:16px;
     border-bottom: 2px solid $normal;
+}
+
+/* Modify article */
+div.article-dialog {
+    color: $light;
+    max-width: 500px;
+    margin: auto;
+}
+#articles-table .article-row {
+    padding-top: 10px;
+    padding-bottom: 10px;
+}
+
+.nom_art a {
+    text-decoration: underline;
+}
+
+.article-dialog form {
+    padding-top: 20px;
+    padding-bottom: 20px;
+    background-color: darken($dark, 2%);
+    -moz-border-radius:14px;
+    -webkit-border-radius:14px;
+    -moz-box-shadow:2px 2px 6px darken($dark, 7%);
+    -webkit-box-shadow:2px 2px 6px darken($dark, 7%);
+}
+.article-dialog form fieldset {
+    position:relative;
+    left: 10%;
+    height: 3em;
+    margin-bottom:25px;
+    padding-top: 20px;
 }
 
