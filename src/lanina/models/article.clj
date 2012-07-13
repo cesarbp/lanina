@@ -7,6 +7,43 @@
 (def article-coll :articles)
 (def unmodifiable-props #{})
 
+;;; Utils
+(defn is-int [s]
+  (try (Integer/parseInt s)
+       true
+       (catch Exception e
+         false)))
+
+(defn is-double [s]
+  (and (not (is-int s))
+       (try (Double/parseDouble s)
+            true
+            (catch Exception e
+              false))))
+
+(defn get-type-of
+  "Gets the type of the key in the articles collection"
+  [k]
+  (class (k (fetch-one article-coll))))
+
+(defn coerce-to-useful-type
+  [[k v]]
+  (let [cl (get-type-of k)]
+    (if (= cl java.lang.String)
+      [k (.toUpperCase (eval `(new ~cl ~v)))]
+      [k (eval `(new ~cl ~v))])))
+
+(defn coerce-to-useful-types [ms]
+  (map (fn [m]
+         (reduce (fn [acc [k v]]
+                   (cond (= k :codigo) (into acc {k v})          ;Leave barcodes as strings
+                         (is-int v) (into acc  {k (Integer/parseInt v)})
+                         (is-double v) (into acc {k (Double/parseDouble v)})
+                         :else (into acc {k v})))
+                 {}
+                 m))
+       ms))
+
 ;;; Use the db
 
 (defn id-to-str [doc]
@@ -34,11 +71,6 @@
   []
   (keys (fetch-one article-coll)))
 
-(defn get-type-of
-  "Gets the type of the key in the articles collection"
-  [k]
-  (class (k (fetch-one article-coll))))
-
 (defn update-article [new]
   (let [old (fetch-one article-coll :where {:_id (object-id (:_id new))})]
     (update! article-coll old
@@ -57,37 +89,6 @@
     (map (fn [r]
            (zipmap colls r))
          regs)))
-
-(defn is-int [s]
-  (try (Integer/parseInt s)
-       true
-       (catch Exception e
-         false)))
-
-(defn is-double [s]
-  (and (not (is-int s))
-       (try (Double/parseDouble s)
-            true
-            (catch Exception e
-              false))))
-
-(defn coerce-to-useful-type
-  [[k v]]
-  (let [cl (get-type-of k)]
-    (if (= cl java.lang.String)
-      [k (.toUpperCase (eval `(new ~cl ~v)))]
-      [k (eval `(new ~cl ~v))])))
-
-(defn coerce-to-useful-types [ms]
-  (map (fn [m]
-         (reduce (fn [acc [k v]]
-                   (cond (= k :codigo) (into acc {k v})          ;Leave barcodes as strings
-                         (is-int v) (into acc  {k (Integer/parseInt v)})
-                         (is-double v) (into acc {k (Double/parseDouble v)})
-                         :else (into acc {k v})))
-                 {}
-                 m))
-       ms))
 
 (defn fill-article-coll! [ms]
   "Appends the maps to the article collection"
