@@ -7,7 +7,8 @@
 ;;; Head includes here
 (def includes
   {
-   :base-css (include-css "/css/base.css")
+   :base-css (include-css "/css/bootstrap.css")
+   :base-resp-css (include-css "/css/bootstrap-responsive.css")
    :search-css (include-css "/css/search.css")
    :less (include-js "/js/less.js")
    :jquery (include-js "/js/jquery.js")
@@ -36,33 +37,34 @@
    (link-to url name)])
 
 (defpartial nav-bar [lnks]
-  [:ul
+  [:ul.nav
    (map link lnks)])
 
 (defpartial disp-message [msg]
-  [:li {:class (:type msg)} (:text msg)])
+  [:div {:class (str "alert " (:type msg))} (:text msg)])
 
 ;;; Content needs to include a :content and an optional :title
 (defpartial main-layout-incl [content includes]
   (html5 {:lang "es-MX"}
    (head includes (get content :title ""))
    [:body
-    [:header
-     [:div.logo
-      (link-to {:id "logo"} "/" (image {:class "logo-image"} "/img/lisp.gif" [:h1#title "Lonja Mercantil La Niña"]))]
-     [:div.title
-      [:h1 (get content :title "Sitio de administración")]]
-     (when (:nav-bar content)
-       (nav-bar nav-items))]
+    [:div.navbar
+     [:div.navbar-inner
+      [:div.container
+       (link-to {:class "brand"} "/" "Lonja Mercantil La Niña")
+       (when (:nav-bar content)
+         (nav-bar nav-items))]]]
     (when (session/flash-get :messages)
-      [:div#messages
-       [:ul
-        (map disp-message (session/flash-get :messages))]])
-    [:section#home
+      (map disp-message (session/flash-get :messages)))
+    [:div.page-header
+     [:h1 (get content :title "Sitio de administración")]]
+    [:div.container
      (:content content)]
-    [:footer
-     (get content :footer
-          [:p "Gracias por visitar"])]]))
+    [:div.footer
+     [:div.container
+      [:footer
+       (get content :footer
+            [:p "Gracias por visitar"])]]]]))
 
 (defpartial main-layout [content]
   (main-layout-incl content [:base-css]))

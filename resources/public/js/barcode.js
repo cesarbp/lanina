@@ -7,6 +7,14 @@ function toArray(obj) {
     return array;
 }
 
+function isInt(s) {
+    for (var i = 0; i < s.length; i++) {
+	if (!parseInt(s[i]))
+	    return false;
+    }
+    return true;
+}
+
 function article_row(article) {
     var barcode = article.codigo;
     var name = article.nom_art;
@@ -48,7 +56,7 @@ function update_total() {
 }
 
 function add_article_row(barcode) {
-    if (barcode.length == 13 || barcode.length == 8) {
+    if (isInt(barcode)) {
 	var id_barcode = "#" + barcode;
 	if ($(id_barcode).length !== 0) {
 	    var quantity = $(id_barcode).children()[3].innerHTML;
@@ -70,17 +78,13 @@ function add_article_row(barcode) {
     }
 }
 
-$(document).ready(function(){
-    $("#barcode-field").on("paste", function () {
-	setTimeout(function () {
-	    var barcode = $("#barcode-field").val();
-	    add_article_row(barcode);
-	}, 100);
-    });
-    $("#barcode-field").on("keyup change", function () {
-	var barcode = $(this).val();
+function barcode_listener (field, e) {
+    var code = e.keyCode || e.which;
+    if (code == 13) {
+	var barcode = $("#barcode-field").val();
 	add_article_row(barcode);
-    });
-});
-
-		  
+	return false;
+    } else {
+	return true;
+    }
+}

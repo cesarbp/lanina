@@ -25,16 +25,16 @@
       (resp/json {}))))
 
 (defpartial barcode-form []
-  [:div.dialog
-   (form-to {:id "barcode-form"} [:get "#"]
-     [:fieldset
-      [:div.field
-       (label {:id "barcode-label"} "barcode" "Código de barras")
-       (text-field {:id "barcode-field"} "barcode")]]
-     [:h3#total "Total: 0.00"])])
+  (form-to {:id "barcode-form" :class "form-horizontal"} [:get ""] 
+    [:fieldset
+     [:div.control-group
+      (label {:id "barcode-label"} "barcode" "Código de barras")
+      [:div.controls
+       (text-field {:id "barcode-field" :onkeypress "return barcode_listener(this, event)"} "barcode")]]]
+    [:h2#total "Total: 0.00"]))
 
 (defpartial item-list []
-  [:table#articles-table
+  [:table {:id "articles-table" :class "table table-condensed"}
    [:tr
     [:th#barcode-header "Código"]
     [:th#name-header "Artículo"]
@@ -62,16 +62,16 @@
 
 (defpartial modify-article-table [article]
   (when (seq article)
-    [:div.article-dialog
-     (form-to {:id "modify-article-form" :name "modify-article"} [:post (str "/articulos/id/" (str (:_id article)))]
-         [:table#articles-table
-          [:tr.table-header
-           [:th "Nombre"]
-           [:th "Valor Actual"]
-           [:th "Nuevo Valor"]]
-          (map modify-article-row (dissoc article :_id))]
-         [:fieldset.submit
-          (submit-button {:class "submit" :name "submit"} "Confirmar")])]))
+    (form-to {:class "form-horizontal" :id "modify-article-form" :name "modify-article"} [:post (str "/articulos/id/" (str (:_id article)))]
+      [:table {:class "table table-condensed"}
+       [:tr.table-header
+        [:th "Nombre"]
+        [:th "Valor Actual"]
+        [:th "Nuevo Valor"]]
+       (map modify-article-row (dissoc article :_id))]
+      [:fieldset
+       [:div.form-actions
+        (submit-button {:class "btn btn-warning" :name "submit"} "Confirmar")]])))
 
 (defpage "/articulos/id/:_id" {id :_id}
   (if (valid-id? id)
@@ -96,15 +96,16 @@
                      []
                      (keys (dissoc orig-vals :_id)))]
     [:div.article-dialog
-     (form-to {:id "modify-article-form" :name "modify-article"} [:post (str "/articulos/id/" (str (:_id orig-vals)))]
-         [:table#articles-table
+     (form-to {:class "form-horizontal" :id "modify-article-form" :name "modify-article"} [:post (str "/articulos/id/" (str (:_id orig-vals)))]
+         [:table {:class "table table-condensed"}
           [:tr.table-header
            [:th "Nombre"]
            [:th "Valor Actual"]
            [:th "Nuevo Valor"]]
-          (map confirm-changes-row rows)
-          [:fieldset.submit
-           (submit-button {:class "submit" :name "submit"} "Modificar")]])]))
+          (map confirm-changes-row rows)]
+         [:fieldset
+          [:form-actions
+           (submit-button {:class "btn btn-success" :name "submit"} "Modificar")]])]))
 
 (defpage [:post "/articulos/id/:_id"] {:as pst}
   (let [content {:title "Confirmar Cambios"}]
@@ -152,23 +153,27 @@
        [:td.codigo codigo]
        [:td.nom_art (link-to {:class "search-result-link"} (str "/articulos/id/" _id) nom_art)]
        [:td.prev_con prev_con]
-       [:td.prev_sin prev_sin]])))
+       [:td.prev_sin prev_sin]
+       [:td.modificar (link-to {:class "btn btn-warning"} (str "/articulos/id/" _id) "Modificar")]
+       [:td.eliminar (link-to {:class "btn btn-danger"} "#" "Eliminar")]])))
 
 (defpartial search-results-table [results]
   (if (seq results)
-    [:table#articles-table
+    [:table {:class "table table-condensed"}
      [:tr
       [:th#barcode-header "Código"]
       [:th#name-header "Artículo"]
       [:th#p-without-header "Precio sin IVA"]
       [:th#p-with-header "Precio con IVA"]]
-     (map search-results-row results)]
+     (if (map? results)
+       (search-results-row results)
+       (map search-results-row results))]
     [:p.error-notice "No se encontraron resultados"]))
 
+;;; Needs clean data
 (defpartial search-article-results [query]
-  (let [data (if (article/valid-barcode? query)
-               (article/get-by-barcode query)
-               (article/get-by-search query))]
+  (let [data (or (article/get-by-barcode query)
+                 (article/get-by-search query))]
     (search-results-table data)))
 
 (defpage "/articulos/buscar/" {:keys [busqueda submit]}

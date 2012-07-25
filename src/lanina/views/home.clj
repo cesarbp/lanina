@@ -25,33 +25,33 @@
      (map logrow logs)]]])
 
 (defpartial login-form []
-  [:div.dialog
-   (form-to {:id "login-form"} [:post "/entrar/"]
-     [:fieldset
-      [:div.field
-       (label {:id "password-label"} "password" "Contraseña")
+  (form-to {:class "form-horizontal"} [:post "/entrar/"]
+    [:fieldset
+     [:div.control-group
+      (label {:class "control-label"} "password" "Contraseña")
+      [:div.controls
        (password-field {:id "password"} "password")]]
-     [:fieldset.submit
-      [:p (link-to {:id "reset-password"} "/auth/reset_pass/" "Reiniciar contraseña")]
-      (submit-button {:class "submit" :name "submit"} "Entrar")])])
+     [:div.form-actions
+      (submit-button {:class "btn btn-primary" :name "submit"} "Entrar")
+      (link-to {:class "btn btn-warning"} "/auth/reset_pass/" "Reiniciar contraseña")]]))
 
 (defpartial reset-pass-form []
-  [:div.dialog
-   (form-to {:id "login-form" :name "reset-pass"} [:post "/auth/reset_pass/"]
-     [:fieldset
-      [:div.field
-       (label {:id "old-password-label"} "old-password" "Vieja contraseña")
+  (form-to {:class "form-horizontal" :name "reset-pass"} [:post "/auth/reset_pass/"]
+    [:fieldset
+     [:div.control-group
+      (label {:class "control-label"} "old-password" "Vieja contraseña")
+      [:div.controls
        (password-field {:id "old-password"} "old-password")]]
-     [:fieldset
-      [:div.field
-       (label {:id "new-password-label"} "new-password" "Nueva contraseña")
-       (password-field {:id "new-password"} "new-password")]]
-     [:fieldset.submit
-      (submit-button {:class "submit" :name "submit"} "Cambiar")])])
+     [:div.control-group
+      (label {:class "control-label"} "new-password" "Nueva contraseña")
+      [:div.controls
+       (password-field {:id "new-password"} "new-password")]]]
+    [:div.form-actions
+     (submit-button {:class "btn btn-warning" :name "submit"} "Cambiar")]))
 
 (pre-route "/inicio/" {}
            (when-not (users/admin?)
-             (session/flash-put! :messages '({:type "error" :text "Necesita estar firmado para accesar esta página"}))
+             (session/flash-put! :messages '({:type "alert-error" :text "Necesita estar firmado para accesar esta página"}))
              (resp/redirect "/entrar/")))
 
 (defpage "/inicio/" []
@@ -69,7 +69,7 @@
 (defpage [:post "/entrar/"] {:as user}
   (if (users/login-init! (:password user))
     (resp/redirect "/inicio/")
-    (do (session/flash-put! :messages '({:type "error" :text "Contraseña inválida"}))
+    (do (session/flash-put! :messages '({:type "alert-error" :text "Contraseña inválida"}))
         (render "/entrar/"))))
 
 (defpage "/salir/" []
@@ -84,10 +84,10 @@
 (defpage [:post "/auth/reset_pass/"] {:as pass}
   (if (users/verify-pass (:old-password pass))
     (if (users/reset-pass! (:new-password pass))
-      (do (session/flash-put! :messages '({:type "success" :text "Su contraseña ha sido cambiada"}))
+      (do (session/flash-put! :messages '({:type "alert-success" :text "Su contraseña ha sido cambiada"}))
           (resp/redirect "/entrar/"))
-      (do (session/flash-put! :messages '({:type "error" :text "Contraseña demasiado corta, mínimo 6 caracteres"}))
+      (do (session/flash-put! :messages '({:type "alert-error" :text "Contraseña demasiado corta, mínimo 6 caracteres"}))
           (render "/auth/reset_pass/")))
-    (do (session/flash-put! :messages '({:type "error" :text "Su vieja contraseña no es correcta"}))
+    (do (session/flash-put! :messages '({:type "alert-error" :text "Su vieja contraseña no es correcta"}))
         (render "/auth/reset_pass/"))))
 

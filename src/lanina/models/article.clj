@@ -114,14 +114,14 @@ csv of the articles"
 ;;; Searching an article
 
 (defn valid-barcode? [s]
-  (and (or (= 13 (count s))
-           (= 8 (count s)))
+  (and (>= 13 (count s))
        (every? (comp is-int str) s)))
 
 (defn get-by-barcode
   "Get an article by its barcode"
   [bc]
-  (fetch-one article-coll :where {:codigo bc} :only [:_id :codigo :nom_art :prev_con :prev_sin]))
+  (when (valid-barcode? bc)
+    (fetch-one article-coll :where {:codigo bc} :only [:_id :codigo :nom_art :prev_con :prev_sin])))
 
 (defn get-by-search
   "Search for an article name"
