@@ -9,7 +9,8 @@ function toArray(obj) {
 
 function isInt(s) {
     for (var i = 0; i < s.length; i++) {
-	if (!parseInt(s[i]))
+	var parsed = parseInt(s[i]);
+	if (parsed !== 0 && !parsed)
 	    return false;
     }
     return true;
