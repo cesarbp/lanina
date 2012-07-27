@@ -113,6 +113,29 @@ csv of the articles"
 
 ;;; Searching an article
 
+(def verbose-names
+  {:unidad "Unidad"
+   :stk "Stock"
+   :lin "Línea"
+   :ramo "Ramo"
+   :fech_ac "Fecha ac"
+   :cu_sin "Costo unitario sin IVA"
+   :cu_con "Costo unitario con IVA"
+   :pres "Presentes"
+   :ubica "Ubicación"
+   :prov "Proveedor"
+   :iva "IVA"
+   :gan "Porcentaje de ganancia"
+   :fech_an "Fecha an"
+   :exis "En existencia"
+   :prev_con "Precio de venta con IVA"
+   :prev_sin "Precio de venta sin IVA"
+   :ccj_con "Caja con IVA"
+   :ccj_sin "Caja sin IVA"
+   :nom_art "Nombre del artículo"
+   :codigo "Código de barras"
+   :tam "Tamaño"})
+
 (defn valid-barcode? [s]
   (and (>= 13 (count s))
        (every? (comp is-int str) s)))

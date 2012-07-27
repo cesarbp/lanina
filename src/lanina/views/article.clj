@@ -28,7 +28,7 @@
   (form-to {:id "barcode-form" :class "form-horizontal"} [:get ""] 
     [:fieldset
      [:div.control-group
-      (label {:id "barcode-label"} "barcode" "Código de barras")
+      (label {:class "control-label" :id "barcode-label"} "barcode" "Código de barras")
       [:div.controls
        (text-field {:id "barcode-field" :onkeypress "return barcode_listener(this, event)"} "barcode")]]]
     [:h2#total "Total: 0.00"]))
@@ -54,15 +54,20 @@
                  :nav-bar true}]
     (main-layout-incl content [:base-css :jquery :barcode-js])))
 
+;;; View an article
+(defpartial view-article-form [[k v]]
+  [:tr.article-row
+   [:td.prop-name (article/verbose-names k)]])
+
 (defpartial modify-article-row [[k v]]
   [:tr.article-row
-   [:td.prop-name (name k)]
+   [:td.prop-name (article/verbose-names k)]
    [:td.orig-value (str v)]
    [:td.new-value (text-field {:class "article-new-value"} (name k))]])
 
 (defpartial modify-article-table [article]
   (when (seq article)
-    (form-to {:class "form-horizontal" :id "modify-article-form" :name "modify-article"} [:post (str "/articulos/id/" (str (:_id article)))]
+    (form-to {:class "form-horizontal" :id "modify-article-form" :name "modify-article"} [:post (str "/articulos/id/" (str (:_id article)) "/modificar/")]
       [:table {:class "table table-condensed"}
        [:tr.table-header
         [:th "Nombre"]
@@ -71,12 +76,13 @@
        (map modify-article-row (dissoc article :_id))]
       [:fieldset
        [:div.form-actions
-        (submit-button {:class "btn btn-warning" :name "submit"} "Confirmar")]])))
+        (submit-button {:class "btn btn-warning" :name "submit"} "Confirmar")
+        (link-to {:class "btn btn-danger"} "/articulos/" "Cancelar")]])))
 
-(defpage "/articulos/id/:_id" {id :_id}
+(defpage "/articulos/id/:_id/modificar/" {id :_id}
   (if (valid-id? id)
     (let [article (article/get-by-id id)
-          content {:title "Mostrar Artículo"
+          content {:title "Modificar Artículo"
                    :content [:article
                              (if article
                                (modify-article-table article)
@@ -85,7 +91,7 @@
 
 (defpartial confirm-changes-row [[k old new]]
   [:tr.article-row
-   [:td.prop-name (name k)]
+   [:td.prop-name (article/verbose-names k)]
    [:td.orig-value old]
    [:td.new-value new]
    (hidden-field (name k) new)])
@@ -96,7 +102,7 @@
                      []
                      (keys (dissoc orig-vals :_id)))]
     [:div.article-dialog
-     (form-to {:class "form-horizontal" :id "modify-article-form" :name "modify-article"} [:post (str "/articulos/id/" (str (:_id orig-vals)))]
+     (form-to {:class "form-horizontal" :id "modify-article-form" :name "modify-article"} [:post (str "/articulos/id/" (str (:_id orig-vals)) "/modificar/")]
          [:table {:class "table table-condensed"}
           [:tr.table-header
            [:th "Nombre"]
@@ -104,10 +110,11 @@
            [:th "Nuevo Valor"]]
           (map confirm-changes-row rows)]
          [:fieldset
-          [:form-actions
-           (submit-button {:class "btn btn-success" :name "submit"} "Modificar")]])]))
+          [:div.form-actions
+           (submit-button {:class "btn btn-success" :name "submit"} "Modificar")
+           (link-to {:class "btn btn-danger"} "/articulos/" "Cancelar")]])]))
 
-(defpage [:post "/articulos/id/:_id"] {:as pst}
+(defpage [:post "/articulos/id/:_id/modificar/"] {:as pst}
   (let [content {:title "Confirmar Cambios"}]
     (cond 
       (= "Confirmar" (:submit pst))
@@ -125,19 +132,21 @@
                             [:article (confirm-changes-table original-vals changes)])))
       (= "Modificar" (:submit pst))
       (do (article/update-article (dissoc pst :submit))
-          (session/flash-put! :messages '({:type "success" :text "El artículo ha sido modificado"}))
+          (session/flash-put! :messages '({:type "alert-success" :text "El artículo ha sido modificado"}))
           (resp/redirect "/articulos/"))
       :else "Invalid")))
 
 (defpartial search-article-form []
   [:div.dialog
-   (form-to {:id "search-form" :name "search-article"} [:get "/articulos/buscar/"]
+   (form-to {:class "form-horizontal" :id "search-form" :name "search-article"} [:get "/articulos/buscar/"]
      [:fieldset
-      [:div.field
-       (label {:id "search-field"} "busqueda" "Buscar artículos")
-       (text-field {:id "search" :autocomplete "off"} "busqueda")]]
-     [:fieldset.submit
-      (submit-button {:class "submit" :name "submit"} "Buscar")])])
+      [:div.control-group
+       (label {:class "control-label" :id "search-field"} "busqueda" "Buscar por nombre o código")
+       [:div.controls
+        (text-field {:id "search" :autocomplete "off"} "busqueda")]]]
+     [:div.form-actions
+      (submit-button {:class "btn btn-primary" :name "submit"} "Buscar")
+      (link-to {:class "btn btn-warning"} "/articulos/agregar/" "Agregar otro artículo")])])
 
 (defpage "/articulos/" []
   (let [content {:title "Búsqueda de Artículos"
@@ -154,21 +163,25 @@
        [:td.nom_art (link-to {:class "search-result-link"} (str "/articulos/id/" _id) nom_art)]
        [:td.prev_con prev_con]
        [:td.prev_sin prev_sin]
-       [:td.modificar (link-to {:class "btn btn-warning"} (str "/articulos/id/" _id) "Modificar")]
-       [:td.eliminar (link-to {:class "btn btn-danger"} "#" "Eliminar")]])))
+       [:td.consultar (link-to {:class "btn btn-success"} (str "/articulos/id/" _id) "Consultar")]
+       [:td.modificar (link-to {:class "btn btn-warning"} (str "/articulos/id/" _id "/modificar/") "Modificar")]
+       [:td.eliminar (link-to {:class "btn btn-danger"}  (str "/articulos/id/" _id "/eliminar/") "Eliminar")]])))
 
 (defpartial search-results-table [results]
   (if (seq results)
-    [:table {:class "table table-condensed"}
-     [:tr
-      [:th#barcode-header "Código"]
-      [:th#name-header "Artículo"]
-      [:th#p-without-header "Precio sin IVA"]
-      [:th#p-with-header "Precio con IVA"]]
-     (if (map? results)
-       (search-results-row results)
-       (map search-results-row results))]
-    [:p.error-notice "No se encontraron resultados"]))
+    [:div.container
+     [:table {:class "table table-condensed"}
+      [:tr
+       [:th#barcode-header "Código"]
+       [:th#name-header "Artículo"]
+       [:th#p-without-header "Precio sin IVA"]
+       [:th#p-with-header "Precio con IVA"]]
+      (if (map? results)
+        (search-results-row results)
+        (map search-results-row results))]
+     [:div.form-actions
+      (link-to {:class "btn btn-success"} "/articulos/" "Regresar a buscar otro artículo")]]
+    [:p {:class "alert alert-error"} "No se encontraron resultados"]))
 
 ;;; Needs clean data
 (defpartial search-article-results [query]
@@ -182,5 +195,5 @@
                  :nav-bar true}]
     (main-layout-incl content [:base-css])))
 
-(defpartial add-article-form []
-  (form-to {}))
+;;; Delete an article
+()
