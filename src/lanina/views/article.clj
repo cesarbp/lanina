@@ -30,7 +30,7 @@
      [:div.control-group
       (label {:class "control-label" :id "barcode-label"} "barcode" "Código de barras")
       [:div.controls
-       (text-field {:id "barcode-field" :onkeypress "return barcode_listener(this, event)"} "barcode")]]]
+       (text-field {:id "barcode-field" :onkeypress "return barcode_listener(this, event)" :autocomplete "off"} "barcode")]]]
     [:h2#total "Total: 0.00"]))
 
 (defpartial item-list []
