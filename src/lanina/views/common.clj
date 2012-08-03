@@ -8,6 +8,7 @@
 (def includes
   {
    :base-css (include-css "/css/bootstrap.css")
+   :base-js (include-js "/js/bootstrap.js")
    :base-resp-css (include-css "/css/bootstrap-responsive.css")
    :search-css (include-css "/css/search.css")
    :less (include-js "/js/less.js")
@@ -19,11 +20,11 @@
    })
 
 ;;; Links on the nav
-(def nav-items
-  [{:name "Ventas"    :url "/ventas/"}
-   {:name "Artículos" :url "/articulos/"}
-   {:name "Inicio"    :url "/inicio/"}
-   {:name "Salir"     :url "/salir/"}])
+(def nav-links
+  [["Ventas"    "/ventas/"]
+   ["Artículos" "/articulos/"]
+   ["Inicio"    "/inicio/"]
+   ["Salir"     "/salir/"]])
 
 (defpartial head [incls title]
   [:head
@@ -32,13 +33,30 @@
                "Lonja Mercantil La Niña")]
    (map #(get includes %) incls)])
 
-(defpartial link [{:keys [name url]}]
-  [:li
-   (link-to url name)])
+(defpartial nav-bar [active]
+  [:div.navbar
+   [:div.navbar-inner
+    [:div.container
+     [:a {:class "btn btn-navbar" :data-toggle "collapse" :data-target ".nav-collapse"}
+      [:span.icon-bar]
+      [:span.icon-bar]
+      [:span.icon-bar]]
+     (link-to {:class "brand"} "/inicio/" "Lonja Mercantil La Niña")
+     [:ul.nav
+      (map (fn [[title lnk]]
+             [:li {:class (if (= title active) "active" "")}
+              (link-to lnk title)])
+           nav-links)]]]])
 
-(defpartial nav-bar [lnks]
-  [:ul.nav
-   (map link lnks)])
+(defpartial nav-bar-no-links []
+  [:div.navbar
+   [:div.navbar-inner
+    [:div.container
+     [:a {:class "btn btn-navbar" :data-toggle "collapse" :data-target ".nav-collapse"}
+      [:span.icon-bar]
+      [:span.icon-bar]
+      [:span.icon-bar]]
+     (link-to {:class "brand"} "/inicio/" "Lonja Mercantil La Niña")]]])
 
 (defpartial disp-message [msg]
   [:div {:class (str "alert " (:type msg))} (:text msg)])
@@ -48,18 +66,14 @@
   (html5 {:lang "es-MX"}
    (head includes (get content :title ""))
    [:body
-    [:div.navbar
-     [:div.navbar-inner
-      [:div.container
-       (link-to {:class "brand"} "/" "Lonja Mercantil La Niña")
-       (when (:nav-bar content)
-         (nav-bar nav-items))]]]
+    (if (:nav-bar content) (nav-bar (:active content)) (nav-bar-no-links))
     (when (session/flash-get :messages)
-      (map disp-message (session/flash-get :messages)))
+      [:div.container
+      (map disp-message (session/flash-get :messages))])
     [:div.page-header
-     [:h1 (get content :title "Sitio de administración")]]
-    [:div.container
-     (:content content)]
+     [:div.container
+      [:h1 (get content :title "Sitio de administración")]]]
+    (:content content)
     [:div.footer
      [:div.container
       [:footer
@@ -67,7 +81,7 @@
             [:p "Gracias por visitar"])]]]]))
 
 (defpartial main-layout [content]
-  (main-layout-incl content [:base-css]))
+  (main-layout-incl content [:base-css :base-js]))
 
 (defpartial home-layout [content]
   (main-layout (into content {:nav-bar true})))

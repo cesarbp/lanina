@@ -47,7 +47,8 @@
 ;;; Use the db
 
 (defn id-to-str [doc]
-  (assoc doc :_id (str (:_id doc))))
+  (when (:_id doc)
+    (assoc doc :_id (str (:_id doc)))))
 
 (defn get-article [barcode]
   (id-to-str (fetch-one article-coll :where {:codigo barcode} :only [:nom_art :codigo :prev_con :prev_sin])))
@@ -151,3 +152,11 @@ csv of the articles"
   [q]
   (let [query (re-pattern (str "(?i)^.*" q ".*$"))]
     (fetch article-coll :where {:nom_art query} :only [:_id :codigo :nom_art :prev_con :prev_sin])))
+
+;;; Delete an article
+(defn delete-article [id]
+  (destroy! article-coll {:_id (object-id id)}))
+
+;;; Adding an article
+(defn add-article [art-map]
+  (insert! article-coll art-map))

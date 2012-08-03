@@ -58,12 +58,13 @@
   (let [logs [{:date "26/06/2012" :content "Se agregó un nuevo artículo" :link "/logs/26062012"}
               {:date "27/06/2012" :content "Se eliminó un artículo" :link "/logs/27062012"}]
         content {:title "Inicio"
-                 :content (home-content logs)}]
+                 :content [:div.container (home-content logs)]
+                 :active "Inicio"}]
     (home-layout content)))
 
 (defpage "/entrar/" []
   (let [content {:title "Ingresar"
-                 :content (login-form)}]
+                 :content [:div.container (login-form)]}]
     (main-layout content)))
 
 (defpage [:post "/entrar/"] {:as user}
@@ -78,7 +79,7 @@
 
 (defpage "/auth/reset_pass/" []
   (let [content {:title "Reiniciar contraseña"
-                 :content (reset-pass-form)}]
+                 :content [:div.container (reset-pass-form)]}]
     (main-layout content)))
 
 (defpage [:post "/auth/reset_pass/"] {:as pass}

@@ -86,7 +86,7 @@ function ticket_links(article, quantity) {
 	var bill_html = '<a id="bill" class="btn btn-success" href="/facturas/nuevo/?' +
 	    req_html + '">Generar Factura</a>';
 	var form_html = '<div class="form-actions">' + ticket_html + bill_html + '</div>';
-	$('article').append(form_html);
+	$("#main").append(form_html);
     }
     return 0;
 }
