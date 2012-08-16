@@ -4,11 +4,13 @@
         hiccup.form
         [hiccup.element :only [link-to]]
         [lanina.models.utils :only [valid-id?]])
-  (:require [lanina.models.article :as article]
-            [lanina.views.utils :as utils]
-            [lanina.models.user :as users]
-            [noir.session :as session]
-            [noir.response :as resp]))
+  (:require [lanina.models.article  :as article]
+            [lanina.views.utils     :as utils]
+            [lanina.models.user     :as users]
+            [noir.session           :as session]
+            [noir.response          :as resp]
+            [lanina.models.logs     :as logs]
+            [clj-time.core          :as time]))
 
 ;;; Used by js to get the article in an ajax way
 (defpage "/json/article" {:keys [barcode]}
@@ -25,22 +27,27 @@
       (resp/json {}))))
 
 (defpartial barcode-form []
-  (form-to {:id "barcode-form" :class "form-horizontal"} [:get ""] 
-    [:fieldset
-     [:div.control-group
-      (label {:class "control-label" :id "barcode-label"} "barcode" "Código de barras")
-      [:div.controls
-       (text-field {:id "barcode-field" :onkeypress "return barcode_listener(this, event)" :autocomplete "off"} "barcode")]]]
-    [:h2#total "Total: 0.00"]))
+  [:div.subnav
+   [:ul.nav.nav-pills
+    [:li [:a [:h2#total "Total: 0.00"]]]
+    [:li
+     (form-to {:id "barcode-form" :class "form-inline"} [:get ""] 
+       [:fieldset
+        [:div.control-group
+         [:div.controls
+          [:br]
+          (text-field {:style "text-align:right" :id "barcode-field" :onkeypress "return barcode_listener(this, event)" :autocomplete "off" :placeholder "Código de barras"} "barcode")]]]
+       )]]])
 
 (defpartial item-list []
   [:table {:id "articles-table" :class "table table-condensed"}
    [:tr
-    [:th#barcode-header "Código"]
     [:th#name-header "Artículo"]
-    [:th#price-header "Precio"]
     [:th#quantity-header "Cantidad"]
-    [:th#total-header "Total"]]])
+    [:th#price-header "Precio"]
+    [:th#total-header "Total"]
+    [:th "Aumentar/Disminuir"]
+    [:th "Quitar"]]])
 
 (pre-route "/ventas/" []
   (when-not (users/admin?)
@@ -49,11 +56,11 @@
 
 (defpage "/ventas/" []
   (let [content {:title "Ventas"
-                 :content [:div#main.container (barcode-form) (item-list)]
+                 :content [:div#main.container-fluid (barcode-form) (item-list)]
                  :footer [:p "Gracias por su compra."]
                  :nav-bar true
                  :active "Ventas"}]
-    (main-layout-incl content [:base-css :jquery :barcode-js])))
+    (main-layout-incl content [:base-css :jquery :scroll-js :barcode-js :custom-css :subnav-js])))
 
 ;;; View an article
 (defpartial view-article-form [[k v]]
@@ -63,8 +70,9 @@
 (defpartial modify-article-row [[k v]]
   [:tr.article-row
    [:td.prop-name (article/verbose-names k)]
-   [:td.orig-value (str v)]
-   [:td.new-value (text-field {:class "article-new-value"} (name k))]])
+   (if (= :codigo k)
+     [:td.new-value (text-field {:class "article-new-value disabled" :disabled true :placeholder (str v)} (name k))]
+     [:td.new-value (text-field {:class "article-new-value"} (name k) (str v))])])
 
 (defpartial modify-article-table [article]
   (when (seq article)
@@ -72,24 +80,25 @@
       [:table {:class "table table-condensed"}
        [:tr.table-header
         [:th "Nombre"]
-        [:th "Valor Actual"]
         [:th "Nuevo Valor"]]
-       (map modify-article-row (dissoc article :_id))]
+       (map modify-article-row (article/sort-by-vec (dissoc article :_id) [:codigo :nom_art]))]
       [:fieldset
        [:div.form-actions
-        (submit-button {:class "btn btn-warning" :name "submit"} "Confirmar")
+        (submit-button {:class "btn btn-warning" :name "submit"} "Modificar")
         (link-to {:class "btn btn-danger"} "/articulos/" "Cancelar")]])))
 
 (defpage "/articulos/id/:_id/modificar/" {id :_id}
   (if (valid-id? id)
     (let [article (article/get-by-id id)
-          content {:title "Modificar Artículo"
-                   :content [:div.container
+          content {:title "Modificando Artículo"
+                   :content [:div.container-fluid
+                             [:div.subnav [:ul.nav.nav-pills [:li [:a [:h2 (:nom_art article)]]]]]
                              (if article
                                (modify-article-table article)
                                [:p.error-notice "No existe tal artículo"])]
-                   :active "Artículos"}]
-      (home-layout content))))
+                   :active "Artículos"
+                   :nav-bar true}]
+      (main-layout-incl content [:jquery :base-css :base-js :custom-css :subnav-js]))))
 
 (defpartial confirm-changes-row [[k old new]]
   [:tr.article-row
@@ -113,28 +122,43 @@
           (map confirm-changes-row rows)]
          [:fieldset
           [:div.form-actions
-           (submit-button {:class "btn btn-success" :name "submit"} "Modificar")
+           (submit-button {:class "btn btn-success" :name "submit"} "Confirmar")
            (link-to {:class "btn btn-danger"} "/articulos/" "Cancelar")]])]))
 
 (defpage [:post "/articulos/id/:_id/modificar/"] {:as pst}
   (let [content {:title "Confirmar Cambios"
-                 :active "Artículos"}]
+                 :active "Artículos"}
+        article (article/get-by-id (:_id pst))
+        now (time/now)
+        date (str (time/day now) "/" (time/month now) "/" (time/year now))]
     (cond 
-      (= "Confirmar" (:submit pst))
+      (= "Modificar" (:submit pst))
       (let [ks (article/get-keys)
             changes          
             (reduce (fn [acc k]
-                      (if (seq (k pst))
+                      (if (and (k pst) (not= (article k) (k pst))
+                               (try (not= (article k) (Double. (k pst)))
+                                    (catch Exception e false))
+                               (try (not= (article k) (Integer. (k pst)))
+                                    (catch Exception e false)))
                         (into acc {k (.toUpperCase (k pst))})
                         acc))
                     {}
                     ks)
             changed-keys (keys changes)
             original-vals (article/get-by-id-only (:_id pst) (vec changed-keys))]
-        (home-layout (assoc content :content
-                            [:div.container (confirm-changes-table original-vals changes)])))
-      (= "Modificar" (:submit pst))
+        (if (seq changes)
+          (home-layout (assoc content :content
+                              [:div.container-fluid (confirm-changes-table original-vals changes)]))
+          (home-layout (assoc content :content
+                              [:div.container
+                               [:p.alert.alert-warning "No hay cambios para realizar"]
+                               [:div.form-actions
+                                (link-to {:class "btn btn-success"} "/articulos/" "Regresar")]]))))
+      (= "Confirmar" (:submit pst))
       (do (article/update-article (dissoc pst :submit))
+          (logs/setup!)
+          (logs/add-logs! (:_id pst) :updated (dissoc pst :submit) date)
           (session/flash-put! :messages '({:type "alert-success" :text "El artículo ha sido modificado"}))
           (resp/redirect "/articulos/"))
       :else "Invalid")))
@@ -175,7 +199,7 @@
     (let [{:keys [_id codigo nom_art prev_con prev_sin]} result]
       [:tr.result
        [:td.codigo codigo]
-       [:td.nom_art (link-to {:class "search-result-link"} (str "/articulos/id/" _id) nom_art)]
+       [:td.nom_art (link-to {:class "search-result-link"} (str "/articulos/id/" _id "/") nom_art)]
        [:td.prev_con prev_con]
        [:td.prev_sin prev_sin]
        [:td.consultar (link-to {:class "btn btn-success"} (str "/articulos/id/" _id "/") "Consultar")]
@@ -246,8 +270,12 @@
     (home-layout content)))
 
 (defpage [:post "/articulos/id/:id/eliminar/"] {:as post}
-  (let [art-name (:nom_art (article/get-by-id (:id post)))]
+  (let [art-name (:nom_art (article/get-by-id (:id post)))
+        now (time/now)
+        date (str (time/day now) "/" (time/month now) "/" (time/year now))]
     (article/delete-article (:id post))
+    (logs/setup!)                       ;remove this
+    (logs/add-logs! (:id post) :deleted {} date)
     (session/flash-put! :messages [{:type "alert-success" :text (str "El artículo " art-name " ha sido borrado.")}])
     (resp/redirect "/articulos/")))
 
@@ -310,7 +338,7 @@
 ;;; Needs clean data
 (defpartial search-add-article-results [query]
   (let [data (or (article/get-by-barcode query)
-                 (article/get-by-search query))]
+            (article/get-by-search query))]
     (search-add-results-table data)))
 
 (defpage "/articulos/agregar/" {:keys [busqueda]}
@@ -328,12 +356,14 @@
               [:div.control-group
                (label {:class "control-label"} k (verbose k))
                [:div.controls
-                (cond (or (not (seq to-modify)) (some #{k} to-modify))
+                (cond (not (seq to-modify))
+                      (text-field k)
+                      (some #{k} to-modify)
                       (text-field k (article k))
                       :else
                       [:div (text-field {:class "disabled" :disabled true :placeholder (article k)} k (article k))
                        (hidden-field k (article k))])]])
-            article)]
+            (article/sort-by-vec (dissoc article :_id) [:codigo :nom_art]))]
       [:div.form-actions
        (submit-button {:class "btn btn-primary"} "Agregar este artículo")
        (link-to {:class "btn btn-danger"} "/articulos/" "Cancelar y regresar")])))
@@ -350,7 +380,45 @@
     (home-layout content)))
 
 (defpage [:post "/articulos/nuevo/"] {:as post}
-  (let [to-add (dissoc post :_id)]
+  (let [to-add (dissoc post :_id)
+        now (time/now)
+        date (str (time/day now) "/" (time/month now) "/" (time/year now))]
     (article/add-article to-add)
+    (logs/setup!)                       ;Remove this
+    (logs/add-logs! (:_id post) :added to-add date)
     (session/flash-put! :messages '({:type "alert-success" :text "El artículo ha sido agregado."}))
     (resp/redirect "/articulos/")))
+
+;;; Show Logs
+(defpartial logrow [{:keys [date content link]}]
+  [:li date
+   [:ul
+    [:li (link-to link content)]]])
+
+(defpartial home-content [logs]
+  [:article
+   [:h2 "Últimos cambios:"]
+   [:div#logs
+    [:ol
+     (map logrow logs)]]])
+
+(pre-route "/inicio/" {}
+           (when-not (users/admin?)
+             (session/flash-put! :messages '({:type "alert-error" :text "Necesita estar firmado para accesar esta página"}))
+             (resp/redirect "/entrar/")))
+
+(defpage "/inicio/" []
+  (let [lgs (logs/retrieve-all)
+        lgs-usable
+        (when (seq lgs)
+          (map (fn [l]
+                 {:date (:date l)
+                  :content (cond (= "deleted" (:type l)) "Se eliminó un artículo"
+                                 (= "updated" (:type l)) "Se modificó un artículo"
+                                 (= "added" (:type l)) "Se agregó un nuevo artículo")
+                  :link (str "/logs/" (:date l))})
+               lgs))
+        content {:title "Inicio"
+                 :content [:div.container (home-content (or lgs-usable {}))]
+                 :active "Inicio"}]
+    (home-layout content)))

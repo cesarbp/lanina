@@ -7,6 +7,8 @@
 ;;; Head includes here
 (def includes
   {
+   :subnav-js (include-js "/js/subnav.js")
+   :custom-css (include-css "/css/custom.css")
    :base-css (include-css "/css/bootstrap.css")
    :base-js (include-js "/js/bootstrap.js")
    :base-resp-css (include-css "/css/bootstrap-responsive.css")
@@ -17,6 +19,7 @@
    :trie-js (include-js "/js/trie.js")
    :search-js (include-js "/js/search.js")
    :jquery-ui (include-js "/js/jquery-ui.js")
+   :scroll-js (include-js "/js/scroll-to.js")
    })
 
 ;;; Links on the nav
@@ -68,15 +71,16 @@
    [:body
     (if (:nav-bar content) (nav-bar (:active content)) (nav-bar-no-links))
     (when (session/flash-get :messages)
-      [:div.container
+      [:div.container-fluid
       (map disp-message (session/flash-get :messages))])
     [:div.page-header
-     [:div.container
+     [:div.container-fluid
       [:h1 (get content :title "Sitio de administración")]]]
     (:content content)
     [:div.footer
-     [:div.container
+     [:div.container-fluid
       [:footer
+       [:hr]
        (get content :footer
             [:p "Gracias por visitar"])]]]]))
 

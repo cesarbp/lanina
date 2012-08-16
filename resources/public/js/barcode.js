@@ -30,12 +30,14 @@ function article_row(article) {
 	return false;
     }
 
-    var html = '<tr class="article-row" id=' + barcode.toString() + '><td class="art_barcode">' +
-	barcode.toString() + '</td><td class="art_name">' +
-	name.toString() + '</td><td class="art_price">' +
-	price.toFixed(2).toString() + '</td><td class="art_quantity">' +
-	'1' + '</td><td class="art_total">' +
-	price.toFixed(2).toString() + '</td></tr>';
+    var html = '<tr class="article-row" id=' + barcode.toString() + '><td class="art_name">' +
+	name.toString() + '<td class="art_quantity">' +
+	'1' + '</td><td class="art_price">' +
+	price.toFixed(2).toString() + '</td>' + '</td><td class="art_total">' +
+	price.toFixed(2).toString() + '</td>' +
+	'<td><a class="btn" onclick="add_article_row(' + barcode + ',1);"><i class="icon-chevron-up"></i></a>' +
+	'<a class="btn" onclick="add_article_row(' + barcode + ',-1);"><i class="icon-chevron-down"></i></a></td>' +
+	'<td><a class="btn btn-danger" onclick="remove_article_row(' + barcode + ');"><i class="icon-remove"></i></a></td></tr>';
     return html;
 }
 
@@ -46,7 +48,7 @@ function calculate_total() {
 	return 0;
     }
     var totals = articles.map(function (r) {
-	return parseFloat(r.children[4].innerHTML);
+	return parseFloat(r.children[3].innerHTML);
     });
 
     var total = totals.reduce(function (a,b) {return a + b;});
@@ -60,12 +62,13 @@ function update_total() {
     }, 200);    
 }
 
-function ticket_links(article, quantity) {
+function ticket_links(article, quantity, increase) {
     var ticket_link = $("#ticket");
     var bill_link = $("#bill");
 
     var req_html = article + "=" + quantity;
-    var prev_html = article + "=" + (parseInt(quantity) - 1).toString();
+    var prev_quant = increase ? quantity - 1 : quantity + 1;
+    var prev_html = article + "=" + prev_quant.toString();
     var ticket_href = '/tickets/nuevo/';
 
     if (ticket_link.length !== 0 && bill_link.length !== 0) {
@@ -85,25 +88,60 @@ function ticket_links(article, quantity) {
 	    req_html + '">Generar Ticket</a>';
 	var bill_html = '<a id="bill" class="btn btn-success" href="/facturas/nuevo/?' +
 	    req_html + '">Generar Factura</a>';
-	var form_html = '<div class="form-actions">' + ticket_html + bill_html + '</div>';
+	var form_html = '<div id="gen-tickets" class="form-actions">' + ticket_html + bill_html + '</div>';
 	$("#main").append(form_html);
     }
     return 0;
 }
 
-function add_article_row(barcode) {
+function remove_ticket_links(barcode) {
+    var ticket_link = $("#ticket")[0];
+    var bill_link = $("#bill")[0];
+    
+    if (ticket_link) {
+	var re = new RegExp ('[?|&]' + barcode + '=\\d+');
+	ticket_link.href = ticket_link.href.replace(re, '');
+	bill_link.href = bill_link.href.replace(re, '');
+
+	if (-1 === ticket_link.href.search(/\?/)) {
+	    if (ticket_link.href.search(/&/) !== -1) {
+		ticket_link.href = ticket_link.href.replace(/&/, '?');
+		bill_link.href = bill_link.href.replace(/&/, '?');
+	    }
+	    else {
+		$('#gen-tickets').remove();
+	    }
+	}
+    }
+}
+
+function remove_article_row(barcode) {
+    var id_barcode = "#" + barcode;
+    remove_ticket_links(barcode);
+    if ($(id_barcode)) {
+	$(id_barcode).remove();
+	remove_ticket_links(barcode);
+	update_total();
+    }
+}
+
+function add_article_row(barcode, n) {
     var worked = false;
     if (isInt(barcode)) {
 	var id_barcode = "#" + barcode;
 	if ($(id_barcode).length !== 0) {
-	    var quantity = $(id_barcode).children()[3].innerHTML;
+	    var quantity = $(id_barcode).children()[1].innerHTML;
 	    var price = $(id_barcode).children()[2].innerHTML;
-	    var new_quantity = 1 + parseInt(quantity);
+	    var new_quantity = n + parseInt(quantity);
+	    if (0 >= new_quantity) {
+		remove_article_row(barcode);
+		return 0;
+	    }
 	    var total = parseFloat(price) * new_quantity;
-	    $(id_barcode).children()[3].innerHTML = new_quantity.toString();
-	    $(id_barcode).children()[4].innerHTML = total.toFixed(2).toString();
+	    $(id_barcode).children()[1].innerHTML = new_quantity.toString();
+	    $(id_barcode).children()[3].innerHTML = total.toFixed(2).toString();
 	    if ($(id_barcode).length !== 0)
-		ticket_links(barcode, new_quantity.toString());
+		ticket_links(barcode, new_quantity, (n > 0));
 	}
 	else {
 	    $.getJSON('/json/article', {'barcode': barcode}, function(article) {
@@ -114,8 +152,8 @@ function add_article_row(barcode) {
 	    });
 	    setTimeout(function() {
 		if (worked)
-		    ticket_links(barcode, "1");
-	    }, 200);	    
+		    ticket_links(barcode, 1, true);
+	    }, 200);
 	}
 	$("#barcode-field").val("");
 	update_total();
@@ -126,7 +164,7 @@ function barcode_listener (field, e) {
     var code = e.keyCode || e.which;
     if (code == 13) {
 	var barcode = $("#barcode-field").val();
-	add_article_row(barcode);
+	add_article_row(barcode, 1);
 	return false;
     } else {
 	return true;

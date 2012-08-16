@@ -12,18 +12,6 @@
     (resp/redirect "/inicio/")
     (resp/redirect "/entrar/")))
 
-(defpartial logrow [{:keys [date content link]}]
-  [:li date
-   [:ul
-    [:li (link-to link content)]]])
-
-(defpartial home-content [logs]
-  [:article
-   [:h2 "Últimos cambios:"]
-   [:div#logs
-    [:ol
-     (map logrow logs)]]])
-
 (defpartial login-form []
   (form-to {:class "form-horizontal"} [:post "/entrar/"]
     [:fieldset
@@ -49,18 +37,6 @@
     [:div.form-actions
      (submit-button {:class "btn btn-warning" :name "submit"} "Cambiar")]))
 
-(pre-route "/inicio/" {}
-           (when-not (users/admin?)
-             (session/flash-put! :messages '({:type "alert-error" :text "Necesita estar firmado para accesar esta página"}))
-             (resp/redirect "/entrar/")))
-
-(defpage "/inicio/" []
-  (let [logs [{:date "26/06/2012" :content "Se agregó un nuevo artículo" :link "/logs/26062012"}
-              {:date "27/06/2012" :content "Se eliminó un artículo" :link "/logs/27062012"}]
-        content {:title "Inicio"
-                 :content [:div.container (home-content logs)]
-                 :active "Inicio"}]
-    (home-layout content)))
 
 (defpage "/entrar/" []
   (let [content {:title "Ingresar"

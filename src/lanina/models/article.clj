@@ -119,20 +119,20 @@ csv of the articles"
    :stk "Stock"
    :lin "Línea"
    :ramo "Ramo"
-   :fech_ac "Fecha ac"
+   :fech_ac "Fecha actual"
    :cu_sin "Costo unitario sin IVA"
    :cu_con "Costo unitario con IVA"
-   :pres "Presentes"
+   :pres "Presentación"
    :ubica "Ubicación"
    :prov "Proveedor"
    :iva "IVA"
    :gan "Porcentaje de ganancia"
-   :fech_an "Fecha an"
+   :fech_an "Fecha anterior"
    :exis "En existencia"
    :prev_con "Precio de venta con IVA"
    :prev_sin "Precio de venta sin IVA"
-   :ccj_con "Caja con IVA"
-   :ccj_sin "Caja sin IVA"
+   :ccj_con "Costo de caja con IVA"
+   :ccj_sin "Costo de caja sin IVA"
    :nom_art "Nombre del artículo"
    :codigo "Código de barras"
    :tam "Tamaño"})
@@ -160,3 +160,11 @@ csv of the articles"
 ;;; Adding an article
 (defn add-article [art-map]
   (insert! article-coll art-map))
+
+;;; Sorting an article
+
+(defn sort-by-vec [art v]
+  (let [v (reverse v)
+        vals (map (fn [k] [k (art k)])
+                  v)]
+    (into (seq (eval `(dissoc ~art ~@v))) vals)))

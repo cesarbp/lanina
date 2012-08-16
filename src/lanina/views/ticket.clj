@@ -7,8 +7,8 @@
 
 (defpartial ticket-row [prod]
   [:tr
-   [:td (:codigo prod)]
    [:td (:nom_art prod)]
+   [:td (:quantity prod)]
    [:td (:precio_unitario prod)]
    [:td (:total prod)]])
 
@@ -16,8 +16,8 @@
   (form-to [:post "/tickets/nuevo/"]
     [:table.table.table-condensed
      [:tr
-      [:th "Código de barras"]
       [:th "Nombre de artículo"]
+      [:th "Cantidad"]
       [:th "Precio unitario"]
       [:th "Total"]]
      (map ticket-row prods)]
@@ -30,14 +30,14 @@
                         (let [article (article/get-by-barcode bc)
                               name (:nom_art article)
                               price (if (> (:prev_con article) 0.0)
-                                      (:prev_con) (:prev_sin article))
+                                      (:prev_con article) (:prev_sin article))
                               total (* price times)]
                           
-                          (into acc [{:nom_art name :precio_unitario price :total total :codigo bc :cantidad times}])))
+                          (into acc [{:quantity times :nom_art name :precio_unitario price :total total :codigo bc :cantidad times}])))
                       [] pairs)
         total (reduce + (map :total prods))
         content {:title (str "Total a cobrar: $" (format "%.2f" total))
-                 :content [:div.container
+                 :content [:div.container-fluid
                            (ticket-table prods)]
                  :active "Ventas"}]
     (home-layout content)))
