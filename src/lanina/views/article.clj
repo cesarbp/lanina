@@ -26,18 +26,36 @@
       (resp/json response)
       (resp/json {}))))
 
+(defpage "/json/article-name" {:keys [name]}
+  (let [response (article/get-by-name name)]
+    (resp/json response)))
+
 (defpartial barcode-form []
-  [:div.subnav
-   [:ul.nav.nav-pills
-    [:li [:a [:h2#total "Total: 0.00"]]]
-    [:li
-     (form-to {:id "barcode-form" :class "form-inline"} [:get ""] 
-       [:fieldset
-        [:div.control-group
-         [:div.controls
-          [:br]
-          (text-field {:style "text-align:right" :id "barcode-field" :onkeypress "return barcode_listener(this, event)" :autocomplete "off" :placeholder "Código de barras"} "barcode")]]]
-       )]]])
+  (form-to {:id "barcode-form" :class "form-inline"} [:get ""]
+    [:div.subnav
+     [:ul.nav.nav-pills
+      [:li [:a [:h2#total "Total: 0.00"]]]
+      [:li
+       (text-field {:class "input-small" :style "position:relative;top:14px;text-align:right" :id "barcode-field" :onkeypress "return barcode_listener(this, event)" :autocomplete "off" :placeholder "F2 - Código"} "barcode")]
+      [:li
+       (text-field {:style "position:relative;top:14px;left:2px;text-align:right" :id "article-field" :onkeypress "return article_listener(this, event)" :autocomplete "off" :placeholder "F3 - Nombre de artículo"} "article")]
+      [:li
+       (text-field {:class "input-small" :style "position:relative;top:14px;left:4px;text-align:right;width:40px;" :id "quantity-field" :onkeypress "return quantity_listener(this, event)" :autocomplete "off" :placeholder "F4"} "quantity" "1")]]]))
+
+(defpartial add-unregistered-form []
+  [:div.navbar.navbar-fixed-bottom
+   [:div.navbar-inner
+    [:div.container-fluid
+     [:ul.nav
+      [:li [:a "Artículos libres"]]
+      [:li
+       (form-to {:id "unregistered-form" :class "form-inline"} [:get ""]
+         (text-field {:class "input-small" :style "position:relative;top:10px;text-align:right" :id "unregistered-price" :onkeypress "return unregistered_listener(this, event)" :autocomplete "off" :placeholder "F6 - Precio"} "unregistered-price")
+         (text-field {:class "input-small" :style "position:relative;top:10px;left:5px;text-align:right;width:40px;" :id "unregistered-quantity" :onkeypress "return unregistered_listener(this,event)" :autocomplete "off" :placeholder "F7"} "unregistered-quantity" "1"))]
+      [:li
+       [:a [:div.switch.switch-danger {:data-toggle "switch" :data-checkbox "gravado" :data-on "GVDO" :data-off "EXTO"}]]]
+      [:li
+       [:button.btn.btn-primary {:style "position:relative;top:5px;" :onclick "return add_unregistered()"} "Agregar"]]]]]])
 
 (defpartial item-list []
   [:table {:id "articles-table" :class "table table-condensed"}
@@ -56,11 +74,11 @@
 
 (defpage "/ventas/" []
   (let [content {:title "Ventas"
-                 :content [:div#main.container-fluid (barcode-form) (item-list)]
+                 :content [:div#main.container-fluid (barcode-form) (item-list) (add-unregistered-form)]
                  :footer [:p "Gracias por su compra."]
                  :nav-bar true
                  :active "Ventas"}]
-    (main-layout-incl content [:base-css :jquery :scroll-js :barcode-js :custom-css :subnav-js])))
+    (main-layout-incl content [:base-css :search-css :switch-css :jquery :jquery-ui :shortcut :scroll-js :barcode-js :custom-css :subnav-js :switch-js])))
 
 ;;; View an article
 (defpartial view-article-form [[k v]]
@@ -72,7 +90,22 @@
    [:td.prop-name (article/verbose-names k)]
    (if (= :codigo k)
      [:td.new-value (text-field {:class "article-new-value disabled" :disabled true :placeholder (str v)} (name k))]
-     [:td.new-value (text-field {:class "article-new-value"} (name k) (str v))])])
+     [:td.new-value
+      (if (= :iva k)
+        [:select {:name k}
+         [:option {:value (if (= (str v) "0") "0" "16")} (if (= (str v) "0") "0" "16")]
+         [:option {:value (if (= (str v) "0") "16" "0")} (if (= (str v) "0") "16" "0")]]
+        (if (= :gan k)
+          [:div.control-group {:id (str (name k) "-control")}
+           (text-field {:class "article-new-value"} (name k) (str v))]
+          (text-field {:class "article-new-value"} (name k) (str v))))])
+   (if (or (= k :prev_sin) (= k :prev_con))
+     [:td
+      [:a.btn {:onclick "return prev_up()"}
+       [:i.icon-chevron-up]]
+      [:a.btn {:onclick "return prev_down()"}
+       [:i.icon-chevron-down]]]
+     [:td])])
 
 (defpartial modify-article-table [article]
   (when (seq article)
@@ -80,8 +113,9 @@
       [:table {:class "table table-condensed"}
        [:tr.table-header
         [:th "Nombre"]
-        [:th "Nuevo Valor"]]
-       (map modify-article-row (article/sort-by-vec (dissoc article :_id) [:codigo :nom_art]))]
+        [:th "Nuevo Valor"]
+        [:th]]
+       (map modify-article-row (article/sort-by-vec (dissoc article :_id) [:codigo :nom_art :pres :ccj_con :cu_con :prev_con :ccj_sin :cu_sin :prev_sin]))]
       [:fieldset
        [:div.form-actions
         (submit-button {:class "btn btn-warning" :name "submit"} "Modificar")
@@ -98,7 +132,7 @@
                                [:p.error-notice "No existe tal artículo"])]
                    :active "Artículos"
                    :nav-bar true}]
-      (main-layout-incl content [:jquery :base-css :base-js :custom-css :subnav-js]))))
+      (main-layout-incl content [:jquery :base-css :base-js :custom-css :subnav-js :modify-js]))))
 
 (defpartial confirm-changes-row [[k old new]]
   [:tr.article-row
@@ -353,17 +387,21 @@
     (form-to {:class "form form-horizontal"} [:post "/articulos/nuevo/"]
       [:fieldset
        (map (fn [[k v]]
-              [:div.control-group
+              [:div.control-group {:id (str (name k) "-control")}
                (label {:class "control-label"} k (verbose k))
                [:div.controls
                 (cond (not (seq to-modify))
-                      (text-field k)
+                      (if (= :iva k)
+                        [:select {:name k}
+                         [:option {:value "16"} "16"]
+                         [:option {:value "16"} "0"]]
+                        (text-field k))
                       (some #{k} to-modify)
                       (text-field k (article k))
                       :else
                       [:div (text-field {:class "disabled" :disabled true :placeholder (article k)} k (article k))
                        (hidden-field k (article k))])]])
-            (article/sort-by-vec (dissoc article :_id) [:codigo :nom_art]))]
+            (article/sort-by-vec (dissoc article :_id) [:codigo :nom_art :pres :ccj_con :cu_con :prev_con :ccj_sin :cu_sin :prev_sin]))]
       [:div.form-actions
        (submit-button {:class "btn btn-primary"} "Agregar este artículo")
        (link-to {:class "btn btn-danger"} "/articulos/" "Cancelar y regresar")])))
@@ -376,8 +414,9 @@
                         (= method "total")   "Alta total de un artículo")
         content {:title title
                  :active "Artículos"
-                 :content [:div.container (add-article-form article to-modify)]}]
-    (home-layout content)))
+                 :content [:div.container (add-article-form article to-modify)]
+                 :nav-bar true}]
+    (main-layout-incl content [:base-css :search-css :jquery :jquery-ui :verify-js])))
 
 (defpage [:post "/articulos/nuevo/"] {:as post}
   (let [to-add (dissoc post :_id)

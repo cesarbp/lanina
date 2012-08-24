@@ -7,19 +7,24 @@
 ;;; Head includes here
 (def includes
   {
-   :subnav-js (include-js "/js/subnav.js")
-   :custom-css (include-css "/css/custom.css")
-   :base-css (include-css "/css/bootstrap.css")
-   :base-js (include-js "/js/bootstrap.js")
+   :subnav-js     (include-js "/js/subnav.js")
+   :custom-css    (include-css "/css/custom.css")
+   :base-css      (include-css "/css/bootstrap.css")
+   :base-js       (include-js "/js/bootstrap.js")
    :base-resp-css (include-css "/css/bootstrap-responsive.css")
-   :search-css (include-css "/css/search.css")
-   :less (include-js "/js/less.js")
-   :jquery (include-js "/js/jquery.js")
-   :barcode-js (include-js "/js/barcode.js")
-   :trie-js (include-js "/js/trie.js")
-   :search-js (include-js "/js/search.js")
-   :jquery-ui (include-js "/js/jquery-ui.js")
-   :scroll-js (include-js "/js/scroll-to.js")
+   :search-css    (include-css "/css/search.css")
+   :less          (include-js "/js/less.js")
+   :jquery        (include-js "/js/jquery.js")
+   :barcode-js    (include-js "/js/barcode.js")
+   :trie-js       (include-js "/js/trie.js")
+   :search-js     (include-js "/js/search.js")
+   :jquery-ui     (include-js "/js/jquery-ui.js")
+   :scroll-js     (include-js "/js/scroll-to.js")
+   :shortcut      (include-js "/js/shortcut.js")
+   :switch-js     (include-js "/js/switch.js")
+   :switch-css    (include-css "/css/switch.css")
+   :verify-js     (include-js "/js/verify.js")
+   :modify-js     (include-js "/js/modify.js")
    })
 
 ;;; Links on the nav
@@ -85,7 +90,7 @@
             [:p "Gracias por visitar"])]]]]))
 
 (defpartial main-layout [content]
-  (main-layout-incl content [:base-css :base-js]))
+  (main-layout-incl content [:base-css]))
 
 (defpartial home-layout [content]
   (main-layout (into content {:nav-bar true})))

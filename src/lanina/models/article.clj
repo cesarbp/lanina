@@ -67,6 +67,10 @@
     (id-to-str
      (fetch-one article-coll :where {:_id (object-id id)} :only only))))
 
+(defn get-by-name [name]
+  (id-to-str
+   (fetch-one article-coll :where {:nom_art name} :only [:nom_art :codigo :prev_con :prev_sin])))
+
 (defn get-keys
   "Get the keys of the articles collection documents"
   []
@@ -126,7 +130,7 @@ csv of the articles"
    :ubica "Ubicación"
    :prov "Proveedor"
    :iva "IVA"
-   :gan "Porcentaje de ganancia"
+   :gan "Ganancia"
    :fech_an "Fecha anterior"
    :exis "En existencia"
    :prev_con "Precio de venta con IVA"
