@@ -115,7 +115,7 @@
         [:th "Nombre"]
         [:th "Nuevo Valor"]
         [:th]]
-       (map modify-article-row (article/sort-by-vec (dissoc article :_id) [:codigo :nom_art :pres :ccj_con :cu_con :prev_con :ccj_sin :cu_sin :prev_sin]))]
+       (map modify-article-row (article/sort-by-vec (dissoc article :_id) [:codigo :nom_art :pres :ccj_con :cu_con :prev_con :ccj_sin :cu_sin :prev_sin :gan]))]
       [:fieldset
        [:div.form-actions
         (submit-button {:class "btn btn-warning" :name "submit"} "Modificar")
@@ -401,7 +401,7 @@
                       :else
                       [:div (text-field {:class "disabled" :disabled true :placeholder (article k)} k (article k))
                        (hidden-field k (article k))])]])
-            (article/sort-by-vec (dissoc article :_id) [:codigo :nom_art :pres :ccj_con :cu_con :prev_con :ccj_sin :cu_sin :prev_sin]))]
+            (article/sort-by-vec (dissoc article :_id) [:codigo :nom_art :pres :ccj_con :cu_con :prev_con :ccj_sin :cu_sin :prev_sin :gan]))]
       [:div.form-actions
        (submit-button {:class "btn btn-primary"} "Agregar este artículo")
        (link-to {:class "btn btn-danger"} "/articulos/" "Cancelar y regresar")])))
