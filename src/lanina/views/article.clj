@@ -36,11 +36,12 @@
      [:ul.nav.nav-pills
       [:li [:a [:h2#total "Total: 0.00"]]]
       [:li
-       (text-field {:class "input-small" :style "position:relative;top:14px;text-align:right" :id "barcode-field" :onkeypress "return barcode_listener(this, event)" :autocomplete "off" :placeholder "F2 - Código"} "barcode")]
+       (text-field {:class "input-small" :style "position:relative;top:14px;text-align:right;width:40px;" :id "quantity-field" :onkeypress "return quantity_listener(this, event)" :autocomplete "off" :placeholder "F2"} "quantity")]
       [:li
-       (text-field {:style "position:relative;top:14px;left:2px;text-align:right" :id "article-field" :onkeypress "return article_listener(this, event)" :autocomplete "off" :placeholder "F3 - Nombre de artículo"} "article")]
+       (text-field {:class "input-small" :style "position:relative;top:14px;left:2px;text-align:right" :id "barcode-field" :onkeypress "return barcode_listener(this, event)" :autocomplete "off" :placeholder "F3 - Código"} "barcode")]
       [:li
-       (text-field {:class "input-small" :style "position:relative;top:14px;left:4px;text-align:right;width:40px;" :id "quantity-field" :onkeypress "return quantity_listener(this, event)" :autocomplete "off" :placeholder "F4"} "quantity" "1")]]]))
+       (text-field {:style "position:relative;top:14px;left:4px;text-align:right" :id "article-field" :onkeypress "return article_listener(this, event)" :autocomplete "off" :placeholder "F4 - Nombre de artículo"} "article")]
+      ]]))
 
 (defpartial add-unregistered-form []
   [:div.navbar.navbar-fixed-bottom
@@ -50,8 +51,9 @@
       [:li [:a "Artículos libres"]]
       [:li
        (form-to {:id "unregistered-form" :class "form-inline"} [:get ""]
-         (text-field {:class "input-small" :style "position:relative;top:10px;text-align:right" :id "unregistered-price" :onkeypress "return unregistered_listener(this, event)" :autocomplete "off" :placeholder "F6 - Precio"} "unregistered-price")
-         (text-field {:class "input-small" :style "position:relative;top:10px;left:5px;text-align:right;width:40px;" :id "unregistered-quantity" :onkeypress "return unregistered_listener(this,event)" :autocomplete "off" :placeholder "F7"} "unregistered-quantity" "1"))]
+         (text-field {:class "input-small" :style "position:relative;top:10px;text-align:right;width:40px;" :id "unregistered-quantity" :onkeypress "return unregistered_listener(this,event)" :autocomplete "off" :placeholder "F6"} "unregistered-quantity" "")
+         (text-field {:class "input-small" :style "position:relative;top:10px;left:4px;text-align:right" :id "unregistered-price" :onkeypress "return unregistered_listener(this, event)" :autocomplete "off" :placeholder "F7 - Precio"} "unregistered-price")
+         )]
       [:li
        [:a [:div.switch.switch-danger {:data-toggle "switch" :data-checkbox "gravado" :data-on "GVDO" :data-off "EXTO"}]]]
       [:li
@@ -78,7 +80,7 @@
                  :footer [:p "Gracias por su compra."]
                  :nav-bar true
                  :active "Ventas"}]
-    (main-layout-incl content [:base-css :search-css :switch-css :jquery :jquery-ui :shortcut :scroll-js :barcode-js :custom-css :subnav-js :switch-js])))
+    (main-layout-incl content [:base-css :search-css :switch-css :jquery :jquery-ui :base-js :shortcut :scroll-js :barcode-js :custom-css :subnav-js :switch-js])))
 
 ;;; View an article
 (defpartial view-article-form [[k v]]

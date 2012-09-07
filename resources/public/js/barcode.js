@@ -1,3 +1,5 @@
+// FIXME - Invalid html ids
+
 function toArray(obj) {
     var array = [];
     // iterate backwards ensuring that length is an UInt32
@@ -16,12 +18,27 @@ function isInt(s) {
     return true;
 }
 
+function readFile(url) {
+    var html = "";
+    $.ajax({
+	url: url,
+	data: {},
+	async: false,
+	success: function(response) {
+	    html = response;
+	}
+    });
+    return html;
+}
+
 function article_row(article, quantity) {
+
     if (article.codigo === "0") {
-	var barcode = article.nom_art.replace(/\s+/g, '_');
+	var barcode = article.nom_art.replace(/\s/g, '_');
     } else {
 	var barcode = article.codigo
     }
+
     var name = article.nom_art;
     if (article.prev_con !== 0) {
 	var price = article.prev_con;
@@ -70,7 +87,7 @@ function update_total() {
 function ticket_links(barcode, quantity, increase) {
     var ticket_link = $("#ticket");
     var bill_link = $("#bill");
-    barcode = barcode.replace(/\s+/g, '_');
+    barcode = barcode.replace(/\s/g, '_');
     var req_html =  barcode + "=" + quantity;
     var prev_quant = increase ? quantity - 1 : quantity + 1;
     var prev_html = barcode + "=" + prev_quant.toString();
@@ -90,11 +107,22 @@ function ticket_links(barcode, quantity, increase) {
 	}
     } else {
 	var ticket_html = '<a id="ticket" class="btn btn-primary" href="/tickets/nuevo/?' +
-	    req_html + '">Generar Ticket</a>';
+	    req_html + '">F9 - Generar Ticket</a>';
 	var bill_html = '<a id="bill" class="btn btn-success" href="/facturas/nuevo/?' +
-	    req_html + '">Generar Factura</a>';
+	    req_html + '">F10 - Generar Factura</a>';
 	var form_html = '<div id="gen-tickets" class="form-actions">' + ticket_html + bill_html + '</div>';
 	$("#main").append(form_html);
+	$('#ticket').click(function() {
+	    draw_modal();
+	    return false;
+	});
+	$('#bill').click(function() {
+	    draw_modal();
+	    return false;
+	});
+	shortcut.add("F9", function() {
+	    draw_modal();
+	});
     }
     return 0;
 }
@@ -104,7 +132,7 @@ function remove_ticket_links(barcode) {
     var bill_link = $("#bill")[0];
     
     if (ticket_link) {
-	var re = new RegExp ('[?|&]' + barcode.replace(/\s+/g, '_') + '=\\d+');
+	var re = new RegExp ('[?|&]' + barcode + '=\\d+');
 	ticket_link.href = ticket_link.href.replace(re, '');
 	bill_link.href = bill_link.href.replace(re, '');
 
@@ -117,11 +145,15 @@ function remove_ticket_links(barcode) {
 		$('#gen-tickets').remove();
 	    }
 	}
+	shortcut.add("F9", function() {
+	    return false;
+	});
+
     }
 }
 
 function remove_article_row(barcode) {
-    var id_barcode = "#" + barcode.replace(/\s+/g, '_');
+    var id_barcode = "#" + decodeURIComponent(barcode);
     remove_ticket_links(barcode);
     if ($(id_barcode)) {
 	$(id_barcode).remove();
@@ -132,7 +164,7 @@ function remove_article_row(barcode) {
 
 function add_article_row(barcode, n) {
     var worked = false;
-    var id_barcode = "#" + barcode.replace(/\s+/g, '_');    
+    var id_barcode = "#" + barcode.replace(/\s/g, '_');
     if (isInt(barcode) || $(id_barcode).length !== 0) {
 	if ($(id_barcode).length !== 0) {
 	    var quantity = $(id_barcode).children()[1].innerHTML;
@@ -164,15 +196,21 @@ function add_article_row(barcode, n) {
 	update_total();
     }
     else {
+	var codigo = "";
 	$.getJSON('/json/article-name', {'name': barcode}, function(article) {
 	    if (article && article.codigo) {
 		$("#articles-table").append(article_row(article, n));
 		worked = true;
+		codigo = article.codigo;
 	    }
 	});
 	setTimeout(function() {
 	    if (worked)
-		ticket_links(barcode, 1, true);
+		if (codigo === '' || codigo === "0") {
+		    ticket_links(barcode, 1, true);
+		} else {
+		    ticket_links(codigo, 1, true);
+		}
 	}, 200);
 	update_total();
     }
@@ -328,24 +366,201 @@ var json = function (first_letter) {
     return res;
 }
 
+// Generate the print ticket/bill modal
+
+// Takes an anchor returns an array of products - [bc, name, quantity, unit price, total]
+function split_url (a) {
+    var req = a.search,
+    re = /(?:\?|&(?:amp;)?)([^=&#]+)(?:=?([^&#]*))/g,
+    match = [],
+    res = [],
+    getType = function(denom) {
+	if (denom.search('exto') === 0) {
+	    return 'exto'; 	// No tax
+	} else if (denom.search('gvdo') === 0) {
+	    return 'gvdo';	// Taxed
+	} else if (isInt(denom)) {
+	    return 'bc';	// Barcode
+	} else {
+	    return 'nom';	// Name
+	}
+    },
+    getPrice = function(denom) {
+	var type = getType(denom);
+	var price;
+	if (type === 'nom') {
+	    $.ajax({url: '/json/article-name', dataType: 'json', data: {name: denom.replace(/_/g, ' ')}, async: false, success: function(article) {
+		if (article && article.codigo) {
+		    if (article.prev_con >= 0) {
+			price = article.prev_con;
+		    } else {
+			price = article.prev_sin;
+		    }
+		}
+	    }});
+	} else if (type == 'gvdo') {
+	    price = parseFloat(denom.replace(/gvdo\d+_/, '').replace(/_/, '.'));
+	} else if (type == 'exto') {
+	    price = parseFloat(denom.replace(/exto\d+_/, '').replace(/_/, '.'));
+	} else {
+	    $.ajax({url: '/json/article', dataType: 'json', data: {barcode: denom}, async: false, success: function(article) {
+		if (article && article.codigo) {
+		    if (article.prev_con > 0) {
+			price = article.prev_con;
+		    } else {
+			price = article.prev_sin;
+		    }		    
+		}
+	    }});
+	}
+	return price;
+    };
+    var denom, quant, type, price, name, bc;
+    while (match = re.exec(req)) {
+	denom = match[1],
+	quant = parseInt(match[2]),
+	type = getType(denom),
+	price = getPrice(denom),
+	name = '';
+	bc = '';
+	if (type === 'bc') {
+	    $.ajax({url: '/json/article', dataType: 'json', data: {barcode: denom}, async: false, success: function(article) {
+		if (article && article.codigo) {
+		    name = article.nom_art;
+		}
+	    }});
+	} else if (type === 'nom') {
+	    bc = '0';
+	    name = denom;
+	} else if (type === 'gvdo') {
+	    bc = '0';
+	    name = 'Artículo Gravado';
+	} else {
+	    bc = '0';
+	    name = 'Artículo Exento';
+	}
+	 
+	res.push([bc, name, quant, price, quant * price]);
+    }
+    return res;
+}
+// Draw the modal
+
+// Print the ticket
+function print_ticket() {
+    var pay = $('#pay').val();
+    var total = parseFloat($('#modallabel')[0].textContent.replace('Total a pagar: ', ''));
+    if (pay && parseFloat(pay) >= total) {
+	$('#print-ticket').val($('#print-ticket').val() + '&pay=' + pay);
+	window.location = $('#print-ticket')[0].href;
+    }  else if ($('#error-popup').length === 0) {
+	$('.modal-header').append(
+	    '<div id="error-popup" class="alert alert-block alert-error">' +
+		'<button type="button" class="close" data-dismiss="alert">×</button>' +
+		'<h1>No hay cantidad o cantidad insuficiente</h1></div>');
+	$('#error-popup').alert();
+	$('.modal-footer').addClass('error');
+    }
+}
+
+function pay_listeners() {
+    $('#pay').keypress(function(e) {
+        code= (e.keyCode ? e.keyCode : e.which);
+        if (code === 13) {
+	    print_ticket();
+	}
+    });
+    $('#pay').blur(function() {
+	var pay = $('#pay').val();
+	var total = parseFloat($('#modallabel')[0].textContent.replace('Total a pagar: ', ''));
+	if (pay && parseFloat(pay) >= total) {
+	    $('#print-ticket').val($('#print-ticket').val() + '&pay=' + pay);
+	    $('.modal-footer').removeClass('error');
+	    $('#print-ticket').attr('disabled', false);
+	    $('#print-ticket').click(function(){return false;});
+	    if ($('#error-popup').length > 0) {
+		$('#error-popup').alert('close');
+	    }
+	}  else {
+	    $('#print-ticket').attr('disabled', true);
+	    $('#print-ticket').click(function(){return false;});
+	    $('.modal-footer').addClass('error');
+	    if ($('#error-popup').length === 0) {
+		$('.modal-header').append(
+		    '<div id="error-popup" class="alert alert-block alert-error">' +
+			'<button type="button" class="close" data-dismiss="alert">×</button>' +
+			'<h1>No hay cantidad o cantidad insuficiente</h1></div>');
+		$('#error-popup').alert();
+	    }
+	    $('#pay').focus();
+	}
+    });
+}
+
+function draw_modal () {
+    if ($("#modal").length > 0) {
+	remove_modal();
+    }
+    
+    var a = $('#ticket')[0];
+    var articles = split_url(a);
+
+    var art_base = '<tr><td>{name}</td><td>{quant}</td><td>{price}</td><td>{art-total}</td></tr>';
+    var name_base = '<tr><td>{name}</td></tr>';
+    var desc_base = '<tr><td>{quant} x {price} = {total}</td></tr>';
+    var modal_base = readFile('/js/modal.html');
+    var rows = "";
+    var total = 0;
+    var art_row;
+    for (var i = 0; i < articles.length; i++) {
+	art_row = art_base.replace('{name}', articles[i][1]).replace('{quant}', articles[i][2]).replace('{price}', articles[i][3].toFixed(2).toString()).replace('{art-total}', articles[i][4].toFixed(2).toString());
+	rows = rows + art_row + '\n';
+	total = total + articles[i][4];
+    }
+
+    modal_html = modal_base.replace('{total}', total.toFixed(2).toString()).replace('{rows}', rows).replace('{req}', a.search);
+    $("#main").append(modal_html);
+    $("#modal").modal('toggle');
+
+    shortcut.add("F8", function() {
+	$("#pay").focus();
+    });
+    $('#pay').focus();
+    $('#print-ticket').click(function(){return false;});
+    pay_listeners();
+    return false;
+}
+
+function remove_modal() {
+    $("#modal").modal('hide');
+    $("#modal").remove();
+    shortcut.remove("F8");
+    shortcut.add("F8", function() {
+	$('[data-toggle="switch"]').switchbtn('toggle');
+    });
+}
+
+
+
+
 $(document).ready(function(){
     var trie = {};
     var search_box_id = "#article-field";
     var jn;
-    shortcut.add("F2", function() {
+    shortcut.add("F3", function() {
 	$("#barcode-field").focus();
     });
-    shortcut.add("F3", function() {
+    shortcut.add("F4", function() {
 	$("#article-field").focus();
     });
-    shortcut.add("F4", function() {
+    shortcut.add("F2", function() {
 	$("#quantity-field").focus();
     });
     shortcut.add("F5", function() {});
-    shortcut.add("F6", function() {
+    shortcut.add("F7", function() {
 	$("#unregistered-price").focus();
     });
-    shortcut.add("F7", function() {
+    shortcut.add("F6", function() {
 	$("#unregistered-quantity").focus();
     });
     shortcut.add("F8", function() {
@@ -354,15 +569,18 @@ $(document).ready(function(){
     
     $(search_box_id).on("keyup change", function () {
 	var inp = $(search_box_id).val();
-
 	if (inp.length === 1) {
 	    jn = json(inp);
-	    $(search_box_id).autocomplete({source: jn});
+	    $(search_box_id).typeahead();
+	    $(search_box_id).data('typeahead').source = jn;
 	} else if (inp.length > 1) {
-	    if (jn != null)
-		$(search_box_id).autocomplete({source: jn});
+	    if (jn != null) {
+		$(search_box_id).typeahead();
+		$(search_box_id).data('typeahead').source = jn;
+	    }
 	}
     });
+    $('#barcode-field').focus();
 
 });
 
