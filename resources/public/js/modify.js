@@ -22,8 +22,10 @@ function calculate_unitary() {
     
     if (iva === "0") {
 	var ccj = parseFloat($('#ccj_sin').val());
+	var extra = ccj * 1.16;
     } else {
 	var ccj = parseFloat($('#ccj_con').val());
+	var extra = ccj / 1.16;
     }
 
     console.log(pres);
@@ -32,8 +34,12 @@ function calculate_unitary() {
     if (pres > 0 && ccj > 0.0) {
 	if (iva === "0") {
 	    $('#cu_sin').val((ccj / pres).toFixed(2).toString());
+	    $('#cu_con').val((extra / pres).toFixed(2).toString());
+	    $('#ccj_con').val(extra.toFixed(2).toString());
 	} else {
 	    $('#cu_con').val((ccj / pres).toFixed(2).toString());
+	    $('#cu_sin').val((extra / pres).toFixed(2).toString());
+	    $('#ccj_sin').val(extra.toFixed(2).toString());
 	}
     }
 }
@@ -61,15 +67,19 @@ function calc_prev() {
     var gan = (parseFloat($("#gan").val()) + 100) / 100;
     if (iva === "0") {
 	var cu = parseFloat($("#cu_sin").val());
+	var extra = cu * 1.16;
     }
     else {
 	var cu = parseFloat($("#cu_con").val());
+	var extra = cu / 1.16;
     }
     if (cu && cu > 0) {
 	if (iva === "0") {
 	    $('#prev_sin').val((cu * gan).toFixed(2).toString());
+	    $('#prev_con').val((extra * gan).toFixed(2).toString());
 	} else {
 	    $('#prev_con').val((cu * gan).toFixed(2).toString());
+	    $('#prev_sin').val((extra * gan).toFixed(2).toString());
 	}
     }
 }
@@ -109,7 +119,8 @@ function prev_up() {
 	$('#prev_con').val(correct.toString());
     }
     $('#gan').val(new_util.toFixed(2).toString());
-    check_utility();
+    calc_prev();
+    calculate_unitary();
 }
 
 function prev_down() {
@@ -143,7 +154,20 @@ function prev_down() {
 	$('#prev_con').val(correct.toString());
     }
     $('#gan').val(new_util.toFixed(2).toString());
-    check_utility();
+    calc_prev();
+    calculate_unitary();
+}
+
+function calc_util(){
+    var iva = get_iva();
+    if (iva === "0") {
+	var new_util = 100 * (parseFloat($('#prev_sin').val()) / parseFloat($('#cu_sin').val()) - 1);
+    } else {
+	var new_util = 100 * (parseFloat($('#prev_con').val()) / parseFloat($('#cu_con').val()) - 1);
+    }
+    $('#gan').val(new_util.toFixed(2).toString());
+    calc_prev();
+    calculate_unitary();    
 }
 
 $(document).ready(function () {
@@ -152,13 +176,21 @@ $(document).ready(function () {
     });
     $('#ccj_con').blur(function() {
 	calculate_unitary();
+	if ($('#gan').val().length > 0)
+	    calc_prev();
     });
     $('#ccj_sin').blur(function() {
 	calculate_unitary();
+	if ($('#gan').val().length > 0)
+	    calc_prev();
     });
     $('#gan').blur(function() {
-	if (check_utility()) {
-	    calc_prev();
-	}
-    })
+	calc_prev();
+    });
+    $('#prev_con').blur(function() {
+	calc_util();
+    });
+    $('#prev_sin').blur(function() {
+	calc_util();
+    });
 });

@@ -16,6 +16,7 @@ $(document).ready(function(){
     var trie = {};
     var search_box_id = "#search";
     var jn;
+    $('#search').focus();
     
     $(search_box_id).on("keyup change", function () {
 	var inp = $(search_box_id).val();
@@ -28,5 +29,4 @@ $(document).ready(function(){
 		$(search_box_id).autocomplete({source: jn});
 	}
     });
-
 });

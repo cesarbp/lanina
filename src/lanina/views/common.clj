@@ -25,6 +25,7 @@
    :switch-css    (include-css "/css/switch.css")
    :verify-js     (include-js "/js/verify.js")
    :modify-js     (include-js "/js/modify.js")
+   :art-res-js    (include-js "/js/article-results.js")
    })
 
 ;;; Links on the nav
@@ -90,7 +91,7 @@
             [:p "Gracias por visitar"])]]]]))
 
 (defpartial main-layout [content]
-  (main-layout-incl content [:base-css]))
+  (main-layout-incl content [:base-css :jquery]))
 
 (defpartial home-layout [content]
   (main-layout (into content {:nav-bar true})))

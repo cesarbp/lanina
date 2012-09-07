@@ -219,7 +219,7 @@
        [:div.controls
         (text-field {:id "search" :autocomplete "off"} "busqueda")]]]
      [:div.form-actions
-      (submit-button {:class "btn btn-primary" :name "submit"} "Buscar")
+      (submit-button {:class "btn btn-primary" :name "search"} "Buscar")
       (link-to {:class "btn btn-warning" :onclick "return redirect_to_add_art();"} "/articulos/agregar/" "Agregar otro artículo")])])
 
 (defpage "/articulos/" []
@@ -238,7 +238,9 @@
        [:td.nom_art (link-to {:class "search-result-link"} (str "/articulos/id/" _id "/") nom_art)]
        [:td.prev_con prev_con]
        [:td.prev_sin prev_sin]
-       [:td.consultar (link-to {:class "btn btn-success"} (str "/articulos/id/" _id "/") "Consultar")]
+       [:td.consultar (link-to {:class "btn btn-success"} (str "/articulos/id/" _id "/global/") "Global")]
+       [:td.consultar (link-to {:class "btn btn-success"} (str "/articulos/id/" _id "/ventas/") "Ventas")]
+       [:td.consultar (link-to {:class "btn btn-success"} (str "/articulos/id/" _id "/proveedor/") "Proveedor")]
        [:td.modificar (link-to {:class "btn btn-warning"} (str "/articulos/id/" _id "/modificar/") "Modificar")]
        [:td.eliminar (link-to {:class "btn btn-danger"}  (str "/articulos/id/" _id "/eliminar/") "Eliminar")]])))
 
@@ -251,7 +253,8 @@
        [:th#name-header "Artículo"]
        [:th#p-without-header "Precio sin IVA"]
        [:th#p-with-header "Precio con IVA"]
-       [:th {:colspan "3"} "Controles"]]
+       [:th {:colspan "3"} "Consultas"]
+       [:th {:colspan "2"} "Bajas y Modificaciones"]]
       (if (map? results)
         (search-results-row results)
         (map search-results-row results))]
@@ -270,7 +273,7 @@
                  :content [:div.container (search-article-results busqueda)]
                  :nav-bar true
                  :active "Artículos"}]
-    (main-layout-incl content [:base-css])))
+    (main-layout-incl content [:base-css :jquery :shortcut :art-res-js])))
 
 ;;; Delete an article
 (defpartial show-article-delete [article]
@@ -318,7 +321,7 @@
 ;;; View an article
 (defpartial show-article-tables [article]
   (let [verbose article/verbose-names
-        art-split (partition-all (/ (count verbose) 3) (dissoc article :_id))]
+        art-split (partition-all (/ (count verbose) 3) article)]
     [:div.row
      (map (fn [pairs]
             [:div.span4
@@ -333,11 +336,37 @@
                    pairs)]])
           art-split)]))
 
-(defpage "/articulos/id/:id/" {id :id}
-  (let [article (article/get-by-id id)
-        content {:title "Mostrar Artículo"
+(defpage "/articulos/id/:id/global/" {id :id}
+  (let [article (dissoc (article/get-by-id id) :_id)
+        content {:title "Consulta global"
                  :active "Artículos"
-                 :content [:div.container (show-article-tables article)
+                 :content [:div.container-fluid (show-article-tables article)
+                           [:div.form-actions (link-to {:class "btn btn-success"}
+                                                       (str "/articulos/" ) "Regresar a buscar artículos")]]}]
+    (home-layout content)))
+
+(defpage "/articulos/id/:id/ventas/" {id :id}
+  (let [article (dissoc (article/get-by-id-only id [:codigo :nom_art :tam :lin :ramo :pres :unidad :ubica :iva :exis :stk :prev_con :prev_sin :fech_an :fech_ac]) :_id)
+        art-sorted (article/sort-by-vec (if (= (:iva article) 0)
+                                          (dissoc article :prev_con)
+                                          (dissoc article :prev_sin))
+                                        [:codigo :nom_art])
+        content {:title "Consulta para ventas"
+                 :active "Artículos"
+                 :content [:div.container-fluid (show-article-tables art-sorted)
+                           [:div.form-actions (link-to {:class "btn btn-success"}
+                                                       (str "/articulos/" ) "Regresar a buscar artículos")]]}]
+    (home-layout content)))
+
+(defpage "/articulos/id/:id/proveedor/" {id :id}
+  (let [article (dissoc (article/get-by-id-only id [:codigo :nom_art :tam :lin :ramo :pres :unidad :ubica :iva :prov :ccj_sin :ccj_con :cu_sin :cu_con :exis :stk :fech_an :fech_ac]) :_id)
+        art-sorted (article/sort-by-vec (if (= (:iva article) 0)
+                                          (dissoc article :ccj_con :cu_con)
+                                          (dissoc article :ccj_sin :cu_sin))
+                                        [:codigo :nom_art])
+        content {:title "Consulta para ventas"
+                 :active "Artículos"
+                 :content [:div.container-fluid (show-article-tables art-sorted)
                            [:div.form-actions (link-to {:class "btn btn-success"}
                                                        (str "/articulos/" ) "Regresar a buscar artículos")]]}]
     (home-layout content)))
@@ -397,13 +426,13 @@
                         [:select {:name k}
                          [:option {:value "16"} "16"]
                          [:option {:value "16"} "0"]]
-                        (text-field k))
+                        (text-field {:id k} k))
                       (some #{k} to-modify)
-                      (text-field k (article k))
+                      (text-field {:id k} k (article k))
                       :else
                       [:div (text-field {:class "disabled" :disabled true :placeholder (article k)} k (article k))
                        (hidden-field k (article k))])]])
-            (article/sort-by-vec (dissoc article :_id) [:codigo :nom_art :pres :ccj_con :cu_con :prev_con :ccj_sin :cu_sin :prev_sin :gan]))]
+            (article/sort-by-vec (dissoc article :_id) [:codigo :nom_art :pres :iva :gan :ccj_con :cu_con :prev_con :ccj_sin :cu_sin :prev_sin]))]
       [:div.form-actions
        (submit-button {:class "btn btn-primary"} "Agregar este artículo")
        (link-to {:class "btn btn-danger"} "/articulos/" "Cancelar y regresar")])))
@@ -418,7 +447,7 @@
                  :active "Artículos"
                  :content [:div.container (add-article-form article to-modify)]
                  :nav-bar true}]
-    (main-layout-incl content [:base-css :search-css :jquery :jquery-ui :verify-js])))
+    (main-layout-incl content [:base-css :search-css :jquery :jquery-ui :verify-js :modify-js])))
 
 (defpage [:post "/articulos/nuevo/"] {:as post}
   (let [to-add (dissoc post :_id)

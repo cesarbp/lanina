@@ -40,7 +40,9 @@
 
 (defpage "/entrar/" []
   (let [content {:title "Ingresar"
-                 :content [:div.container (login-form)]}]
+                 :content [:div.container
+                           (login-form)
+                           [:script "$('#password').focus();"]]}]
     (main-layout content)))
 
 (defpage [:post "/entrar/"] {:as user}
