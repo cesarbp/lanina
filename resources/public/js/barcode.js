@@ -188,8 +188,9 @@ function add_article_row(barcode, n) {
 		}
 	    });
 	    setTimeout(function() {
-		if (worked)
-		    ticket_links(barcode, 1, true);
+		if (worked) {
+		    ticket_links(barcode, n, true);
+		}
 	    }, 200);
 	}
 	$("#barcode-field").val("");
@@ -205,12 +206,15 @@ function add_article_row(barcode, n) {
 	    }
 	});
 	setTimeout(function() {
-	    if (worked)
+	    if (worked) {
+		
 		if (codigo === '' || codigo === "0") {
-		    ticket_links(barcode, 1, true);
+		    ticket_links(barcode, n, true);
 		} else {
-		    ticket_links(codigo, 1, true);
+		    ticket_links(codigo, n, true);
 		}
+
+	    }
 	}, 200);
 	update_total();
     }
@@ -221,7 +225,7 @@ function barcode_listener (field, e) {
     if (code == 13) {
 	var barcode = $("#barcode-field").val();
 	var quantity = $("#quantity-field").val() || 1;
-	$("#quantity-field").val("1");
+	$("#quantity-field").val("");
 	if (isInt(quantity)) {
 	    quantity = parseInt(quantity);
 	}
@@ -241,7 +245,7 @@ function article_listener (field, e) {
 	var name = $("#article-field").val();
 	
 	var quantity = $("#quantity-field").val() || 1;
-	$("#quantity-field").val("1");
+	$("#quantity-field").val("");
 	$("#article-field").val("");
 	if (isInt(quantity)) {
 	    quantity = parseInt(quantity);
@@ -267,7 +271,7 @@ function quantity_listener (field, e) {
 	}
 
 	if (isInt(quantity) && parseInt(quantity) > 0) {
-	    $("#quantity-field").val("1");
+	    $("#quantity-field").val("");
 	    var barcode = $("#barcode-field").val();
 	    var article = $("#article-field").val();
 
@@ -317,13 +321,13 @@ function add_unregistered() {
 	    var type = "gvdo";
 	    var prev_con = price;
 	    var prev_sin = 0;
-	    var nom_art = "Artículo Gravado";
+	    var nom_art = "ARTÍCULO GRAVADO";
 	}
 	else {
 	    var type = "exto";
 	    var prev_sin = price;
 	    var prev_con = 0;
-	    var nom_art = "Artículo Exento";
+	    var nom_art = "ARTÍCULO EXENTO";
 	}
 	if (price) {
 	    var bc = next_unregistered(type) + '_' + float_to_str(price);
@@ -334,9 +338,9 @@ function add_unregistered() {
 		prev_sin: prev_sin
 	    };
 	    $("#articles-table").append(article_row(article, quantity));
-	    ticket_links(bc, 1, true);
+	    ticket_links(bc, quantity, true);
 	    $("#unregistered-price").val("");
-	    $("#unregistered-quantity").val("1");
+	    $("#unregistered-quantity").val("");
 	    setTimeout(function() {
 		update_total();
 	    }, 200);    
@@ -417,6 +421,7 @@ function split_url (a) {
     };
     var denom, quant, type, price, name, bc;
     while (match = re.exec(req)) {
+	console.log(quant);
 	denom = match[1],
 	quant = parseInt(match[2]),
 	type = getType(denom),
@@ -451,7 +456,7 @@ function print_ticket() {
     var pay = $('#pay').val();
     var total = parseFloat($('#modallabel')[0].textContent.replace('Total a pagar: ', ''));
     if (pay && parseFloat(pay) >= total) {
-	$('#print-ticket').val($('#print-ticket').val() + '&pay=' + pay);
+	$('#print-ticket')[0].href = $('#print-ticket')[0].href + '&pay=' + pay;
 	window.location = $('#print-ticket')[0].href;
     }  else if ($('#error-popup').length === 0) {
 	$('.modal-header').append(
@@ -474,10 +479,10 @@ function pay_listeners() {
 	var pay = $('#pay').val();
 	var total = parseFloat($('#modallabel')[0].textContent.replace('Total a pagar: ', ''));
 	if (pay && parseFloat(pay) >= total) {
-	    $('#print-ticket').val($('#print-ticket').val() + '&pay=' + pay);
 	    $('.modal-footer').removeClass('error');
 	    $('#print-ticket').attr('disabled', false);
-	    $('#print-ticket').click(function(){return false;});
+	    $('#print-ticket').click(function(){return true;});
+	    $('#print-ticket')[0].href = $('#print-ticket')[0].href + '&pay=' + pay;
 	    if ($('#error-popup').length > 0) {
 		$('#error-popup').alert('close');
 	    }
@@ -539,8 +544,6 @@ function remove_modal() {
 	$('[data-toggle="switch"]').switchbtn('toggle');
     });
 }
-
-
 
 
 $(document).ready(function(){
