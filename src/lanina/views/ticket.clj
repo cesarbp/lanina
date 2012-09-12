@@ -4,7 +4,7 @@
         lanina.views.common
         [hiccup.element :only [link-to]])
   (:require [lanina.models.ticket  :as ticket]
-            [lanina.models.articke :as article]
+            [lanina.models.article :as article]
             [lanina.views.utils    :as utils]
             [clj-time.core         :as time]))
 
