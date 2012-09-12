@@ -33,6 +33,7 @@
       [k (.toUpperCase (eval `(new ~cl ~v)))]
       [k (eval `(new ~cl ~v))])))
 
+
 (defn coerce-to-useful-types [ms]
   (map (fn [m]
          (reduce (fn [acc [k v]]
@@ -52,6 +53,9 @@
 
 (defn get-article [barcode]
   (id-to-str (fetch-one article-coll :where {:codigo barcode} :only [:nom_art :codigo :prev_con :prev_sin])))
+
+(defn get-all-only [only]
+  (map id-to-str (fetch article-coll :only only)))
 
 (defn get-articles-regex [regex]
   (map id-to-str
@@ -140,6 +144,12 @@ csv of the articles"
    :nom_art "Nombre del artículo"
    :codigo "Código de barras"
    :tam "Tamaño"})
+
+(def lines
+  ["ABARROTES" "MATERIALES" "PERFUMERIA" "VINOS" "JUGUETES" "PAN" "MERCERIA" "OTROS"])
+
+(def units
+  ["PIEZA" "KILO" "METRO" "PAQUETE" "BOTELLA" "BOTE" "CAJA" "FRASCO" "BOLSA"])
 
 (defn valid-barcode? [s]
   (and (>= 13 (count s))

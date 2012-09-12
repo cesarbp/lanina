@@ -30,6 +30,10 @@
   (let [response (article/get-by-name name)]
     (resp/json response)))
 
+(defpage "/json/all-articles" []
+  (let [response (article/get-all-only [:codigo :nom_art :fech_an :prev_con :prev_sin])]
+    (resp/json response)))
+
 (defpartial barcode-form []
   (form-to {:id "barcode-form" :class "form-inline"} [:get ""]
     [:div.subnav
@@ -40,11 +44,11 @@
       [:li
        (text-field {:class "input-small" :style "position:relative;top:14px;left:2px;text-align:right" :id "barcode-field" :onkeypress "return barcode_listener(this, event)" :autocomplete "off" :placeholder "F3 - Código"} "barcode")]
       [:li
-       (text-field {:style "position:relative;top:14px;left:4px;text-align:right" :id "article-field" :onkeypress "return article_listener(this, event)" :autocomplete "off" :placeholder "F4 - Nombre de artículo"} "article")]
+       [:a [:p {:style "position:relative;top:7px;"} "F4 - Agregar por nombre de artículo"]]]
       ]]))
 
 (defpartial add-unregistered-form []
-  [:div.navbar.navbar-fixed-bottom
+  [:div#free-articles.navbar.navbar-fixed-bottom
    [:div.navbar-inner
     [:div.container-fluid
      [:ul.nav
@@ -83,6 +87,14 @@
     (main-layout-incl content [:base-css :search-css :switch-css :jquery :jquery-ui :base-js :shortcut :scroll-js :barcode-js :custom-css :subnav-js :switch-js])))
 
 ;;; View an article
+(defn switch-dates [article]
+  (let [now (time/now)
+        date (str (format "%02d" (time/day now)) "/" (format "%02d" (time/month now)) "/" (format "%02d" (time/year now)))]
+    (if (map? article)
+      (assoc (assoc article :fech_an (:fech_ac article))
+        :fech_ac date)
+      (seq (switch-dates (apply array-map (flatten article)))))))
+
 (defpartial view-article-form [[k v]]
   [:tr.article-row
    [:td.prop-name (article/verbose-names k)]])
@@ -93,14 +105,30 @@
    (if (= :codigo k)
      [:td.new-value (text-field {:class "article-new-value disabled" :disabled true :placeholder (str v)} (name k))]
      [:td.new-value
-      (if (= :iva k)
+      (cond
+        (= :iva k)
         [:select {:name k}
          [:option {:value (if (= (str v) "0") "0" "16")} (if (= (str v) "0") "0" "16")]
          [:option {:value (if (= (str v) "0") "16" "0")} (if (= (str v) "0") "16" "0")]]
-        (if (= :gan k)
-          [:div.control-group {:id (str (name k) "-control")}
-           (text-field {:class "article-new-value"} (name k) (str v))]
-          (text-field {:class "article-new-value"} (name k) (str v))))])
+        (= :gan k)
+        [:div.control-group {:id (str (name k) "-control")}
+         (text-field {:class "article-new-value"} (name k) (str v))]
+        (= :lin k)
+        [:select {:name k}
+         (map (fn [line]
+                [:option {:value line} line])
+              article/lines)]
+        (= :unidad k)
+        [:select {:name k}
+         (map (fn [unit]
+                [:option {:value unit} unit])
+              article/units)]
+        (or (= :fech_ac k) (= :fech_an k) (= :nom_art k))
+        [:div
+         (text-field {:class "disabled" :disabled true
+                    :placeholder v} k v)
+         (hidden-field k v)]
+        :else (text-field {:class "article-new-value"} (name k) (str v)))])
    (if (or (= k :prev_sin) (= k :prev_con))
      [:td
       [:a.btn {:onclick "return prev_up()"}
@@ -117,7 +145,7 @@
         [:th "Nombre"]
         [:th "Nuevo Valor"]
         [:th]]
-       (map modify-article-row (article/sort-by-vec (dissoc article :_id) [:codigo :nom_art :pres :ccj_con :cu_con :prev_con :ccj_sin :cu_sin :prev_sin :gan]))]
+       (map modify-article-row (switch-dates (article/sort-by-vec (dissoc article :_id) [:codigo :nom_art :pres :ccj_con :cu_con :prev_con :ccj_sin :cu_sin :prev_sin :gan])))]
       [:fieldset
        [:div.form-actions
         (submit-button {:class "btn btn-warning" :name "submit"} "Modificar")
@@ -135,6 +163,7 @@
                    :active "Artículos"
                    :nav-bar true}]
       (main-layout-incl content [:jquery :base-css :base-js :custom-css :subnav-js :modify-js]))))
+
 
 (defpartial confirm-changes-row [[k old new]]
   [:tr.article-row
@@ -166,26 +195,32 @@
                  :active "Artículos"}
         article (article/get-by-id (:_id pst))
         now (time/now)
-        date (str (time/day now) "/" (time/month now) "/" (time/year now))]
+        date (str (format "%02d" (time/day now)) "/" (format "%02d" (time/month now)) "/" (format "%02d" (time/year now)))]
     (cond 
       (= "Modificar" (:submit pst))
       (let [ks (article/get-keys)
-            changes          
-            (reduce (fn [acc k]
-                      (if (and (k pst) (not= (article k) (k pst))
-                               (try (not= (article k) (Double. (k pst)))
-                                    (catch Exception e false))
-                               (try (not= (article k) (Integer. (k pst)))
-                                    (catch Exception e false)))
-                        (into acc {k (.toUpperCase (k pst))})
-                        acc))
-                    {}
-                    ks)
-            changed-keys (keys changes)
-            original-vals (article/get-by-id-only (:_id pst) (vec changed-keys))]
+            common-keys (clojure.set/intersection (set (keys article))
+                                                  (set (keys pst)))
+            usable-orig (map #(vector % (% article)) common-keys)
+            usable-new  (map #(vector % (% pst)) common-keys)
+            changes
+            (reduce into {}
+                    (map (fn [orig new]
+                           (when (and (not= (second orig) (second new))
+                                      (or (not (number? (second orig)))
+                                          (try (not= (double (second orig)) (Double. (second new)))
+                                               (catch Exception e false))
+                                          (try (not= (int (second orig)) (Integer. (second new)))
+                                               (catch Exception e false))))
+                             {(first new) (second new)}))
+                         usable-orig usable-new))
+            orig-vals (reduce into {}
+                              (map (fn [k]
+                                     {k (k article)})
+                                   (keys changes)))]
         (if (seq changes)
           (home-layout (assoc content :content
-                              [:div.container-fluid (confirm-changes-table original-vals changes)]))
+                              [:div.container-fluid (confirm-changes-table orig-vals changes)]))
           (home-layout (assoc content :content
                               [:div.container
                                [:p.alert.alert-warning "No hay cambios para realizar"]
@@ -228,7 +263,7 @@
                  :active "Artículos"
                  :footer [:p "Gracias por visitar."]
                  :nav-bar true}]
-    (main-layout-incl content [:base-css :search-css :jquery :jquery-ui :trie-js :search-js])))
+    (main-layout-incl content [:base-css :search-css :jquery :base-js :jquery-ui :trie-js :search-js])))
 
 (defpartial search-results-row [result]
   (when (seq result)
@@ -311,7 +346,7 @@
 (defpage [:post "/articulos/id/:id/eliminar/"] {:as post}
   (let [art-name (:nom_art (article/get-by-id (:id post)))
         now (time/now)
-        date (str (time/day now) "/" (time/month now) "/" (time/year now))]
+        date (str (format "%02d" (time/day now)) "/" (format "%02d" (time/month now)) "/" (format "%02d" (time/year now)))]
     (article/delete-article (:id post))
     (logs/setup!)                       ;remove this
     (logs/add-logs! (:id post) :deleted {} date)
@@ -414,7 +449,9 @@
     (home-layout content)))
 
 (defpartial add-article-form [article to-modify]
-  (let [verbose article/verbose-names]
+  (let [verbose article/verbose-names
+        now (time/now)
+        date (str (format "%02d" (time/day now)) "/" (format "%02d" (time/month now)) "/" (format "%02d" (time/year now)))]
     (form-to {:class "form form-horizontal"} [:post "/articulos/nuevo/"]
       [:fieldset
        (map (fn [[k v]]
@@ -422,11 +459,28 @@
                (label {:class "control-label"} k (verbose k))
                [:div.controls
                 (cond (not (seq to-modify))
-                      (if (= :iva k)
+                      (cond (= :iva k)
                         [:select {:name k}
                          [:option {:value "16"} "16"]
                          [:option {:value "16"} "0"]]
-                        (text-field {:id k} k))
+                        (= :stk k)
+                        (text-field {:id k} k "0")
+                        (= :lin k)
+                        [:select
+                         (map (fn [line]
+                                [:option {:value line} line])
+                              article/lines)]
+                        (= :unidad k)
+                        [:select
+                          (map (fn [unit]
+                                [:option {:value unit} unit])
+                               article/units)]
+                        (or (= :fech_ac k) (= :fech_an k))
+                        [:div
+                         (text-field {:class "disabled" :disabled true
+                                      :placeholder date} k date)
+                         (hidden-field k date)]
+                        :else (text-field {:id k} k))
                       (some #{k} to-modify)
                       (text-field {:id k} k (article k))
                       :else
@@ -447,12 +501,12 @@
                  :active "Artículos"
                  :content [:div.container (add-article-form article to-modify)]
                  :nav-bar true}]
-    (main-layout-incl content [:base-css :search-css :jquery :jquery-ui :verify-js :modify-js])))
+    (main-layout-incl content [:base-css :search-css :jquery :base-js :jquery-ui :verify-js :modify-js])))
 
 (defpage [:post "/articulos/nuevo/"] {:as post}
   (let [to-add (dissoc post :_id)
         now (time/now)
-        date (str (time/day now) "/" (time/month now) "/" (time/year now))]
+        date (str (format "%02d" (time/day now)) "/" (format "%02d" (time/month now)) "/" (format "%02d" (time/year now)))]
     (article/add-article to-add)
     (logs/setup!)                       ;Remove this
     (logs/add-logs! (:_id post) :added to-add date)

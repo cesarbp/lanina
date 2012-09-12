@@ -1,5 +1,5 @@
 // FIXME - Invalid html ids
-
+var art_names;
 function toArray(obj) {
     var array = [];
     // iterate backwards ensuring that length is an UInt32
@@ -421,7 +421,6 @@ function split_url (a) {
     };
     var denom, quant, type, price, name, bc;
     while (match = re.exec(req)) {
-	console.log(quant);
 	denom = match[1],
 	quant = parseInt(match[2]),
 	type = getType(denom),
@@ -502,6 +501,16 @@ function pay_listeners() {
     });
 }
 
+
+function remove_modal() {
+    $("#modal").modal('hide');
+    $("#modal").remove();
+    shortcut.remove("F8");
+    shortcut.add("F8", function() {
+	$('[data-toggle="switch"]').switchbtn('toggle');
+    });
+}
+
 function draw_modal () {
     if ($("#modal").length > 0) {
 	remove_modal();
@@ -523,7 +532,7 @@ function draw_modal () {
 	total = total + articles[i][4];
     }
 
-    modal_html = modal_base.replace('{total}', total.toFixed(2).toString()).replace('{rows}', rows).replace('{req}', a.search);
+    modal_html = modal_base.replace(/{total}/g, total.toFixed(2).toString()).replace('{rows}', rows).replace('{req}', a.search);
     $("#main").append(modal_html);
     $("#modal").modal('toggle');
 
@@ -536,17 +545,103 @@ function draw_modal () {
     return false;
 }
 
-function remove_modal() {
-    $("#modal").modal('hide');
-    $("#modal").remove();
-    shortcut.remove("F8");
-    shortcut.add("F8", function() {
-	$('[data-toggle="switch"]').switchbtn('toggle');
-    });
+// Draw article name modal
+
+function remove_artname_modal() {
+    if ($('#art-name-modal').length > 0) {
+	$('#art-name-modal').modal('hide');
+	$('#art-name-modal').remove();
+    }
 }
 
+function draw_artname_modal() {
+    if ($('#art-name-modal').length > 0) {
+	remove_artname_modal();
+    }
+    var modal_base = readFile('/js/art-name-modal.html');
+    $('#main').append(modal_base);
+    $('#art-name-modal').modal('toggle');
+    $('#art-name-input').focus();
+    
+}
+function artnames_rows(arts){
+    var template = '<tr class="art-name-pos selectable"><td>{bc}</td><td>{name}</td><td>{date}</td><td>{price}</td></tr>';
+    var top = '<tr class="art-name-pos unselectable"><th>Código</th><th>Nombre</th><th>Fecha</th><th>Precio</th></tr>';
+    return top + arts.map(function(o){
+	var price;
+	var con = o['prev_con'];
+	var sin = o['prev_sin'];
+	if (parseFloat(con) > 0) {
+	    price = con;
+	} else {
+	    price = sin;
+	}
 
+	var html = template.replace('{bc}', o['codigo']).replace('{name}', o['nom_art']).replace('{date}', o['fech_an']).replace('{price}', parseFloat(price).toFixed(2).toString());
+	return html;
+    }).join('');
+}
+
+function artname_table_selects() {
+    var i = -1;
+    $(document).keydown(function(e) {
+	if (e.keyCode === 40 && $('#art-name-modal').length > 0) {
+	    i = (i + 1 >= $('tr.selectable').length) ? $('tr.selectable').length - 1 : i + 1;
+	    $('tr.selectable').removeClass('row_selected');
+	    $('tr.selectable:eq(' + i + ')').addClass('row_selected');
+	    var name = $('tr.selectable:eq(' + i +')').children()[1].textContent;
+	    $('#art-name-input').val(name);
+	    return false;
+	} else if (e.keyCode === 38 && $('#art-name-modal').length > 0) {
+	    i = (i === 0) ? 0 : i - 1;
+	    $('tr.selectable').removeClass('row_selected');
+	    $('tr.selectable:eq(' + i + ')').addClass('row_selected');
+	    var name = $('tr.selectable:eq(' + i +')').children()[1].textContent;
+	    $('#art-name-input').val(name);
+	    return false;
+	} else if (e.keyCode === 13 && $('#art-name-modal').length > 0 && $('#art-name-input').val().length > 3) {
+	    var quantity = $('#artname-quantity').val() || '1';
+	    if (isInt(quantity)) {
+		quantity = parseInt(quantity);
+	    } else {
+		quantity = 1;
+	    }
+	    var name = $('#art-name-input').val();
+	    add_article_row(name, quantity);
+	    remove_artname_modal();
+	}
+    })
+}
+
+function artname_input_listener(){
+    if ($('#art-name-input').length > 0) {
+	$('#art-name-input').on('keyup', function (e) {
+	    var code = e.keyCode;
+	    if (code === 27) {
+		remove_artname_modal();
+	    } else if ($('#art-name-input').val().length === 4 && art_names) {
+		var first_three = $('#art-name-input').val();
+		var html =
+		    artnames_rows(art_names.filter(function(o){
+			if (o['nom_art'].toUpperCase().search(first_three.toUpperCase()) === 0) {
+			    return true;
+			}
+		    }));
+		$('.art-name-pos').remove();
+		$('#pos-names').append(html);
+		$('#art-name-input').blur();
+		artname_table_selects();
+	    }
+	})
+    }
+}
+
+// Ugly as f copypaste
 $(document).ready(function(){
+    $.getJSON('/json/all-articles', {}, function(results) {
+	art_names = results;
+    });
+    
     var trie = {};
     var search_box_id = "#article-field";
     var jn;
@@ -554,7 +649,8 @@ $(document).ready(function(){
 	$("#barcode-field").focus();
     });
     shortcut.add("F4", function() {
-	$("#article-field").focus();
+	draw_artname_modal();
+	artname_input_listener();
     });
     shortcut.add("F2", function() {
 	$("#quantity-field").focus();
@@ -585,5 +681,27 @@ $(document).ready(function(){
     });
     $('#barcode-field').focus();
 
+    $('#unregistered-quantity').tooltip({
+	title: 'Cantidad'
+    });
+    $('#unregistered-price').tooltip({
+	title: 'Precio'
+    });
+    $('#quantity-field').tooltip({
+	title: 'Cantidad'
+    });
+    $('#barcode-field').tooltip({
+	title: 'Código de barras'
+    });
+    $('#unregistered-quantity').tooltip('show');
+    $('#unregistered-price').tooltip('show');
+    $('#quantity-field').tooltip('show');
+    $('#barcode-field').tooltip('show');
+    setTimeout(function() {
+	$('#unregistered-quantity').tooltip('hide');
+	$('#unregistered-price').tooltip('hide');
+	$('#quantity-field').tooltip('hide');
+	$('#barcode-field').tooltip('hide');
+    }, 5000);    
 });
 

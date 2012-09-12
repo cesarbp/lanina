@@ -193,4 +193,14 @@ $(document).ready(function () {
     $('#prev_sin').blur(function() {
 	calc_util();
     });
+
+    $('input').keydown(function(e){
+	if (e.keyCode === 9) {
+	    $('#' + this.id).val($('#' + this.id).val().toUpperCase());	
+	}
+    });
+    if ($('#codigo')[0].disabled)
+	$('#pres').focus();
+    else
+	$('#codigo').focus();
 });

@@ -6,14 +6,14 @@
   <div class="modal-body" style="max-height:220px;">
     <table class="table table-condensed">
       <tr>
-	<th>Nombre</th><th>Cantidad</th><th>Precio</th><th>Total</th
+	<th>Nombre</th><th>Cantidad</th><th>Precio</th><th>Total</th>
       </tr>
       {rows}
     </table>
   </div>
   <div class="modal-footer control-group">
-    <input type="text" name="pay" style="position:relative;right:5px;top:5px;" id="pay" placeholder="F8 - Pago "value="" />
+    <input autocomplete="off" type="text" name="pay" style="position:relative;right:5px;top:5px;" id="pay" placeholder="F8 - Pago" value="{total}" />
     <button class="btn btn-danger" data-dismiss="modal" aria-hidden="true" onclick="remove_modal();">Esc - Cancelar</button>
-    <a href="/tickets/nuevo/{req}" onclick="print_ticket();" disabled="disabled" class="btn btn-primary" id="print-ticket">Imprimir Ticket</a>
+    <a href="/tickets/nuevo/{req}" onclick="print_ticket();" class="btn btn-primary" id="print-ticket">Imprimir Ticket</a>
   </div>
 </div>

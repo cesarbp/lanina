@@ -32,6 +32,7 @@
 (def nav-links
   [["Ventas"    "/ventas/"]
    ["Artículos" "/articulos/"]
+   ["Tickets"   "/tickets/"]
    ["Inicio"    "/inicio/"]
    ["Salir"     "/salir/"]])
 
