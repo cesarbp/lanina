@@ -49,3 +49,6 @@
 
 (defn search-by-folio [folio]
   (fetch ticket-coll :where {:folio folio}))
+
+(defn get-by-folio [folio]
+  (fetch-one ticket-coll :where {:folio folio}))

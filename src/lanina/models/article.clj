@@ -71,6 +71,9 @@
     (id-to-str
      (fetch-one article-coll :where {:_id (object-id id)} :only only))))
 
+(defn get-by-match [where]
+  (fetch-one article-coll :where where))
+
 (defn get-by-name [name]
   (id-to-str
    (fetch-one article-coll :where {:nom_art name} :only [:nom_art :codigo :prev_con :prev_sin])))

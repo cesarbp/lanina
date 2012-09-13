@@ -50,7 +50,7 @@
                                                                                  #"_" "."))}
           :else (article/get-by-name (clojure.string/replace denom #"_" " ")))))
 
-(defpartial printed-ticket [prods pay total change]
+(defpartial printed-ticket [prods pay total change ticket-number folio]
   (let [now (time/now)
         date (str (time/day now) "/" (time/month now) "/" (time/year now))
         t (str (format "%02d" (time/hour now)) ":"
@@ -61,7 +61,7 @@
        [:li {:style "text-align:center;"} "\"L A N I Ñ A\""]
        [:li {:style "text-align:center;"} "R.F.C: ROHE510827-8T7"]
        [:li {:style "text-align:center;"} "GUERRERO No. 45 METEPEC MEX."]
-       [:li {:style "text-align:center;"} (str date " " t " TICKET:##")]]
+       [:li {:style "text-align:center;"} (str date " " t " TICKET:" ticket-number)]]
       (map (fn [art] [:p
                       [:li (:nom_art art)]
                       [:li {:style "text-align:right;"}
@@ -76,7 +76,8 @@
        [:li {:style "text-align:right;"}
         (format "CAMBIO ==> $ %8.2f" (double change))]
        [:li {:style "text-align:right;"}
-        (format "EFECTIVO ==> $ %8.2f" (double pay))]]]]))
+        (format "EFECTIVO ==> $ %8.2f" (double pay))]
+       [:li (str "Folio: " folio)]]]]))
 
 ;;; Fixme - this should be POST
 (defpage "/tickets/nuevo/" {:as items}
@@ -96,13 +97,15 @@
                       [] pairs)
         total (reduce + (map :total prods))
         change (- pay total)
+        ticket-number (ticket/get-next-ticket-number)
+        folio (ticket/get-next-folio)
         content {:title [:div.alert.alert-error
                          [:h1 "Cambio: "
                           (format "%.2f" (double change))]]
                  :content [:div.container-fluid
                            (pay-notice pay total change)
                            [:hr]
-                           (printed-ticket prods pay total change)]
+                           (printed-ticket prods pay total change ticket-number folio)]
                  :active "Ventas"}]
     (ticket/insert-ticket pay prods)
     (home-layout content)))
@@ -128,7 +131,7 @@
   (let [now (time/now)
         date (str (format "%02d" (time/day now)) "/" (format "%02d" (time/month now)) "/" (format "%02d" (time/year now)))]
     (form-to {:class "form-horizontal"} [:get "/tickets/corte"]
-      [:legend "Corte de caja"]
+      [:legend "Cortes de caja"]
       [:fieldset
        [:div.control-group
         (label {:class "control-label"} "date" "Indicar fecha de corte")
@@ -157,7 +160,9 @@
      [:td date]
      [:td (format "%.2f" total)]
      [:td (format "%.2f" pay)]
-     [:td (format "%.2f" (- pay total))]]))
+     [:td (format "%.2f" (- pay total))]
+     [:td (link-to {:class "btn btn-success"} (str "/tickets/folio/" folio "/") "Consultar")]
+     [:td (link-to {:class "btn btn-primary"} (str "/tickets/folio/" folio "/imprimir/") "Imprimir")]]))
 
 (defpartial ticket-results-table [tickets]
   [:table.table.table-condensed
@@ -166,7 +171,8 @@
     [:th "Fecha"]
     [:th "Total"]
     [:th "Pagado"]
-    [:th "Cambio"]]
+    [:th "Cambio"]
+    [:th {:colspan 2} "Controles"]]
    (map ticket-results-row tickets)])
 
 (defpage "/tickets/buscar" {:keys [date folio]}
@@ -190,7 +196,7 @@
 (defpartial cashier-cut [tickets]
   (let [all-arts (map :articles tickets)
         gvdos-extos (map (fn [prods]
-                      (map #(reduce + 0.0 (map :total %)) ((juxt filter remove) #(= :gvdo (:gvdo %)) prods)))
+                      (map #(reduce + 0.0 (map :total %)) ((juxt filter remove) #(= "gvdo" (:type %)) prods)))
                     all-arts)
         gvdo (reduce + (map first gvdos-extos))
         exto (reduce + (map second gvdos-extos))
@@ -217,9 +223,40 @@
         cut (when (seq tickets) (cashier-cut tickets))
         content {:title (str "Corte de caja de la fecha " (ticket/fix-date date))
                  :content (if (seq tickets)
-                            cut
+                            [:div.container-fluid
+                             cut
+                             [:div.form-actions
+                              (link-to {:class "btn btn-primary"}
+                                       (str "/tickets/corte/"
+                                            (clojure.string/replace date #"/" "-") "/imprimir/")
+                                       "Imprimir corte")]]
                             [:div.container-fluid
                              [:p {:class "alert alert-error"} "Este día no tiene ventas."]])
+                 :nav-bar true
+                 :active "Tickets"}]
+    (home-layout content)))
+
+(defpartial show-ticket [ticket]
+  (let [folio (:folio ticket)
+        pay   (:pay ticket)
+        prods (:articles ticket)
+        total (reduce + (map :total prods))
+        change (- pay total)
+        number (:ticket-number ticket)]
+    [:div.container-fluid
+     [:div.form-actions
+      (link-to {:class "btn btn-primary"} (str "/tickets/folio/" folio "/imprimir/") "Imprimir ticket")]
+     [:hr]
+     (printed-ticket prods pay total change number folio)]))
+
+(defpage "/tickets/folio/:folio/" {folio :folio}
+  (let [ticket (ticket/get-by-folio (try (Long. folio)
+                                         (catch Exception e 0)))
+        content {:title (str "Mostrando ticket con folio " folio)
+                 :content [:div.container-fluid
+                           (if (seq ticket)
+                             (show-ticket ticket)
+                             [:p {:class "alert alert-error"} "No existe tal ticket."])]
                  :nav-bar true
                  :active "Tickets"}]
     (home-layout content)))

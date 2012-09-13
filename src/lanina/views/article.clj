@@ -214,10 +214,12 @@
                                                (catch Exception e false))))
                              {(first new) (second new)}))
                          usable-orig usable-new))
-            orig-vals (reduce into {}
-                              (map (fn [k]
+            orig-vals (into
+                       (reduce into {}
+                               (map (fn [k]
                                      {k (k article)})
-                                   (keys changes)))]
+                                    (keys changes)))
+                       {:_id (:_id pst)})]
         (if (seq changes)
           (home-layout (assoc content :content
                               [:div.container-fluid (confirm-changes-table orig-vals changes)]))
@@ -508,10 +510,11 @@
         now (time/now)
         date (str (format "%02d" (time/day now)) "/" (format "%02d" (time/month now)) "/" (format "%02d" (time/year now)))]
     (article/add-article to-add)
-    (logs/setup!)                       ;Remove this
-    (logs/add-logs! (:_id post) :added to-add date)
-    (session/flash-put! :messages '({:type "alert-success" :text "El artículo ha sido agregado."}))
-    (resp/redirect "/articulos/")))
+    (let [new-id (:_id (article/get-by-match to-add))]
+      (logs/setup!)                       ;Remove this
+      (logs/add-logs! (str new-id) :added to-add date)
+      (session/flash-put! :messages '({:type "alert-success" :text "El artículo ha sido agregado."}))
+      (resp/redirect "/articulos/"))))
 
 ;;; Show Logs
 (defpartial logrow [{:keys [date content link]}]

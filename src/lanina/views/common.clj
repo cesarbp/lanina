@@ -33,6 +33,7 @@
   [["Ventas"    "/ventas/"]
    ["Artículos" "/articulos/"]
    ["Tickets"   "/tickets/"]
+   ["Listas"    "/listas/"]
    ["Inicio"    "/inicio/"]
    ["Salir"     "/salir/"]])
 
