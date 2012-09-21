@@ -5,7 +5,8 @@
         [hiccup.element :only [link-to]])
   (:require [lanina.models.logs :as logs]
             [lanina.models.article :as article]
-            [lanina.models.employee :as employee]))
+            [lanina.models.employee :as employee]
+            [clj-time.core :as time]))
 
 (defpartial art-row [art]
   [:tr
@@ -46,22 +47,21 @@
   (let [employees employee/employee-list
         arts (map (fn [id] (article/get-by-id-only id [:nom_art :codigo]))
                   ids)]
-    [:table.table.table-condensed
-     [:tr
-      [:th "Código"]
-      [:th "Nombre"]]
-     (map (fn [art] [:tr [:td (:codigo art)] [:td (:nom_art art)]]) arts)
-     [:div.form-actions
-      [:p (str "Grupo " n)]
-      [:select
-       [:option {:value ""} "Escoja un empleado"]
-       (map (fn [e] [:option {:value e} e]) employees)]]]))
-
-(defpartial assign-employees-form [grouped]
-  (form-to {:class "form form-horizontal"} [:post "/empleados/asignar/"]
-    (map assign-employees-row grouped)
-    [:div.form-actions
-     (submit-button {:class "btn btn-primary"} "Crear lista")]))
+    (form-to [:post "/listas/imprimir/"]
+        [:table.table.table-condensed
+         [:tr
+          [:th "Código"]
+          [:th "Nombre"]]
+         (map (fn [art] [:tr
+                         [:td (:codigo art)]
+                         [:td (:nom_art art)]]) arts)
+         [:div.form-actions
+          [:p (str "Grupo " n)]
+          (label {:class "control-label"} "employee" "Nombre de empleado")
+          (text-field "employee")
+          (hidden-field :ids (seq (map :_id arts)))
+          [:br]
+          (submit-button {:class "btn btn-primary"} "Imprimir")]])))
 
 (defpage [:post "/listas/nueva/"] {:as pst}
   (let [grouped (reduce
@@ -73,11 +73,38 @@
                  pst)
         content {:title "Crear una lista"
                  :content [:div.container-fluid
-                           (assign-employees-form grouped)]
+                           (map assign-employees-row grouped)
+                           [:script "$($('input[type=\"text\"]')[0]).focus();"]]
                  :nav-bar true
                  :active "Listas"}]
-    (home-layout content)))
+    (main-layout-incl content [:base-css :jquery])))
 
 (defpage "/logs/clear/" []
   (logs/remove-logs)
   "done!")
+
+(defpartial list-as-printed [employee date barcodes names]
+  [:pre.prettyprint.linenums {:style "max-width:235px;"}
+   [:ol.linenums {:style "list-style-type:none;"}
+    [:p
+     [:li {:style "text-align:center;"} "\"L A N I Ñ A\""]
+     [:li {:style "text-align:center;"} (str "LISTA PARA EMPLEADO: " (clojure.string/upper-case employee))]
+     [:li {:style "text-align:center;"} (str "FECHA: " date)]
+     (map (fn [bc name]
+            [:p [:li  bc]
+             [:li name]])
+          barcodes names)]]])
+
+(defpage [:post "/listas/imprimir/"] {:as post}
+  (let [now (time/now)
+        date (str (format "%02d" (time/day now)) "/" (format "%02d" (time/month now)) "/" (format "%02d" (time/year now)))
+        employee (:employee post)
+        ids (read-string (:ids post))
+        arts (map article/get-by-id ids)
+        barcodes (map :codigo arts)
+        names    (map :nom_art arts)
+        content {:title "Lista Impresa"
+                 :nav-bar true
+                 :active "Listas"
+                 :content [:div.container-fluid (list-as-printed employee date barcodes names)]}]
+    (home-layout content)))

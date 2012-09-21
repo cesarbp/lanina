@@ -1,18 +1,47 @@
+// Used to change prices
+
 function get_iva() {
-    return $('select[name="iva"]').val();
+    return $('select[name="iva"]').val() || $('input[name="iva"]').val();
+}
+
+function replace_price_inputs(with_iva) {
+    if (with_iva) {
+	var ccj_id = '#ccj_sin';
+	var price_id = '#prev_sin';
+	var ccj_other = '#ccj_con';
+	var price_other = '#prev_con';
+    } else {
+	var ccj_id = '#ccj_con';
+	var price_id = '#prev_con';
+	var ccj_other = '#ccj_sin';
+	var price_other = '#prev_sin';
+    }
+    var ccj = $(ccj_id).val();
+    var price = $(price_id).val();
+
+    $(ccj_other + '[type="hidden"]').remove();
+    $(price_other + '[type="hidden"]').remove();
+    $(ccj_other).removeAttr('disabled');
+    $(price_other).removeAttr('disabled');
+
+    $(ccj_id).attr('disabled', true);
+    $(price_id).attr('disabled', true);
+
+    if ($(ccj_id + '[type="hidden"]').length === 0) {
+	var hidden_temp = '<input id="{id}" name="{id}" type="hidden" value="">';
+	$('form').append(hidden_temp.replace(/{id}/g, ccj_id.replace('#', '')))
+	$('form').append(hidden_temp.replace(/{id}/g, price_id.replace('#', '')))
+    }
+
 }
 
 function clear_from_iva() {
     var iva = get_iva();
     if (iva === "0") {
-	$('#ccj_con').val("0.0");
-	$('#cu_con').val("0.0");
-	$('#prev_con').val("0.0");
+	replace_price_inputs(false);
     }
     else {
-	$('#ccj_sin').val("0.0");
-	$('#cu_sin').val("0.0");
-	$('#prev_sin').val("0.0");
+	replace_price_inputs(true);
     }
 }
 
@@ -171,6 +200,7 @@ function calc_util(){
 }
 
 $(document).ready(function () {
+    clear_from_iva();
     $('select[name="iva"]').change(function() {
 	clear_from_iva();
     });

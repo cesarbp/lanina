@@ -203,8 +203,12 @@
         iva (if (> gvdo 0.0)
               (- gvdo (/ gvdo 1.16))
               0.0)
-        total (+ gvdo exto)]
+        total (+ gvdo exto)
+        number (count tickets)]
     [:div.container-fluid
+     [:div.alert
+      [:h2 "Tickets: "
+       (str number)]]
      [:div.alert.alert-info
       [:h2 "Exentos: "
        (format "%.2f" (double exto))]]
@@ -218,6 +222,31 @@
       [:h2 "Total: "
        (format "%.2f" (double total))]]]))
 
+(defpartial cut-as-printed [tickets]
+  (let [all-arts (map :articles tickets)
+        gvdos-extos (map (fn [prods]
+                      (map #(reduce + 0.0 (map :total %)) ((juxt filter remove) #(= "gvdo" (:type %)) prods)))
+                    all-arts)
+        gvdo (reduce + (map first gvdos-extos))
+        exto (reduce + (map second gvdos-extos))
+        iva (if (> gvdo 0.0)
+              (- gvdo (/ gvdo 1.16))
+              0.0)
+        total (+ gvdo exto)
+        number (count tickets)]
+    [:pre.prettyprint.linenums {:style "max-width:235px;"}
+     [:ol.linenums {:style "list-style-type:none;"}
+      [:p
+       [:li {:style "text-align:center;"} "\"L A N I Ñ A\""]
+       [:li {:style "text-align:center;"} "CORTE DE CAJA"]
+       [:li {:style "text-align:center;"} (str "FECHA: " (:date (first tickets)))]
+       [:li {:style "text-align:center;"} "-----------------"]
+       [:li (format "TICKETS ==> %10d" (Integer. number))]
+       [:li (format "EXENTOS ==> %10.2f" (double exto))]
+       [:li (format "GRAVADOS ==> %9.2f" (double gvdo))]
+       [:li (format "IVA ==> %14.2f" (double iva))]
+       [:li (format "TOTAL ==> %12.2f" (double total))]]]]))
+
 (defpage "/tickets/corte" {:keys [date]}
   (let [tickets (ticket/search-by-date date)
         cut (when (seq tickets) (cashier-cut tickets))
@@ -225,6 +254,8 @@
                  :content (if (seq tickets)
                             [:div.container-fluid
                              cut
+                             [:hr]
+                             (cut-as-printed tickets)
                              [:div.form-actions
                               (link-to {:class "btn btn-primary"}
                                        (str "/tickets/corte/"

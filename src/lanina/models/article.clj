@@ -124,6 +124,28 @@ csv of the articles"
       (fill-article-coll!)))
 
 ;;; Searching an article
+(def art-props
+  [:unidad 
+   :stk 
+   :lin 
+   :ramo 
+   :fech_ac 
+   :cu_sin 
+   :cu_con 
+   :pres 
+   :ubica 
+   :prov 
+   :iva 
+   :gan 
+   :fech_an 
+   :exis 
+   :prev_con 
+   :prev_sin 
+   :ccj_con 
+   :ccj_sin 
+   :nom_art 
+   :codigo 
+   :tam])
 
 (def verbose-names
   {:unidad "Unidad"
@@ -149,7 +171,7 @@ csv of the articles"
    :tam "Tamaño"})
 
 (def lines
-  ["ABARROTES" "MATERIALES" "PERFUMERIA" "VINOS" "JUGUETES" "PAN" "MERCERIA" "OTROS"])
+  ["ABARROTES" "ROPA" "CARNES" "DESECHABLES" "DULCES" "MEDICAMENTOS" "FERRETERIA" "JARCERIA" "JUGUETES" "LACTEOS" "MATERIALES" "MERCERIA" "PANES" "PAPELERIA" "PERFUMERIA" "PLASTICOS" "REGALOS" "SEMILLAS" "VINOS" "OTROS"])
 
 (def units
   ["PIEZA" "KILO" "METRO" "PAQUETE" "BOTELLA" "BOTE" "CAJA" "FRASCO" "BOLSA"])
@@ -162,13 +184,13 @@ csv of the articles"
   "Get an article by its barcode"
   [bc]
   (when (valid-barcode? bc)
-    (fetch-one article-coll :where {:codigo bc} :only [:_id :codigo :nom_art :prev_con :prev_sin])))
+    (fetch-one article-coll :where {:codigo bc} :only [:_id :codigo :nom_art :prev_con :prev_sin :ccj_con :ccj_sin :iva])))
 
 (defn get-by-search
   "Search for an article name"
   [q]
   (let [query (re-pattern (str "(?i)^.*" q ".*$"))]
-    (fetch article-coll :where {:nom_art query} :only [:_id :codigo :nom_art :prev_con :prev_sin])))
+    (fetch article-coll :where {:nom_art query} :only [:_id :codigo :nom_art :prev_con :prev_sin :ccj_con :ccj_sin :iva])))
 
 ;;; Delete an article
 (defn delete-article [id]

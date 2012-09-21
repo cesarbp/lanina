@@ -1,3 +1,5 @@
+// Used to check for the existance of barcodes and article names
+
 var jn;
 function validate(id) {
     $(id).removeClass("error");
@@ -11,7 +13,6 @@ function invalidate(id, msg) {
     if ($('#' + id + '-msg').length === 0) {
 	$(id + ' .controls').append($('<span id=' + id.replace('#', '') + '-msg>' + msg + '</span>').addClass('help-inline'));
     }
-    
 }
 
 function disable_submit() {
@@ -19,12 +20,12 @@ function disable_submit() {
 }
 
 function no_errors(){
-    $('form').find('.error').length > 0;
+    return $('form').find('.error').length > 0;
 }
 
 function enable_submit() {
     if (no_errors()) {
-	$('input[type=submit]').attr('disabled', false);
+	$('input[type=submit]').removeAttr('disabled');
     }
 }
 

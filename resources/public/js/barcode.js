@@ -185,6 +185,8 @@ function add_article_row(barcode, n) {
 		if (article && article.codigo) {
 		    $("#articles-table").append(article_row(article, n));
 		    worked = true;
+		} else {
+		    alert("Artículo no encontrado.");
 		}
 	    });
 	    setTimeout(function() {
@@ -652,14 +654,16 @@ $(document).ready(function(){
 	draw_artname_modal();
 	artname_input_listener();
     });
-    shortcut.add("F2", function() {
+    shortcut.add("F10", function() {
 	$("#quantity-field").focus();
     });
-    shortcut.add("F5", function() {});
+    shortcut.add("F6", function() {});
+    shortcut.add("F2", function() {});
+    shortcut.add("F1", function() {});
     shortcut.add("F7", function() {
 	$("#unregistered-price").focus();
     });
-    shortcut.add("F6", function() {
+    shortcut.add("F5", function() {
 	$("#unregistered-quantity").focus();
     });
     shortcut.add("F8", function() {
