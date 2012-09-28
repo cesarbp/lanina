@@ -2,7 +2,8 @@
   (:use
    somnium.congomongo)
   (:require [lanina.models.utils :as db]
-            [clj-time.core       :as time]))
+            [clj-time.core       :as time]
+            [lanina.utils        :as utils]))
 
 (def ticket-coll :tickets)
 
@@ -52,3 +53,22 @@
 
 (defn get-by-folio [folio]
   (fetch-one ticket-coll :where {:folio folio}))
+
+(defn search-by-date-with-limits
+  ([date from]
+     (let [tickets (search-by-date date)
+           from ((utils/coerce-to Long 0) from)]
+       (when (seq tickets)
+         (if (= 0 from)
+           tickets
+           (filter #(>= (:ticket-number %) from) tickets)))))
+  ([date from to]
+     (let [from ((utils/coerce-to Long 0) from)
+           to ((utils/coerce-to Long) to)]
+       (if (or (not to) (> from to))
+         (search-by-date-with-limits date from)
+         (let [tickets (search-by-date date)]
+           (when (seq tickets)
+             (filter #(and (>= (:ticket-number %) from)
+                           (<= (:ticket-number %) to))
+                     tickets)))))))

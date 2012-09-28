@@ -6,7 +6,9 @@
   (:require [lanina.models.ticket  :as ticket]
             [lanina.models.article :as article]
             [lanina.views.utils    :as utils]
-            [clj-time.core         :as time]))
+            [clj-time.core         :as time]
+            [noir.response         :as resp]
+            [noir.session          :as session]))
 
 (defpartial ticket-row [prod]
   [:tr
@@ -134,9 +136,15 @@
       [:legend "Cortes de caja"]
       [:fieldset
        [:div.control-group
-        (label {:class "control-label"} "date" "Indicar fecha de corte")
+        (label {:class "control-label"} "fecha" "Indicar fecha de corte")
         [:div.controls
-         [:input {:type "date" :name "date" :format "dd/mm/yyyy" :value (clojure.string/join "/" (reverse (clojure.string/split date #"/")))}]]]]
+         [:input {:type "date" :name "fecha" :format "dd/mm/yyyy" :value (clojure.string/join "/" (reverse (clojure.string/split date #"/")))}]]]
+       [:div.control-group
+        (label {:class "control-label"} "desde" "Opcional: Indique el número del primer ticket")
+        (text-field "desde")]
+       [:div.control-group
+        (label {:class "control-label"} "hasta" "Opcional: Indique el número del último ticket")
+        (text-field "hasta")]]
       [:div.form-actions
        (submit-button {:class "btn btn-primary"} "Cortar")])))
 
@@ -154,9 +162,11 @@
         total (reduce + (map :total prods))
         pay   (:pay ticket)
         date  (:date ticket)
-        folio (:folio ticket)]
+        folio (:folio ticket)
+        ticket-number (:ticket-number ticket)]
     [:tr
      [:td (link-to (str "/tickets/folio/" folio "/") folio)]
+     [:td ticket-number]
      [:td date]
      [:td (format "%.2f" total)]
      [:td (format "%.2f" pay)]
@@ -168,6 +178,7 @@
   [:table.table.table-condensed
    [:tr
     [:th "Folio"]
+    [:th "Ticket"]
     [:th "Fecha"]
     [:th "Total"]
     [:th "Pagado"]
@@ -247,8 +258,15 @@
        [:li (format "IVA ==> %14.2f" (double iva))]
        [:li (format "TOTAL ==> %12.2f" (double total))]]]]))
 
-(defpage "/tickets/corte" {:keys [date]}
-  (let [tickets (ticket/search-by-date date)
+(defpage "/tickets/corte" {:keys [fecha desde hasta]}
+  (let [date fecha
+        tickets (cond (and (seq desde) (seq hasta))
+                      (ticket/search-by-date-with-limits date desde hasta)
+                      (seq hasta)
+                      (ticket/search-by-date-with-limits date 0 hasta)
+                      (seq desde)
+                      (ticket/search-by-date-with-limits date desde)
+                      :else (ticket/search-by-date date))
         cut (when (seq tickets) (cashier-cut tickets))
         content {:title (str "Corte de caja de la fecha " (ticket/fix-date date))
                  :content (if (seq tickets)
@@ -262,10 +280,13 @@
                                             (clojure.string/replace date #"/" "-") "/imprimir/")
                                        "Imprimir corte")]]
                             [:div.container-fluid
-                             [:p {:class "alert alert-error"} "Este día no tiene ventas."]])
+                             [:p {:class "alert alert-error"} "Este día no tiene ventas o no hay tickets para mostrar."]])
                  :nav-bar true
                  :active "Tickets"}]
-    (home-layout content)))
+    (if (or (seq tickets) (seq fecha))
+      (home-layout content)
+      (do (session/flash-put! :messages '({:type "alert-error" :text "Necesita indicar una fecha de corte"}))
+          (resp/redirect "/tickets/")))))
 
 (defpartial show-ticket [ticket]
   (let [folio (:folio ticket)

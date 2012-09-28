@@ -3,14 +3,16 @@
         lanina.views.common
         hiccup.form
         [hiccup.element :only [link-to]]
-        [lanina.models.utils :only [valid-id?]])
+        [lanina.models.utils :only [valid-id?]]
+        lanina.utils)
   (:require [lanina.models.article  :as article]
             [lanina.views.utils     :as utils]
             [lanina.models.user     :as users]
             [noir.session           :as session]
             [noir.response          :as resp]
             [lanina.models.logs     :as logs]
-            [clj-time.core          :as time]))
+            [clj-time.core          :as time]
+            [lanina.models.ticket   :as ticket]))
 
 ;;; Used by js to get the article in an ajax way
 (defpage "/json/article" {:keys [barcode]}
@@ -34,6 +36,7 @@
   (let [response (article/get-all-only [:codigo :nom_art :fech_an :prev_con :prev_sin])]
     (resp/json response)))
 
+;;; Sales interface
 (defpartial barcode-form []
   (form-to {:id "barcode-form" :class "form-inline"} [:get ""]
     [:div.subnav
@@ -79,14 +82,14 @@
     (resp/redirect "/entrar/")))
 
 (defpage "/ventas/" []
-  (let [content {:title "Ventas"
+  (let [content {:title (str "Ventas, número de ticket: " (ticket/get-next-ticket-number))
                  :content [:div#main.container-fluid (barcode-form) (item-list) (add-unregistered-form)]
                  :footer [:p "Gracias por su compra."]
                  :nav-bar true
                  :active "Ventas"}]
     (main-layout-incl content [:base-css :search-css :switch-css :jquery :jquery-ui :base-js :shortcut :scroll-js :barcode-js :custom-css :subnav-js :switch-js])))
 
-;;; View an article
+;;; Modify/Add an article
 (defn switch-dates [article]
   (let [now (time/now)
         date (str (format "%02d" (time/day now)) "/" (format "%02d" (time/month now)) "/" (format "%02d" (time/year now)))]
@@ -95,40 +98,53 @@
         :fech_ac date)
       (seq (switch-dates (apply array-map (flatten article)))))))
 
-(defpartial view-article-form [[k v]]
-  [:tr.article-row
-   [:td.prop-name (article/verbose-names k)]])
+(defpartial iva-select [iva]
+  (if (= iva "16")
+    [:select {:name :iva}
+     [:option {:value "16"} "16"]
+     [:option {:value "0"}  "0"]]
+    [:select {:name :iva}
+     [:option {:value "0"} "0"]
+     [:option {:value "16"}  "16"]]))
+
+(defpartial lin-select [orig]
+  (let [orig (if (seq orig) orig "ABARROTES")
+        remaining (vec (clojure.set/difference (set article/lines) #{orig}))
+        fst [:select {:name :lin}
+             [:option {:value orig} orig]]]
+    (reduce (fn [acc line] (into acc [[:option {:value line} line]])) fst remaining)))
+
+(defpartial unit-select [unit]
+  (let [orig (if (seq unit) unit "PIEZA")
+        remaining (vec (clojure.set/difference (set article/units) #{orig}))
+        fst [:select {:name :unidad}
+             [:option {:value orig} orig]]]
+    (reduce (fn [acc unit] (into acc [[:option {:value unit} unit]])) fst remaining)))
 
 (defpartial modify-article-row [[k v]]
   [:tr.article-row
    [:td.prop-name (article/verbose-names k)]
    (if (= :codigo k)
-     [:td.new-value (text-field k (str v))]
+     [:td.new-value (text-field {:autocomplete "off"} k (str v))]
      [:td.new-value
       (cond
         (= :iva k)
-        [:select {:name k}
-         [:option {:value (if (= (str v) "0") "0" "16")} (if (= (str v) "0") "0" "16")]
-         [:option {:value (if (= (str v) "0") "16" "0")} (if (= (str v) "0") "16" "0")]]
+        (if v
+          (iva-select v)
+          (iva-select "16"))
         (= :gan k)
         [:div.control-group {:id (str (name k) "-control")}
-         (text-field {:class "article-new-value"} (name k) (str v))]
+         (text-field {:class "article-new-value" :autocomplete "off" } (name k) (str v))]
         (= :lin k)
-        [:select {:name k}
-         (map (fn [line]
-                [:option {:value line} line])
-              article/lines)]
+        (lin-select v)
         (= :unidad k)
-        [:select {:name k}
-         (map (fn [unit]
-                [:option {:value unit} unit])
-              article/units)]
+        (unit-select v)
         (or (= :fech_ac k) (= :fech_an k) (= :nom_art k))
         [:div
          (text-field {:class "disabled" :disabled true
                     :placeholder v} k v)
          (hidden-field k v)]
-        :else (text-field {:class "article-new-value"} (name k) (str v)))])
+        :else (text-field {:class "article-new-value" :autocomplete "off"} (name k) (str v)))])
    (when (or (= k :prev_sin) (= k :prev_con))
      [:td
       [:span.help-inline (str "Precio previo: "
@@ -144,9 +160,10 @@
        [:i.icon-chevron-down]]]
      [:td])])
 
-(defpartial modify-article-table [article]
+(defpartial modify-article-table [article type-mod]
   (when (seq article)
     (form-to {:class "form-horizontal" :id "modify-article-form" :name "modify-article"} [:post (str "/articulos/id/" (str (:_id article)) "/modificar/")]
+      (hidden-field :type-mod type-mod)
       [:table {:class "table table-condensed"}
        [:tr.table-header
         [:th "Nombre"]
@@ -165,7 +182,7 @@
                    :content [:div.container-fluid
                              [:div.subnav [:ul.nav.nav-pills [:li [:a [:h2 (:nom_art article)]]]]]
                              (if article
-                               (modify-article-table article)
+                               (modify-article-table article :total)
                                [:p.error-notice "No existe tal artículo"])]
                    :active "Artículos"
                    :nav-bar true}]
@@ -178,13 +195,14 @@
    [:td.new-value new]
    (hidden-field (name k) new)])
 
-(defpartial confirm-changes-table [orig-vals changes]
+(defpartial confirm-changes-table [orig-vals changes type-mod]
   (let [rows (reduce (fn [acc nxt]
                        (into acc [[nxt (nxt orig-vals) (nxt changes)]]))
                      []
                      (keys (dissoc orig-vals :_id)))]
     [:div.article-dialog
      (form-to {:class "form-horizontal" :id "modify-article-form" :name "modify-article"} [:post (str "/articulos/id/" (str (:_id orig-vals)) "/modificar/")]
+       (hidden-field :type-mod type-mod)
          [:table {:class "table table-condensed"}
           [:tr.table-header
            [:th "Nombre"]
@@ -200,6 +218,8 @@
   (let [content {:title "Confirmar Cambios"
                  :active "Artículos"}
         article (article/get-by-id (:_id pst))
+        id (:_id pst)
+        type-mod (:type-mod pst)
         now (time/now)
         date (str (format "%02d" (time/day now)) "/" (format "%02d" (time/month now)) "/" (format "%02d" (time/year now)))]
     (cond 
@@ -228,20 +248,26 @@
                        {:_id (:_id pst)})]
         (if (seq changes)
           (home-layout (assoc content :content
-                              [:div.container-fluid (confirm-changes-table orig-vals changes)]))
+                              [:div.container-fluid (confirm-changes-table orig-vals changes type-mod)]))
           (home-layout (assoc content :content
                               [:div.container
                                [:p.alert.alert-warning "No hay cambios para realizar"]
                                [:div.form-actions
                                 (link-to {:class "btn btn-success"} "/articulos/" "Regresar")]]))))
       (= "Confirmar" (:submit pst))
-      (do (article/update-article (dissoc pst :submit))
-          (logs/setup!)
-          (logs/add-logs! (:_id pst) :updated (dissoc pst :submit) date)
-          (session/flash-put! :messages '({:type "alert-success" :text "El artículo ha sido modificado"}))
-          (resp/redirect "/articulos/"))
+      (let [modified (article/update-article (dissoc pst :submit))]
+        (if (= :success modified)
+          (do (logs/setup!)
+              (logs/add-logs! (:_id pst) :updated (dissoc pst :submit) date)
+              (session/flash-put! :messages '({:type "alert-success" :text "El artículo ha sido modificado"}))
+              (resp/redirect "/articulos/"))
+          (do (session/flash-put! :messages (reduce (fn [acc error]
+                                                (conj acc {:type "alert-error" :text error}))
+                                              [] (map first (vals modified))))
+              (resp/redirect (str "/articulos/id/" id "/modificar/" (name type-mod) "/")))))
       :else "Invalid")))
 
+;;; Search for an article
 (defpartial search-article-form-js []
   [:script
    "
@@ -277,8 +303,8 @@ function redirect_to_add_codnom() {
 (defpartial search-results-row [result]
   (when (seq result)
     (let [{:keys [_id codigo nom_art prev_con prev_sin ccj_sin ccj_con iva]} result
-          price (if (= 16 (Integer. iva)) prev_con prev_sin)
-          ccj   (if (= 16 (Integer. iva)) ccj_con ccj_sin)]
+          price (if (= 16 ((coerce-to Integer) iva)) prev_con prev_sin)
+          ccj   (if (= 16 ((coerce-to Integer) iva)) ccj_con ccj_sin)]
       [:tr.result
        [:td.codigo codigo]
        [:td.nom_art (link-to {:class "search-result-link"} (str "/articulos/id/" _id "/") nom_art)]
@@ -321,11 +347,15 @@ function redirect_to_add_codnom() {
     (search-results-table data)))
 
 (defpage "/articulos/buscar/" {:keys [busqueda submit]}
-  (let [content {:title "Resultados de la búsqueda"
-                 :content [:div.container (search-article-results busqueda)]
-                 :nav-bar true
-                 :active "Artículos"}]
-    (main-layout-incl content [:base-css :jquery :shortcut :art-res-js])))
+  (if-let [s (seq busqueda)]
+    (main-layout-incl
+     {:title "Resultados de la búsqueda"
+      :content [:div.container (search-article-results (apply str s))]
+      :nav-bar true
+      :active "Artículos"}
+     [:base-css :jquery :shortcut :art-res-js])
+    (do (session/flash-put! :messages '({:type "alert-error" :text "No introdujo una búsqueda"}))
+        (resp/redirect "/articulos/"))))
 
 ;;; Delete an article
 (defpartial show-article-delete [article]
@@ -351,14 +381,15 @@ function redirect_to_add_codnom() {
                  :content (if (seq article)
                             [:div.container
                              [:h2 "¿Está seguro de que quiere borrar el siguiente artículo?"]
-                             (show-article-delete article)]
+                             (show-article-delete article)
+                             [:script "$('input[type=\"submit\"]').focus();"]]
                             [:div.container
                              [:p.alert.alert-error "No existe un artículo con dicha id"]
                              [:div.form-actions
                               (link-to {:class "btn btn-success"} "/articulos/" "Regresar")]])
                  :nav-bar true
                  :active "Artículos"}]
-    (home-layout content)))
+    (main-layout-incl content [:base-css :jquery])))
 
 (defpage [:post "/articulos/id/:id/eliminar/"] {:as post}
   (let [art-name (:nom_art (article/get-by-id (:id post)))
@@ -375,18 +406,15 @@ function redirect_to_add_codnom() {
   (let [verbose article/verbose-names
         art-split (partition-all (/ (count verbose) 3) article)]
     [:div.row
-     (map (fn [pairs]
-            [:div.span4
-             [:table.table.table-condensed
-              [:tr
-               [:th "Nombre"]
-               [:th "Valor"]]
-              (map (fn [[k v]]
-                     [:tr
-                      [:td (verbose k)]
-                      [:td v]])
-                   pairs)]])
-          art-split)]))
+     [:table.table.table-condensed
+      [:tr
+       [:th "Nombre"]
+       [:th "Valor"]]
+      (map (fn [[k v]]
+             [:tr
+              [:td (verbose k)]
+              [:td v]])
+           (article/sort-by-vec article [:codigo :nom_art :tam :pres :iva :gan]))]]))
 
 (defpage "/articulos/id/:id/global/" {id :id}
   (let [article (dissoc (article/get-by-id id) :_id)
@@ -465,36 +493,14 @@ function redirect_to_add_codnom() {
                  :content [:div.container (search-add-article-results busqueda)]}]
     (home-layout content)))
 
-(defpartial iva-select [iva]
-  (if (= iva "16")
-    [:select {:name :iva}
-     [:option {:value "16"} "16"]
-     [:option {:value "0"}  "0"]]
-    [:select {:name :iva}
-     [:option {:value "0"} "0"]
-     [:option {:value "16"}  "16"]]))
-
-(defpartial lin-select [orig]
-  (let [orig (if (seq orig) orig "ABARROTES")
-        remaining (vec (clojure.set/difference (set article/lines) #{orig}))
-        fst [:select {:name :lin}
-             [:option {:value orig} orig]]]
-    (reduce (fn [acc line] (into acc [[:option {:value line} line]])) fst remaining)))
-
-(defpartial unit-select [unit]
-  (let [orig (if (seq unit) unit "PIEZA")
-        remaining (vec (clojure.set/difference (set article/units) #{orig}))
-        fst [:select {:name :unidad}
-             [:option {:value orig} orig]]]
-    (reduce (fn [acc unit] (into acc [[:option {:value unit} unit]])) fst remaining)))
-
 ;;; Fixme - 3 partials do sort of the same thing
-(defpartial modify-article-form [article to-modify]
+(defpartial modify-article-form [article to-modify type-mod]
   (let [id (str (:_id article))
         verbose article/verbose-names
         now (time/now)
         date (str (format "%02d" (time/day now)) "/" (format "%02d" (time/month now)) "/" (format "%02d" (time/year now)))]
     (form-to {:class "form form-horizontal"} [:post (str "/articulos/id/" id "/modificar/")]
+      (hidden-field :type-mod type-mod)
       [:table.table.table-condensed
        [:fieldset
         (map (fn [[k v]]
@@ -507,7 +513,7 @@ function redirect_to_add_codnom() {
                                (iva-select v)
                                (iva-select "16"))
                              (= :stk k)
-                             (text-field {:id k} k (if v v "0"))
+                             (text-field {:id k :autocomplete "off"} k (if v v "0"))
                              (= :lin k)
                              (lin-select v)
                              (= :unidad k)
@@ -530,13 +536,13 @@ function redirect_to_add_codnom() {
                                 [:i.icon-chevron-down]]]]
                              (or (= :cu_con k) (= :cu_sin k))
                              [:div
-                              (text-field {:class "disabled" :disabled true
+                              (text-field {:class "disabled" :disabled true :autocomplete "off"
                                            :placeholder (if v v "0.00")} k)
                               (hidden-field k (if v v "0.00"))]
                              :else
-                             (text-field {:id k} k v))
+                             (text-field {:id k :autocomplete "off"} k v))
                        :else
-                       [:div (text-field {:class "disabled" :disabled true :placeholder v} k v)
+                       [:div (text-field {:class "disabled" :disabled true :placeholder v :autocomplete "off"} k v)
                         (hidden-field k (article k))])]])
              (article/sort-by-vec (dissoc article :_id) [:codigo :nom_art :pres :iva :gan :ccj_con :cu_con :prev_con :ccj_sin :cu_sin :prev_sin]))]]
       [:div.form-actions
@@ -568,14 +574,14 @@ function redirect_to_add_codnom() {
                              (or (= :fech_ac k) (= :fech_an k))
                              [:div
                               (text-field {:class "disabled" :disabled true
-                                           :placeholder date} k
+                                           :placeholder date :autocomplete "off"} k
                                            (if (= :fech_ac k)
                                              date
                                              (if (seq (:fech_an article))
                                                (:fech_an article) date)))
                               (hidden-field k date)]
                              (or (= :prev_con k) (= :prev_sin k))
-                             [:div (text-field {:id k} k (if v v "0.00"))
+                             [:div (text-field {:id k :autocomplete "off"} k (if v v "0.00"))
                               [:span.help-inline (str "Precio previo: " (if v v "0.00"))
                                [:a.btn {:onclick "return prev_up()"}
                                 [:i.icon-chevron-up]]
@@ -586,13 +592,13 @@ function redirect_to_add_codnom() {
                               [:span.help-inline (str "Ganancia previa: " (if v v "0.00"))]]
                              (or (= :cu_con k) (= :cu_sin k))
                              [:div
-                              (text-field {:class "disabled" :disabled true
+                              (text-field {:class "disabled" :disabled true :autocomplete "off"
                                            :placeholder (if v v "0.00")} k)
                               (hidden-field k (if v v "0.00"))]
                              :else
-                             (text-field {:id k} k v))
+                             (text-field {:id k :autocomplete "off"} k v))
                        :else
-                       [:div (text-field {:class "disabled" :disabled true :placeholder v} k v)
+                       [:div (text-field {:class "disabled" :disabled true :placeholder v :autocomplete "off"} k v)
                         (hidden-field k (article k))])]])
              (article/sort-by-vec (dissoc article :_id) [:codigo :nom_art :pres :iva :gan :ccj_con :cu_con :prev_con :ccj_sin :cu_sin :prev_sin]))]]
       [:div.form-actions
@@ -617,7 +623,7 @@ function redirect_to_add_codnom() {
         content {:title "Modificando precios"
                  :nav-bar true
                  :active "Artículos"
-                 :content [:div.container (modify-article-form article to-modify)]}]
+                 :content [:div.container (modify-article-form article to-modify :precios)]}]
     (main-layout-incl content [:base-css :jquery :base-js :verify-js :modify-js])))
 
 (defpage "/articulos/id/:id/modificar/codigo/" {id :id}
@@ -626,7 +632,7 @@ function redirect_to_add_codnom() {
         content {:title "Modificando código"
                  :nav-bar true
                  :active "Artículos"
-                 :content [:div.container (modify-article-form article to-modify)]}]
+                 :content [:div.container (modify-article-form article to-modify :codigo)]}]
     (main-layout-incl content [:base-css :jquery :base-js :verify-js :modify-js])))
 
 (defpage "/articulos/id/:id/modificar/nombre/" {id :id}
@@ -635,7 +641,7 @@ function redirect_to_add_codnom() {
         content {:title "Modificando nombre"
                  :nav-bar true
                  :active "Artículos"
-                 :content [:div.container (modify-article-form article to-modify)
+                 :content [:div.container (modify-article-form article to-modify :nombre)
                            [:script "$('#nom_art').focus();"]]}]
     (main-layout-incl content [:base-css :jquery])))
 
@@ -650,13 +656,21 @@ function redirect_to_add_codnom() {
 (defpage [:post "/articulos/nuevo/"] {:as post}
   (let [to-add (dissoc post :_id)
         now (time/now)
-        date (str (format "%02d" (time/day now)) "/" (format "%02d" (time/month now)) "/" (format "%02d" (time/year now)))]
-    (article/add-article to-add)
-    (let [new-id (:_id (article/get-by-match to-add))]
-      (logs/setup!)                       ;Remove this
-      (logs/add-logs! (str new-id) :added to-add date)
-      (session/flash-put! :messages '({:type "alert-success" :text "El artículo ha sido agregado."}))
-      (resp/redirect "/articulos/"))))
+        date (str (format "%02d" (time/day now)) "/" (format "%02d" (time/month now)) "/" (format "%02d" (time/year now)))
+        added (article/add-article to-add)]
+    (if (= :success added)
+      (let [new-id (:_id (article/get-by-match to-add))]
+        (logs/setup!)                       ;Remove this
+        (logs/add-logs! (str new-id) :added to-add date)
+        (session/flash-put! :messages '({:type "alert-success" :text "El artículo ha sido agregado."}))
+        (resp/redirect "/articulos/"))
+      (do
+        (session/flash-put! :messages (reduce (fn [acc error]
+                                                (conj acc {:type "alert-error" :text error}))
+                                              [] (map first (vals added))))
+        (resp/redirect (if (:_id post)
+                         (str "/articulos/agregar/codnom/" (:_id post) "/")
+                         "/articulos/agregar/"))))))
 
 ;;; Show Logs
 (defpartial logrow [{:keys [date content link]}]

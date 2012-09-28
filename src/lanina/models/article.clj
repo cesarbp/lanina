@@ -2,7 +2,8 @@
   (:use
    somnium.congomongo)
   (:require [lanina.models.utils :as db]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [lanina.utils :as utils]))
 
 (def article-coll :articles)
 (def unmodifiable-props #{})
@@ -82,11 +83,6 @@
   "Get the keys of the articles collection documents"
   []
   (keys (fetch-one article-coll)))
-
-(defn update-article [new]
-  (let [old (fetch-one article-coll :where {:_id (object-id (:_id new))})]
-    (update! article-coll old
-             (into old (first (coerce-to-useful-types (list (dissoc new :_id))))))))
 
 ;;; fill the db
 (def db-file "src/lanina/models/db-csv/tienda.csv")
@@ -196,14 +192,59 @@ csv of the articles"
 (defn delete-article [id]
   (destroy! article-coll {:_id (object-id id)}))
 
+(defn update-error [error-map k error-val]
+  (update-in error-map [k] (fn [old new] (if (seq old) (conj old new) [new])) error-val))
+
+;;; Validate a new article
+(defn validate-article [art-map]
+  (let [empty-errors (reduce (fn [errors [k v]]
+                               (cond (and (some #{:codigo :nom_art} [k])
+                                          (not (seq v)))
+                                     (update-error errors k (str "El campo \"" (k verbose-names) "\" no puede estar vacío"))
+                                     :else errors))
+                             {} art-map)]
+    (reduce (fn [errors [k v]]
+              (cond (and (= :codigo k) (not= "0" v) (seq (fetch-one article-coll :where {:codigo v})))
+                    (update-error errors :codigo "Este código ya existe")
+                    (and (= :nom_art k) (seq (fetch-one article-coll :where {:nom_art v})))
+                    (update-error errors :nom_art "Este nombre ya existe")
+                    (and (some #{:ccj_con :prev_con :ccj_sin :prev_sin} [k])
+                         (or (number? v) (seq v))
+                         (not ((utils/coerce-to Double) v)))
+                    (update-error errors k (str "El \"" (k verbose-names) "\" tiene que ser numérico"))
+                    :else errors))
+            empty-errors
+            art-map)))
+
 ;;; Adding an article
 (defn add-article [art-map]
-  (insert! article-coll art-map))
+  (let [errors (validate-article art-map)]
+    (if (seq errors)
+      errors
+      (do (insert! article-coll (first (coerce-to-useful-types [art-map])))
+          :success))))
 
 ;;; Sorting an article
-
 (defn sort-by-vec [art v]
   (let [v (reverse v)
         vals (map (fn [k] [k (art k)])
                   v)]
     (into (seq (eval `(dissoc ~art ~@v))) vals)))
+
+(defn get-different-fields [old new]
+  (reduce (fn [acc [k v]]
+            (when-not (= v (k old))
+                      (into acc {k v})))
+          {}
+          new))
+
+;;; Updating an article
+;;; This isnt good enough
+(defn update-article [new]
+  (let [old (fetch-one article-coll :where {:_id (object-id (:_id new))})
+        errors (validate-article (get-different-fields old new))]
+    (if (seq errors)
+      errors
+      (do (update! article-coll old
+                   (into old (first (coerce-to-useful-types (list (dissoc new :_id))))))
+          :success))))

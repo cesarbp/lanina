@@ -12,7 +12,7 @@
   [:tr
    [:td (:codigo art)]
    [:td (:nom_art art)]
-   [:td (text-field {:class "input-small" :placeholder "##"} (:_id art))]])
+   [:td (text-field {:autocomplete "off" :class "input-small" :placeholder "##"} (:_id art))]])
 
 (defpartial art-table [arts]
   (form-to [:post "/listas/nueva/"]
@@ -58,7 +58,7 @@
          [:div.form-actions
           [:p (str "Grupo " n)]
           (label {:class "control-label"} "employee" "Nombre de empleado")
-          (text-field "employee")
+          (text-field {:autocomplete "off"} "employee")
           (hidden-field :ids (seq (map :_id arts)))
           [:br]
           (submit-button {:class "btn btn-primary"} "Imprimir")]])))
@@ -74,7 +74,9 @@
         content {:title "Crear una lista"
                  :content [:div.container-fluid
                            (map assign-employees-row grouped)
-                           [:script "$($('input[type=\"text\"]')[0]).focus();"]]
+                           [:script "$($('input[type=\"text\"]')[0]).focus();"]
+                           [:div.form-actions
+                            (link-to {:class "btn btn-danger"} "/listas/" "Cancelar")]]
                  :nav-bar true
                  :active "Listas"}]
     (main-layout-incl content [:base-css :jquery])))
