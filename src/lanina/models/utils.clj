@@ -34,3 +34,15 @@
        true
        (catch IllegalArgumentException e
          false)))
+
+(defn get-updated-map [original new-values-map]
+  "Requires a map (db map) that has a :prev key where it stores previous versions of itself
+The map should have a field date, and a new date should be included in the new values map.
+This does not keep track of when it got updated."
+  (let [old (dissoc original :_id)
+        new-values-vec (reduce into [] new-values-map)]
+    (apply (partial assoc
+                    (update-in original [:prev] (fn add-to-prev [old new]
+                                                  (let [new (dissoc new :prev)]
+                                                    (if (coll? old) (conj old new) [new]))) old))
+           new-values-vec)))

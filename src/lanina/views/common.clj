@@ -2,7 +2,8 @@
   (:use [noir.core :only [defpartial]]
         [hiccup.page :only [include-css include-js html5]]
         [hiccup.element :only [link-to image]])
-  (:require [noir.session :as session]))
+  (:require [noir.session :as session]
+            [lanina.models.user :as users]))
 
 ;;; Head includes here
 (def includes
@@ -29,11 +30,19 @@
    })
 
 ;;; Links on the nav
-(def nav-links
+(def nav-links-admin
   [["Ventas"    "/ventas/"]
    ["Artículos" "/articulos/"]
    ["Tickets"   "/tickets/"]
    ["Listas"    "/listas/"]
+   ["Inicio"    "/inicio/"]
+   ["Ajustes"   "/ajustes/"]
+   ["Salir"     "/salir/"]])
+
+(def nav-links-empl
+  [["Ventas"    "/ventas/"]
+   ["Artículos" "/articulos/"]
+   ["Tickets"   "/tickets/"]
    ["Inicio"    "/inicio/"]
    ["Salir"     "/salir/"]])
 
@@ -45,19 +54,20 @@
    (map #(get includes %) incls)])
 
 (defpartial nav-bar [active]
-  [:div.navbar
-   [:div.navbar-inner
-    [:div.container
-     [:a {:class "btn btn-navbar" :data-toggle "collapse" :data-target ".nav-collapse"}
-      [:span.icon-bar]
-      [:span.icon-bar]
-      [:span.icon-bar]]
-     (link-to {:class "brand"} "/inicio/" "Lonja Mercantil La Niña")
-     [:ul.nav
-      (map (fn [[title lnk]]
-             [:li {:class (if (= title active) "active" "")}
-              (link-to lnk title)])
-           nav-links)]]]])
+  (let [links (if (users/admin?) nav-links-admin nav-links-empl)]
+    [:div.navbar
+     [:div.navbar-inner
+      [:div.container
+       [:a {:class "btn btn-navbar" :data-toggle "collapse" :data-target ".nav-collapse"}
+        [:span.icon-bar]
+        [:span.icon-bar]
+        [:span.icon-bar]]
+       (link-to {:class "brand"} "/" "Lonja Mercantil La Niña")
+       [:ul.nav
+        (map (fn [[title lnk]]
+               [:li {:class (if (= title active) "active" "")}
+                (link-to lnk title)])
+             links)]]]]))
 
 (defpartial nav-bar-no-links []
   [:div.navbar
@@ -68,7 +78,7 @@
       [:span.icon-bar]
       [:span.icon-bar]]
      (link-to {:class "brand"} "/inicio/" "Lonja Mercantil La Niña")]]])
-
+ 
 (defpartial disp-message [msg]
   [:div {:class (str "alert " (:type msg))} (:text msg)])
 
@@ -76,7 +86,7 @@
 (defpartial main-layout-incl [content includes]
   (html5 {:lang "es-MX"}
    (head includes (get content :title ""))
-   [:body
+   [:body {:style "background-image: url(\"/img/cream_dust.png\")"}
     (if (:nav-bar content) (nav-bar (:active content)) (nav-bar-no-links))
     (when (session/flash-get :messages)
       [:div.container-fluid

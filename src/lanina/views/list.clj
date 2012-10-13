@@ -31,8 +31,8 @@
                                   (or (= "updated" (:type l))
                                       (= "added"  (:type l)))))
                      (logs/retrieve-all))
-        arts (map (fn [l] (article/get-by-id-only (:art-id l) [:nom_art :codigo]))
-                  logs)
+        arts (remove nil? (map (fn [l] (article/get-by-id-only (:art-id l) [:nom_art :codigo]))
+                               logs))
         content {:title "Listas"
                  :content [:div.container-fluid
                            (if (seq arts)
@@ -41,6 +41,7 @@
                            [:script "$('input:eq(1)').focus();"]]
                  :nav-bar true
                  :active "Listas"}]
+    (println (seq arts))
     (main-layout-incl content [:base-css :jquery])))
 
 (defpartial assign-employees-row [[n ids]]

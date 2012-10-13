@@ -5,23 +5,35 @@
         hiccup.form)
   (:require [noir.response :as resp]
             [noir.session :as session]
-            [lanina.models.user :as users]))
+            [lanina.models.user :as users]
+            [lanina.models.logs :as logs]))
 
 (defpage "/" []
-  (if (users/admin?)
+  (if (users/logged-in?)
     (resp/redirect "/inicio/")
     (resp/redirect "/entrar/")))
+
+(defpartial user-select []
+  (let [users users/users
+        verbose users/verbose]
+    [:select {:name :user}
+     (map (fn [usr] [:option {:value usr} (verbose usr)])
+          users)]))
 
 (defpartial login-form []
   (form-to {:class "form-horizontal"} [:post "/entrar/"]
     [:fieldset
+     [:div.control-group
+      (label {:class "control-label"} :user "Usuario")
+      [:div.controls (user-select)]]
      [:div.control-group
       (label {:class "control-label"} "password" "Contraseña")
       [:div.controls
        (password-field {:id "password"} "password")]]
      [:div.form-actions
       (submit-button {:class "btn btn-primary" :name "submit"} "Entrar")
-      (link-to {:class "btn btn-warning"} "/auth/reset_pass/" "Reiniciar contraseña")]]))
+      ;; (link-to {:class "btn btn-warning"} "/auth/reset_pass/" "Reiniciar contraseña")
+      ]]))
 
 (defpartial reset-pass-form []
   (form-to {:class "form-horizontal" :name "reset-pass"} [:post "/auth/reset_pass/"]
@@ -37,19 +49,22 @@
     [:div.form-actions
      (submit-button {:class "btn btn-warning" :name "submit"} "Cambiar")]))
 
-
 (defpage "/entrar/" []
   (let [content {:title "Ingresar"
                  :content [:div.container
                            (login-form)
                            [:script "$('#password').focus();"]]}]
+    (users/setup! "password" "empleado")
     (main-layout content)))
 
-(defpage [:post "/entrar/"] {:as user}
-  (if (users/login-init! (:password user))
-    (resp/redirect "/inicio/")
-    (do (session/flash-put! :messages '({:type "alert-error" :text "Contraseña inválida"}))
-        (render "/entrar/"))))
+(defpage [:post "/entrar/"] {:as pst}
+  (let [usr (:user pst)
+        pass (:password pst)]
+    (if (users/login! usr pass)
+      (do (session/flash-put! :messages (list {:type "alert-success" :text (str "Se ha firmado como " (users/verbose usr) ".")}))
+          (resp/redirect "/inicio/"))
+      (do (session/flash-put! :messages '({:type "alert-error" :text "Contraseña inválida"}))
+          (render "/entrar/")))))
 
 (defpage "/salir/" []
   (session/clear!)
@@ -69,4 +84,38 @@
           (render "/auth/reset_pass/")))
     (do (session/flash-put! :messages '({:type "alert-error" :text "Su vieja contraseña no es correcta"}))
         (render "/auth/reset_pass/"))))
+
+;;; Show Logs
+(defpartial logrow [{:keys [date content link]}]
+  [:li date
+   [:ul
+    [:li (link-to link content)]]])
+
+(defpartial home-content [logs]
+  [:article
+   [:h2 "Últimos cambios:"]
+   [:div#logs
+    [:ol
+     (map logrow logs)]]])
+
+(pre-route "/inicio/" {}
+           (when-not (users/logged-in?)
+             (session/flash-put! :messages '({:type "alert-error" :text "Necesita estar firmado para accesar esta página"}))
+             (resp/redirect "/entrar/")))
+
+(defpage "/inicio/" []
+  (let [lgs (logs/retrieve-all)
+        lgs-usable
+        (when (seq lgs)
+          (map (fn [l]
+                 {:date (:date l)
+                  :content (cond (= "deleted" (:type l)) "Se eliminó un artículo"
+                                 (= "updated" (:type l)) "Se modificó un artículo"
+                                 (= "added" (:type l)) "Se agregó un nuevo artículo")
+                  :link (str "/logs/" (:date l))})
+               lgs))
+        content {:title "Inicio"
+                 :content [:div.container (home-content (or lgs-usable {}))]
+                 :active "Inicio"}]
+    (home-layout content)))
 

@@ -67,6 +67,10 @@
     (id-to-str
      (fetch-one article-coll :where {:_id (object-id id)}))))
 
+(defn get-by-id-nostr [id]
+  (when (db/valid-id? id)
+    (fetch-one article-coll :where {:_id (object-id id)})))
+
 (defn get-by-id-only [id only]
   (when (db/valid-id? id)
     (id-to-str
@@ -78,6 +82,10 @@
 (defn get-by-name [name]
   (id-to-str
    (fetch-one article-coll :where {:nom_art name} :only [:nom_art :codigo :prev_con :prev_sin])))
+
+(defn get-by-provider [prov]
+  (map id-to-str
+   (fetch article-coll :where {:prov prov} :only [:_id :codigo :nom_art :prev_con :prev_sin :ccj_con :ccj_sin :iva])))
 
 (defn get-keys
   "Get the keys of the articles collection documents"
@@ -162,7 +170,7 @@ csv of the articles"
    :prev_sin "Precio de venta sin IVA"
    :ccj_con "Costo de caja con IVA"
    :ccj_sin "Costo de caja sin IVA"
-   :nom_art "Nombre del artículo"
+   :nom_art "Nombre de artículo"
    :codigo "Código de barras"
    :tam "Tamaño"})
 

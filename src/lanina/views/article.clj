@@ -36,6 +36,10 @@
   (let [response (article/get-all-only [:codigo :nom_art :fech_an :prev_con :prev_sin])]
     (resp/json response)))
 
+(defpage "/json/all-providers" []
+  (let [response (vec (remove #(or (not (string? %)) (empty? %)) (set (map :prov (article/get-all-only [:prov])))))]
+    (resp/json response)))
+
 ;;; Sales interface
 (defpartial barcode-form []
   (form-to {:id "barcode-form" :class "form-inline"} [:get ""]
@@ -77,7 +81,7 @@
     [:th "Quitar"]]])
 
 (pre-route "/ventas/" []
-  (when-not (users/admin?)
+  (when-not (users/logged-in?)
     (session/flash-put! :messages '({:type "error" :text "Necesita estar firmado para accesar esta página"}))
     (resp/redirect "/entrar/")))
 
@@ -169,7 +173,7 @@
         [:th "Nombre"]
         [:th "Nuevo Valor"]
         [:th]]
-       (map modify-article-row (switch-dates (article/sort-by-vec (dissoc article :_id) [:codigo :nom_art :iva :pres :gan :ccj_con :cu_con :prev_con :ccj_sin :cu_sin :prev_sin])))]
+       (map modify-article-row (switch-dates (article/sort-by-vec (dissoc article :_id :prev) [:codigo :nom_art :iva :pres :gan :ccj_con :cu_con :prev_con :ccj_sin :cu_sin :prev_sin])))]
       [:fieldset
        [:div.form-actions
         (submit-button {:class "btn btn-warning" :name "submit"} "Modificar")
@@ -287,7 +291,11 @@ function redirect_to_add_codnom() {
       [:div.control-group
        (label {:class "control-label" :id "search-field"} "busqueda" "Buscar por nombre o código")
        [:div.controls
-        (text-field {:id "search" :autocomplete "off"} "busqueda")]]]
+        (text-field {:id "search" :autocomplete "off"} "busqueda")]]
+      [:div.control-group
+       (label {:class "control-label"} "provider-name" "Buscar por nombre de proveedor")
+       [:div.controls
+        (text-field {:id "provider-name" :autocomplete "off"} "provider-name")]]]
      [:div.form-actions
       (submit-button {:class "btn btn-primary" :name "search"} "Consultas, modificaciones y altas parciales")
       (link-to {:class "btn btn-warning"} "/articulos/agregar/" "Alta total de un artículo")])])
@@ -346,11 +354,16 @@ function redirect_to_add_codnom() {
                  (article/get-by-search query))]
     (search-results-table data)))
 
-(defpage "/articulos/buscar/" {:keys [busqueda submit]}
-  (if-let [s (seq busqueda)]
+(defpartial search-art-by-providers [prov]
+  (let [data (article/get-by-provider prov)]
+    (search-results-table data)))
+
+(defpage "/articulos/buscar/" {:keys [busqueda provider-name submit]}
+  (if-let [s (or (seq busqueda) (seq provider-name))]
     (main-layout-incl
      {:title "Resultados de la búsqueda"
-      :content [:div.container (search-article-results (apply str s))]
+      :content [:div.container (if (seq busqueda) (search-article-results (apply str s))
+                                   (search-art-by-providers (apply str s)))]
       :nav-bar true
       :active "Artículos"}
      [:base-css :jquery :shortcut :art-res-js])
@@ -414,10 +427,10 @@ function redirect_to_add_codnom() {
              [:tr
               [:td (verbose k)]
               [:td v]])
-           (article/sort-by-vec article [:codigo :nom_art :tam :pres :iva :gan]))]]))
+           article)]]))
 
 (defpage "/articulos/id/:id/global/" {id :id}
-  (let [article (dissoc (article/get-by-id id) :_id)
+  (let [article (dissoc (article/get-by-id id) :_id :prev)
         content {:title "Consulta global"
                  :active "Artículos"
                  :nav-bar true
@@ -427,11 +440,11 @@ function redirect_to_add_codnom() {
     (main-layout-incl content [:base-css :jquery :base-js :verify-js :modify-js])))
 
 (defpage "/articulos/id/:id/ventas/" {id :id}
-  (let [article (dissoc (article/get-by-id-only id [:codigo :nom_art :tam :lin :ramo :pres :unidad :ubica :iva :exis :stk :prev_con :prev_sin :fech_an :fech_ac]) :_id)
+  (let [article (dissoc (article/get-by-id-only id [:codigo :nom_art :tam :lin :ramo :pres :unidad :ubica :iva :exis :stk :prev_con :prev_sin :fech_an :fech_ac]) :_id :prev)
         art-sorted (article/sort-by-vec (if (= (:iva article) 0)
                                           (dissoc article :prev_con)
                                           (dissoc article :prev_sin))
-                                        [:codigo :nom_art])
+                                        [:codigo :nom_art :tam :pres :iva :gan])
         content {:title "Consulta para ventas"
                  :active "Artículos"
                  :content [:div.container-fluid (show-article-tables art-sorted)
@@ -440,7 +453,7 @@ function redirect_to_add_codnom() {
     (home-layout content)))
 
 (defpage "/articulos/id/:id/proveedor/" {id :id}
-  (let [article (dissoc (article/get-by-id-only id [:codigo :nom_art :tam :lin :ramo :pres :unidad :ubica :iva :prov :ccj_sin :ccj_con :cu_sin :cu_con :exis :stk :fech_an :fech_ac]) :_id)
+  (let [article (dissoc (article/get-by-id-only id [:codigo :nom_art :tam :lin :ramo :pres :unidad :ubica :iva :prov :ccj_sin :ccj_con :cu_sin :cu_con :exis :stk :fech_an :fech_ac]) :_id :prev)
         art-sorted (article/sort-by-vec (if (= (:iva article) 0)
                                           (dissoc article :ccj_con :cu_con)
                                           (dissoc article :ccj_sin :cu_sin))
@@ -544,7 +557,7 @@ function redirect_to_add_codnom() {
                        :else
                        [:div (text-field {:class "disabled" :disabled true :placeholder v :autocomplete "off"} k v)
                         (hidden-field k (article k))])]])
-             (article/sort-by-vec (dissoc article :_id) [:codigo :nom_art :pres :iva :gan :ccj_con :cu_con :prev_con :ccj_sin :cu_sin :prev_sin]))]]
+             (article/sort-by-vec (dissoc article :_id :prev) [:codigo :nom_art :pres :iva :gan :ccj_con :cu_con :prev_con :ccj_sin :cu_sin :prev_sin]))]]
       [:div.form-actions
        (submit-button {:class "btn btn-warning" :name "submit"} "Modificar")
        (link-to {:class "btn btn-danger"} "/articulos/" "Cancelar y regresar")])))
@@ -600,7 +613,7 @@ function redirect_to_add_codnom() {
                        :else
                        [:div (text-field {:class "disabled" :disabled true :placeholder v :autocomplete "off"} k v)
                         (hidden-field k (article k))])]])
-             (article/sort-by-vec (dissoc article :_id) [:codigo :nom_art :pres :iva :gan :ccj_con :cu_con :prev_con :ccj_sin :cu_sin :prev_sin]))]]
+             (article/sort-by-vec (dissoc article :_id :prev) [:codigo :nom_art :pres :iva :gan :ccj_con :cu_con :prev_con :ccj_sin :cu_sin :prev_sin]))]]
       [:div.form-actions
        (submit-button {:class "btn btn-primary"} "Agregar este artículo")
        (link-to {:class "btn btn-danger"} "/articulos/" "Cancelar y regresar")])))
@@ -654,7 +667,7 @@ function redirect_to_add_codnom() {
     (main-layout-incl content [:base-css :jquery :base-js :verify-js :modify-js])))
 
 (defpage [:post "/articulos/nuevo/"] {:as post}
-  (let [to-add (dissoc post :_id)
+  (let [to-add (dissoc post :_id :prev)
         now (time/now)
         date (str (format "%02d" (time/day now)) "/" (format "%02d" (time/month now)) "/" (format "%02d" (time/year now)))
         added (article/add-article to-add)]
@@ -672,36 +685,3 @@ function redirect_to_add_codnom() {
                          (str "/articulos/agregar/codnom/" (:_id post) "/")
                          "/articulos/agregar/"))))))
 
-;;; Show Logs
-(defpartial logrow [{:keys [date content link]}]
-  [:li date
-   [:ul
-    [:li (link-to link content)]]])
-
-(defpartial home-content [logs]
-  [:article
-   [:h2 "Últimos cambios:"]
-   [:div#logs
-    [:ol
-     (map logrow logs)]]])
-
-(pre-route "/inicio/" {}
-           (when-not (users/admin?)
-             (session/flash-put! :messages '({:type "alert-error" :text "Necesita estar firmado para accesar esta página"}))
-             (resp/redirect "/entrar/")))
-
-(defpage "/inicio/" []
-  (let [lgs (logs/retrieve-all)
-        lgs-usable
-        (when (seq lgs)
-          (map (fn [l]
-                 {:date (:date l)
-                  :content (cond (= "deleted" (:type l)) "Se eliminó un artículo"
-                                 (= "updated" (:type l)) "Se modificó un artículo"
-                                 (= "added" (:type l)) "Se agregó un nuevo artículo")
-                  :link (str "/logs/" (:date l))})
-               lgs))
-        content {:title "Inicio"
-                 :content [:div.container (home-content (or lgs-usable {}))]
-                 :active "Inicio"}]
-    (home-layout content)))

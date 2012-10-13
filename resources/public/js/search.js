@@ -1,6 +1,7 @@
 // Requires jquery, jquery-ui and trie.js
 var jn;
 var res_url = "/json/article/starts_with";
+var prov_url = "/json/all-providers";
 
 var json = function (first_letter) {
     var res = [];
@@ -12,7 +13,17 @@ var json = function (first_letter) {
     return res;
 }
 
+var json2 = function () {
+    $.getJSON(prov_url, {}, function(results) {
+	var providers = results;
+
+	$('#provider-name').typeahead();
+	$('#provider-name').data('typeahead').source = results;
+    });
+}
+
 $(document).ready(function(){
+    json2();
     jn = $.getJSON('/json/all-articles', {}, function(results) {
 	jn = results.map(function(o) {
 	    return o['nom_art'];
