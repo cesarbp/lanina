@@ -2,7 +2,7 @@
   (:use noir.core
         lanina.views.common
         hiccup.form
-        [hiccup.element :only [link-to]]
+        [hiccup.element :only [link-to javascript-tag]]
         [lanina.models.utils :only [valid-id?]]
         lanina.utils)
   (:require [lanina.models.article  :as article]
@@ -12,7 +12,8 @@
             [noir.response          :as resp]
             [lanina.models.logs     :as logs]
             [clj-time.core          :as time]
-            [lanina.models.ticket   :as ticket]))
+            [lanina.models.ticket   :as ticket]
+            [lanina.models.adjustments :as globals]))
 
 ;;; Used by js to get the article in an ajax way
 (defpage "/json/article" {:keys [barcode]}
@@ -33,7 +34,7 @@
     (resp/json response)))
 
 (defpage "/json/all-articles" []
-  (let [response (article/get-all-only [:codigo :nom_art :fech_an :prev_con :prev_sin])]
+  (let [response (article/get-all-only [:codigo :nom_art :date :prev_con :prev_sin])]
     (resp/json response)))
 
 (defpage "/json/all-providers" []
@@ -45,7 +46,7 @@
   (form-to {:id "barcode-form" :class "form-inline"} [:get ""]
     [:div.subnav
      [:ul.nav.nav-pills
-      [:li [:a [:h2#total "Total: 0.00"]]]
+      [:li [:h2#total "Total: 0.00"]]
       [:li
        (text-field {:class "input-small" :style "position:relative;top:14px;text-align:right;width:40px;" :id "quantity-field" :onkeypress "return quantity_listener(this, event)" :autocomplete "off" :placeholder "F10"} "quantity")]
       [:li
@@ -103,13 +104,14 @@
       (seq (switch-dates (apply array-map (flatten article)))))))
 
 (defpartial iva-select [iva]
-  (if (= iva "16")
-    [:select {:name :iva}
-     [:option {:value "16"} "16"]
-     [:option {:value "0"}  "0"]]
-    [:select {:name :iva}
-     [:option {:value "0"} "0"]
-     [:option {:value "16"}  "16"]]))
+  (let [correct-iva (globals/get-current-iva)]
+    (if (and (number? iva) (== iva correct-iva))
+      [:select {:name :iva}
+       [:option {:value correct-iva} correct-iva]
+       [:option {:value "0"}  "0"]]
+      [:select {:name :iva}
+       [:option {:value "0"} "0"]
+       [:option {:value correct-iva}  correct-iva]])))
 
 (defpartial lin-select [orig]
   (let [orig (if (seq orig) orig "ABARROTES")
@@ -135,7 +137,7 @@
         (= :iva k)
         (if v
           (iva-select v)
-          (iva-select "16"))
+          (iva-select (str (globals/get-current-iva))))
         (= :gan k)
         [:div.control-group {:id (str (name k) "-control")}
          (text-field {:class "article-new-value" :autocomplete "off" } (name k) (str v))]
@@ -173,7 +175,7 @@
         [:th "Nombre"]
         [:th "Nuevo Valor"]
         [:th]]
-       (map modify-article-row (switch-dates (article/sort-by-vec (dissoc article :_id :prev) [:codigo :nom_art :iva :pres :gan :ccj_con :cu_con :prev_con :ccj_sin :cu_sin :prev_sin])))]
+       (map modify-article-row (article/sort-by-vec (dissoc article :_id :prev) [:codigo :nom_art :iva :pres :gan :ccj_con :cu_con :prev_con :ccj_sin :cu_sin :prev_sin]))]
       [:fieldset
        [:div.form-actions
         (submit-button {:class "btn btn-warning" :name "submit"} "Modificar")
@@ -311,8 +313,8 @@ function redirect_to_add_codnom() {
 (defpartial search-results-row [result]
   (when (seq result)
     (let [{:keys [_id codigo nom_art prev_con prev_sin ccj_sin ccj_con iva]} result
-          price (if (= 16 ((coerce-to Integer) iva)) prev_con prev_sin)
-          ccj   (if (= 16 ((coerce-to Integer) iva)) ccj_con ccj_sin)]
+          price (if (= (globals/get-current-iva) ((coerce-to Double) iva)) prev_con prev_sin)
+          ccj   (if (= (globals/get-current-iva) ((coerce-to Double) iva)) ccj_con ccj_sin)]
       [:tr.result
        [:td.codigo codigo]
        [:td.nom_art (link-to {:class "search-result-link"} (str "/articulos/id/" _id "/") nom_art)]
@@ -415,28 +417,64 @@ function redirect_to_add_codnom() {
     (resp/redirect "/articulos/")))
 
 ;;; View an article
+;;; FIXME - for some weird reason this has 2 empty inputs ccj_sin and prev_sin
+(defpartial show-different-versions-form [article url]
+  (let [dates (map :date (:prev article))]
+    (when (seq dates)
+      (form-to {:class "form-inline"} [:get url]
+        (label :date "Versiones anteriores:")
+        [:select {:name :date}
+         (map (fn [d]
+                [:option {:value (clojure.string/replace d #"/" "-")}
+                 d])
+              (reverse dates))]
+        (submit-button {:class "btn btn-primary"} "Cambiar")))))
+
 (defpartial show-article-tables [article]
   (let [verbose article/verbose-names
         art-split (partition-all (/ (count verbose) 3) article)]
     [:div.row
-     [:table.table.table-condensed
+     [:table.table
       [:tr
        [:th "Nombre"]
        [:th "Valor"]]
       (map (fn [[k v]]
-             [:tr
+             [:tr {:id (name k)}
               [:td (verbose k)]
               [:td v]])
            article)]]))
 
-(defpage "/articulos/id/:id/global/" {id :id}
-  (let [article (dissoc (article/get-by-id id) :_id :prev)
-        content {:title "Consulta global"
+(defpartial blink-js [row-id]
+  (javascript-tag
+   (str
+    "while (true) {
+    var row_id = '#' + " (name row-id) ";
+    setTimeout(function() {
+	if ($(row_id).hasClass('info')) {
+	    $(row_id).removeClass('info');
+	} else {
+	    $(row_id).addClass('info');
+	}
+    }, 400);
+}")))
+
+(defpage "/articulos/id/:id/global/" {:as env}
+  (let [id (:id env)
+        date (:date env)
+        article (if (seq date)
+                  (dissoc (article/get-by-id-date id (clojure.string/replace date #"-" "/")) :_id)
+                  (dissoc (article/get-by-id id) :_id))
+        art-no-prevs (article/sort-by-vec (dissoc article :prev) [:codigo :nom_art])
+        art-name (:nom_art article)
+        iva (== (globals/get-current-iva) (:iva article))
+        content {:title (str art-name " | Consulta global")
                  :active "Artículos"
                  :nav-bar true
-                 :content [:div.container-fluid (show-article-tables article)
+                 :content [:div.container-fluid
+                           (show-different-versions-form article (str "/articulos/id/" id "/global/"))
+                           (show-article-tables art-no-prevs)
                            [:div.form-actions (link-to {:class "btn btn-success"}
-                                                       (str "/articulos/" ) "Regresar a buscar artículos")]]}]
+                                                       (str "/articulos/") "Regresar a buscar artículos")]]}]
     (main-layout-incl content [:base-css :jquery :base-js :verify-js :modify-js])))
 
 (defpage "/articulos/id/:id/ventas/" {id :id}
@@ -524,7 +562,7 @@ function redirect_to_add_codnom() {
                        (cond (= :iva k)
                              (if v
                                (iva-select v)
-                               (iva-select "16"))
+                               (iva-select (globals/get-current-iva)))
                              (= :stk k)
                              (text-field {:id k :autocomplete "off"} k (if v v "0"))
                              (= :lin k)
@@ -577,7 +615,7 @@ function redirect_to_add_codnom() {
                        (cond (= :iva k)
                              (if v
                                (iva-select v)
-                               (iva-select "16"))
+                               (iva-select (globals/get-current-iva)))
                              (= :stk k)
                              (text-field {:id k} k (if v v "0"))
                              (= :lin k)
@@ -631,7 +669,7 @@ function redirect_to_add_codnom() {
 
 (defpage "/articulos/id/:id/modificar/precios/" {id :id}
   (let [article (article/get-by-id id)
-        to-modify (if (= (:iva article) (Integer. 16))
+        to-modify (if (== (:iva article) (globals/get-current-iva))
                     [:pres :gan :prev_con :ccj_con] [:pres :gan :prev_sin :ccj_sin])
         content {:title "Modificando precios"
                  :nav-bar true

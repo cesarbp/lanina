@@ -579,7 +579,7 @@ function artnames_rows(arts){
 	    price = sin;
 	}
 
-	var html = template.replace('{bc}', o['codigo']).replace('{name}', o['nom_art']).replace('{date}', o['fech_an']).replace('{price}', parseFloat(price).toFixed(2).toString());
+	var html = template.replace('{bc}', o['codigo']).replace('{name}', o['nom_art']).replace('{date}', o['date']).replace('{price}', parseFloat(price).toFixed(2).toString());
 	return html;
     }).join('');
 }
@@ -613,6 +613,22 @@ function artname_table_selects() {
 	    remove_artname_modal();
 	}
     })
+}
+
+function add_artname() {
+    if ($('#art-name-modal').length > 0 && $('#art-name-input').val().length > 3) {
+	var quantity = $('#artname-quantity').val() || '1';
+	if (isInt(quantity)) {
+	    quantity = parseInt(quantity);
+	} else {
+	    quantity = 1;
+	}
+	var name = $('#art-name-input').val();
+	add_article_row(name, quantity);
+	remove_artname_modal();
+    }
+    return false;
+    
 }
 
 function artname_input_listener(){

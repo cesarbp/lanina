@@ -2,6 +2,7 @@
   (:use
    somnium.congomongo)
   (:require [lanina.models.utils :as db]
+            [lanina.views.utils :as view-utils]
             [clojure.string :as str]
             [lanina.utils :as utils]))
 
@@ -46,7 +47,21 @@
                  m))
        ms))
 
-;;; Use the db
+;;; Add additional fields
+(defn add-dates-prev-img-to-articles [ms]
+  (map (fn [m]
+         (let [fech_ac (:fech_ac m)
+               fech_an (:fech_an m)
+               date (cond (and (string? fech_ac) (seq fech_ac)) fech_ac
+                          (and (string? fech_an) (seq fech_an)) fech_an)]
+           (if (seq date)
+             (-> m
+                 (into {:date date :prev [] :img ""})
+                 (dissoc :fech_ac :fech_an))
+             m)))
+       ms))
+
+;;; Use the db  
 
 (defn id-to-str [doc]
   (when (:_id doc)
@@ -66,6 +81,10 @@
   (when (db/valid-id? id)
     (id-to-str
      (fetch-one article-coll :where {:_id (object-id id)}))))
+
+(defn get-by-id-date [id date]
+  (first (filter #(= date (:date %))
+                 (:prev (get-by-id id)))))
 
 (defn get-by-id-nostr [id]
   (when (db/valid-id? id)
@@ -125,15 +144,21 @@ csv of the articles"
   (-> db-file
       (csv-to-maps)
       (coerce-to-useful-types)
+      (add-dates-prev-img-to-articles)
       (fill-article-coll!)))
 
 ;;; Searching an article
 (def art-props
-  [:unidad 
+  [:img
+   :date
+   :prev
+   :unidad 
    :stk 
    :lin 
-   :ramo 
-   :fech_ac 
+   :ramo
+   ;; Old properties
+   ;; :fech_ac
+   ;; :fech_an 
    :cu_sin 
    :cu_con 
    :pres 
@@ -141,7 +166,6 @@ csv of the articles"
    :prov 
    :iva 
    :gan 
-   :fech_an 
    :exis 
    :prev_con 
    :prev_sin 
@@ -152,7 +176,9 @@ csv of the articles"
    :tam])
 
 (def verbose-names
-  {:unidad "Unidad"
+  {:img "Nombre de imagen"
+   :date "Fecha de última modificación"
+   :unidad "Unidad"
    :stk "Stock"
    :lin "Línea"
    :ramo "Ramo"
@@ -247,12 +273,14 @@ csv of the articles"
           new))
 
 ;;; Updating an article
-;;; This isnt good enough
 (defn update-article [new]
   (let [old (fetch-one article-coll :where {:_id (object-id (:_id new))})
-        errors (validate-article (get-different-fields old new))]
+        errors (validate-article (get-different-fields old new))
+        date (view-utils/now-with-time)
+        updated (db/get-updated-map old
+                                (into (into old (first (coerce-to-useful-types (list (dissoc new :_id)))))
+                                      {:date date}))]
     (if (seq errors)
       errors
-      (do (update! article-coll old
-                   (into old (first (coerce-to-useful-types (list (dissoc new :_id))))))
+      (do (update! article-coll old updated)
           :success))))

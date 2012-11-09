@@ -1,3 +1,7 @@
+.row_selected{
+    background: #ccc;
+}
+
 /* Subnav */
 .subnav {
   width: 100%;

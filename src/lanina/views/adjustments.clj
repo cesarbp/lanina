@@ -3,11 +3,13 @@
         lanina.views.common
         hiccup.form
         [hiccup.element :only [link-to]]
-        [lanina.views.home :only [user-select]])
+        [lanina.views.home :only [user-select]]
+        lanina.utils)
   (:require [lanina.models.article :as article]
             [lanina.models.adjustments :as model]
             [noir.response :as resp]
-            [noir.session :as session]))
+            [noir.session :as session]
+            [lanina.models.user :as user]))
 
 ;;; changing IVA
 (defpartial change-iva-form []
@@ -36,13 +38,54 @@
      [:div.control-group
       (label {:class "control-label"} "old" "Contraseña Previa")
       [:div.controls
-       (text-field "pass")]]
+       (password-field "old")]]
      [:div.control-group
       (label {:class "control-label"} "new" "Contraseña Nueva")
       [:div.controls
-       (text-field "pass")]]]
+       (password-field "new")]]]
     [:div.form-actions
      (submit-button {:class "btn btn-primary"} "Cambiar contraseña")]))
+;;; Changing modify article threshold
+(defpartial modify-threshold-unit-select [orig]
+  (let [remaining (clojure.set/difference (set model/valid-modify-threshold-units) #{orig})]
+    [:select {:name :unit}
+     [:option {:value orig} (model/valid-modify-threshold-units-trans orig)]
+     (map (fn [opt]
+            [:option {:value opt} (model/valid-modify-threshold-units-trans opt)])
+          (vec remaining))]))
+
+(defpartial change-modify-threshold-form []
+  (let [actual (model/get-modify-threshold-doc)]
+    (form-to {:class "form-horizontal"} [:post "/ajustes/modify-threshold/"]
+      [:legend "Ajuste del tiempo aceptable para que un artículo no reciba modificaciones"]
+      [:fieldset
+       [:div.control-group
+        (label {:class "control-label"} :threshold "Nueva tolerancia")
+        [:div.controls
+         (text-field :threshold (:modify-threshold actual))]]
+       [:div.control-group
+        (label {:class "control-label"} :unit "Unidad de tiempo")
+        [:div.controls
+         (modify-threshold-unit-select (:unit actual))]]]
+      [:div.form-actions
+       (submit-button {:class "btn btn-primary"} "Cambiar")])))
+
+(defpartial change-image-dir-form []
+  (let [actual (model/get-image-path)]
+    (form-to {:class "form-horizontal"} [:post "/ajustes/imagenes/directorio/"]
+      [:legend "Ajuste del directorio de imágenes"]
+      [:fieldset
+       [:div.control-group
+        (label {:class "control-label"} :old "Viejo directorio:")
+        [:div.controls
+         [:p {:style "position:relative;top:5px;"} actual]]]
+       [:div.control-group
+        (label {:class "control-label"} :new "Nuevo directorio")
+        [:div.controls
+         (text-field :new)]]]
+      [:div.form-actions
+       (submit-button {:class "btn btn-primary"} "Cambiar")])))
+
 ;;; Database errors
 (defpartial error-notice [error-count]
   (let [error-msg (when error-count (str "Hay " error-count " errores a corregir en la base de datos"))]
@@ -53,6 +96,39 @@
         [:p "Errores a corregir: " [:span.label.label-important error-msg]]
         [:div.form-actions (link-to {:class "btn btn-primary"} "/ajustes/bd/" "Ver errores")]]
        [:span.label.label-info "No hay errores para corregir en la base de datos"])]))
+;;; Adjust IVA/password/threshold pages
+(defpage [:post "/ajustes/iva/"] {:as pst}
+  (let [new-iva ((coerce-to Double) (:iva pst))]
+    (if new-iva
+      (do (model/adjust-iva new-iva)
+          (session/flash-put! :messages (list {:type "alert-success" :text (str "El IVA ha sido cambiado a " new-iva)}))
+          (resp/redirect "/ajustes/"))
+      (do (session/flash-put! :messages (list {:type "alert-error" :text "El valor de IVA \"" new-iva "\" no es válido"}))))))
+
+(defpage [:post "/ajustes/modify-threshold/"] {:as pst}
+  (let [thresh ((coerce-to Integer) (:threshold pst))
+        unit (:unit pst)]
+    (if thresh
+      (do (model/adjust-modify-threshold thresh unit)
+          (session/flash-put! :messages (list {:type "alert-success" :text (str "El nuevo tiempo de tolerancia ha sido ajustado a " (model/get-modify-threshold) " días.")}))
+          (resp/redirect "/ajustes/"))
+      (do (session/flash-put! :messages (list {:type "alert-error" :text "No introdujo una cantidad válida para la nueva tolerancia"}))
+          (resp/redirect "/ajustes/")))))
+
+(defpage [:post "/ajustes/password/"] {:keys [user old new]}
+  (cond (not (and (seq user) (seq old) (seq new)))
+        (do (session/flash-put! :messages (list {:type "alert-error" :text "Faltaron campos para cambiar la contrasena"}))
+            (resp/redirect "/ajustes/"))
+        (user/verify-pass user old)
+        (let [notice (user/reset-pass! user new)]
+          (if (= :success notice)
+            (do (session/flash-put! :messages (list {:type "alert-success" :text "La contraseña ha sido modificada"}))
+                (resp/redirect "/ajustes/"))
+            (do (session/flash-put! :messages (list {:type "alert-error" :text "La contraseña es demasiado corta"}))
+                (resp/redirect "/ajustes/"))))
+        :else
+        (do (session/flash-put! :messages (list {:type "alert-error" :text "La contraseña no es correcta"}))
+                (resp/redirect "/ajustes/"))))
 
 (defpage "/ajustes/" []
   (let [error-count (model/count-all-errors)
@@ -62,7 +138,11 @@
                             {:style "background-image: url(\"../img/bedge_grunge.png\")"} (change-iva-form)]
                            [:div.container-fluid (change-password-form)]
                            [:div.container-fluid
-                            {:style "background-image: url(\"../img/bedge_grunge.png\")"} (error-notice error-count)]]
+                            {:style "background-image: url(\"../img/bedge_grunge.png\")"} (error-notice error-count)]
+                           [:div.container-fluid
+                            (change-modify-threshold-form)]
+                           [:div.container-fluid
+                            {:style "background-image: url(\"../img/bedge_grunge.png\")"} (change-image-dir-form)]]
                  :nav-bar true
                  :active "Ajustes"}]
     (home-layout content)))
@@ -81,12 +161,22 @@
                     (str "Hay " (count (map second errs))                     
                          " artículos con " (article/verbose-names prop) " duplicado"))])))
 
-(defpartial empty-value-errors-count [prop]
+(defpartial empty-value-errors-count-li [prop]
   (let [errs (model/find-empty-value-errors prop)]
     (when (seq errs)
       [:li (link-to (str "/errores/" (name prop) "/faltante/")
                     (str "Hay " (count (map second errs))                     
                          " artículos que no tienen " (article/verbose-names prop)))])))
+
+(defpartial beyond-threshold-errors-count-li []
+  (let [thresh (model/get-modify-threshold-doc)
+        thresh-count (:modify-threshold thresh)
+        thresh-unit (model/valid-modify-threshold-units-trans (:unit thresh))
+        errs (model/find-beyond-threshold-errors)]
+    (when (seq errs)
+      [:li (link-to (str "/errores/sin-modificar/")
+                    (str "Hay " (count errs)                     
+                         " artículos que no han sido modificados desde hace " thresh-count " " thresh-unit " o más."))])))
 
 (defpartial show-error-counts []
   [:ul.nav.nav-tabs.nav-stacked
@@ -94,12 +184,14 @@
    (iva-errors-count-li)
    (duplicate-value-errors-count-li :nom_art)
    (duplicate-value-errors-count-li :codigo)
-   (empty-value-errors-count :nom_art)
-   (empty-value-errors-count :codigo)])
+   (empty-value-errors-count-li :nom_art)
+   (empty-value-errors-count-li :codigo)
+   (beyond-threshold-errors-count-li)])
 
 (defpage "/ajustes/bd/" []
   (let [content {:title "Errores en la base de datos"
-                 :content [:div.container-fluid (show-error-counts)]
+                 :content [:div.container-fluid (show-error-counts)
+                           [:div.form-actions (link-to {:class "btn btn-success"} "/ajustes/" "Regresar a ajustes")]]
                  :nav-bar true
                  :active "Ajustes"}]
     (home-layout content)))

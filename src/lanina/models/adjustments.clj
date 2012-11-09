@@ -7,12 +7,52 @@
 (def globals-coll :settings)
 
 (defn setup! []
-  (when-not (collection-exists? globals-coll)
-    (create-collection! globals-coll)
-    (insert! globals-coll {:iva 16 :date (utils/now) :prev []})))
+  (when (collection-exists? globals-coll)
+    (drop-coll! globals-coll)
+    (println "Deleted collection " globals-coll))
+  (create-collection! globals-coll)
+  (insert! globals-coll {:iva 16.0 :date (utils/now) :prev []})
+  (insert! globals-coll {:modify-threshold 6 :unit "months" :date (utils/now)})
+  (insert! globals-coll {:image-path "resources/public/img/" :date (utils/now)}))
+
+(defn get-image-path []
+  (:image-path (fetch-one globals-coll :where {:image-path {:$ne nil}})))
+
+(defn adjust-image-path [new-path]
+  (when (db/valid-path? new-path)
+    (let [old (fetch-one globals-coll :where {:image-path {:$ne nil}})
+          new (db/get-updated-map old {:image-path new-path})]
+      (update! globals-coll old new)
+      :success)))
 
 (defn get-current-iva []
   (:iva (fetch-one globals-coll :where {:iva {:$ne nil}} :only [:iva])))
+
+;;; If an article hasn't been modified in a time lower than this threshold it
+;;; should be shown as a database error.
+;;; Returns the amount in days
+(def valid-modify-threshold-units
+  ["months" "days" "years"])
+
+(def valid-modify-threshold-units-trans
+  {"months" "meses"
+   "days" "días"
+   "years" "años"})
+
+(defn get-modify-threshold []
+  (let [doc (fetch-one globals-coll :where {:modify-threshold {:$ne nil}} :only [:modify-threshold :unit])
+        unit (:unit doc) 
+        factor (cond (= "months" unit) 30 (= "days" unit) 1 (= "years" unit) 365)]
+    (* factor (:modify-threshold doc))))
+
+(defn get-modify-threshold-doc []
+  (fetch-one globals-coll :where {:modify-threshold {:$ne nil}}))
+
+(defn adjust-modify-threshold [threshold unit]
+  (let [original (fetch-one globals-coll :where {:modify-threshold {:$ne nil}})
+        modified {:modify-threshold threshold :unit unit :date (utils/now-with-time)}
+        new (db/get-updated-map original modified)]
+    (update! globals-coll original new)))
 
 (defn adjust-article-global [prop old new]
   (let [article-coll article/article-coll
@@ -37,6 +77,7 @@
         article-coll article/article-coll
         current-iva (get-current-iva)]
     (do
+      (assert (not= new-iva original))
       (update! globals-coll original new)
       (adjust-article-global :iva current-iva new-iva))))
 
@@ -69,6 +110,15 @@
   (let [all-dupes (find-duplicate-value-errors :codigo)]
     (remove (fn [[bc ids]] (= "0" bc)) all-dupes)))
 
+;;; Articles which havent been modified in a time over the threshold
+(defn find-beyond-threshold-errors []
+  (let [thresh (get-modify-threshold)
+        all-arts (article/get-all-only [:date])]
+    (map :_id
+         (filter (fn [art]
+                   (or (not (utils/valid-date? (:date art))) (<= thresh (utils/days-from-now (:date art)))))
+                 all-arts))))
+
 ;;; Count all of the errors
 (defn count-all-errors []
-  (reduce + (map count [(find-iva-errors) (find-empty-value-errors :codigo) (find-empty-value-errors :nom_art) (map second (find-duplicate-barcode-errors)) (map second (find-duplicate-value-errors :nom_art))])))
+  (reduce + (map count [(find-iva-errors) (find-empty-value-errors :codigo) (find-empty-value-errors :nom_art) (map second (find-duplicate-barcode-errors)) (map second (find-duplicate-value-errors :nom_art)) (find-beyond-threshold-errors)])))

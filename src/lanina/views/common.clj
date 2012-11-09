@@ -10,7 +10,7 @@
   {
    :subnav-js     (include-js "/js/subnav.js")
    :custom-css    (include-css "/css/custom.css")
-   :base-css      (include-css "/css/bootstrap.css")
+   :base-css      (include-css "/css/bootstrap.min.css")
    :base-js       (include-js "/js/bootstrap.js")
    :base-resp-css (include-css "/css/bootstrap-responsive.css")
    :search-css    (include-css "/css/search.css")

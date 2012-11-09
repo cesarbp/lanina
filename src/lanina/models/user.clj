@@ -45,11 +45,12 @@
     false))
 
 (defn verify-pass [user pass]
-  "Requires that the admin user is already created or it explodes"
   (db/maybe-init)
   (crypt/compare pass (:pass (fetch-one :users :where {:name (name user)} :only [:pass]))))
 
 (defn reset-pass! [user pass]
-  (when (<= 6 (count pass))
+  (if (<= 6 (count pass))
     (let [usr (fetch-one :users :where {:name (name user)}) ]
-      (update! :users usr (merge usr {:pass (crypt/encrypt pass)})))))
+      (update! :users usr (merge usr {:pass (crypt/encrypt pass)}))
+      :success)
+    nil))

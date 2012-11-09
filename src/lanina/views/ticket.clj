@@ -141,10 +141,12 @@
          [:input {:type "date" :name "fecha" :format "dd/mm/yyyy" :value (clojure.string/join "/" (reverse (clojure.string/split date #"/")))}]]]
        [:div.control-group
         (label {:class "control-label"} "desde" "Opcional: Indique el número del primer ticket")
-        (text-field "desde")]
+        [:div.controls
+         (text-field "desde")]]
        [:div.control-group
         (label {:class "control-label"} "hasta" "Opcional: Indique el número del último ticket")
-        (text-field "hasta")]]
+        [:div.controls
+         (text-field "hasta")]]]
       [:div.form-actions
        (submit-button {:class "btn btn-primary"} "Cortar")])))
 
