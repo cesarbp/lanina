@@ -2,7 +2,7 @@
   (:use noir.core
         lanina.views.common
         hiccup.form
-        [hiccup.element :only [link-to javascript-tag]]
+        [hiccup.element :only [link-to javascript-tag image]]
         [lanina.models.utils :only [valid-id?]]
         lanina.utils)
   (:require [lanina.models.article  :as article]
@@ -441,22 +441,17 @@ function redirect_to_add_codnom() {
       (map (fn [[k v]]
              [:tr {:id (name k)}
               [:td (verbose k)]
-              [:td v]])
+              [:td (cond (and (not (= :codigo k)) (or ((coerce-to Double) v)
+                                                    (and (number? v) (not (integer? v)))))
+                     (format "%.2f" ((coerce-to Double) v))
+                     (= :img k) (link-to (str "/imagenes/" v "/") v)
+                     :else v)]])
            article)]]))
 
-(defpartial blink-js [row-id]
+(defpartial highlight-js [row-id]
   (javascript-tag
    (str
-    "while (true) {
-    var row_id = '#' + " (name row-id) ";
-    setTimeout(function() {
-	if ($(row_id).hasClass('info')) {
-	    $(row_id).removeClass('info');
-	} else {
-	    $(row_id).addClass('info');
-	}
-    }, 400);
-}")))
+    "$('#" (name row-id) "').addClass('info');")))
 
 (defpage "/articulos/id/:id/global/" {:as env}
   (let [id (:id env)
@@ -464,9 +459,13 @@ function redirect_to_add_codnom() {
         article (if (seq date)
                   (dissoc (article/get-by-id-date id (clojure.string/replace date #"-" "/")) :_id)
                   (dissoc (article/get-by-id id) :_id))
-        art-no-prevs (article/sort-by-vec (dissoc article :prev) [:codigo :nom_art])
+        
         art-name (:nom_art article)
-        iva (== (globals/get-current-iva) (:iva article))
+        iva (globals/iva-is-current? (:iva article))
+        art-no-prevs (article/sort-by-vec (dissoc article :prev)
+                                          (if iva
+                                            [:codigo :nom_art :pres :iva :gan :ccj_con :cu_con :prev_con :ccj_sin :cu_sin :prev_sin]
+                                            [:codigo :nom_art :pres :iva :gan :ccj_sin :cu_sin :prev_sin :ccj_con :cu_con :prev_con]))
         content {:title (str art-name " | Consulta global")
                  :active "Artículos"
                  :nav-bar true
@@ -474,33 +473,42 @@ function redirect_to_add_codnom() {
                            (show-different-versions-form article (str "/articulos/id/" id "/global/"))
                            (show-article-tables art-no-prevs)
                            [:div.form-actions (link-to {:class "btn btn-success"}
-                                                       (str "/articulos/") "Regresar a buscar artículos")]]}]
-    (main-layout-incl content [:base-css :jquery :base-js :verify-js :modify-js])))
+                                                       (str "/articulos/") "Regresar a buscar artículos")]
+                           (highlight-js (if iva :prev_con :prev_sin))]}]
+    (main-layout-incl content [:base-css :jquery])))
 
 (defpage "/articulos/id/:id/ventas/" {id :id}
-  (let [article (dissoc (article/get-by-id-only id [:codigo :nom_art :tam :lin :ramo :pres :unidad :ubica :iva :exis :stk :prev_con :prev_sin :fech_an :fech_ac]) :_id :prev)
-        art-sorted (article/sort-by-vec (if (= (:iva article) 0)
-                                          (dissoc article :prev_con)
-                                          (dissoc article :prev_sin))
+  (let [article (dissoc (article/get-by-id-only id [:codigo :nom_art :tam :lin :ramo :pres :unidad :ubica :iva :exis :stk :prev_con :prev_sin :fech_an :fech_ac]) :_id)
+        art-no-prevs (dissoc article :prev)
+        iva (globals/iva-is-current? (:iva article))
+        art-sorted (article/sort-by-vec (if (not iva)
+                                          (dissoc art-no-prevs :prev_con)
+                                          (dissoc art-no-prevs :prev_sin))
                                         [:codigo :nom_art :tam :pres :iva :gan])
         content {:title "Consulta para ventas"
                  :active "Artículos"
                  :content [:div.container-fluid (show-article-tables art-sorted)
+                           (show-different-versions-form article (str "/articulos/id/" id "/ventas/"))
                            [:div.form-actions (link-to {:class "btn btn-success"}
-                                                       (str "/articulos/" ) "Regresar a buscar artículos")]]}]
+                                                       (str "/articulos/" ) "Regresar a buscar artículos")]
+                           (highlight-js (if iva :prev_con :prev_sin))]}]
     (home-layout content)))
 
 (defpage "/articulos/id/:id/proveedor/" {id :id}
-  (let [article (dissoc (article/get-by-id-only id [:codigo :nom_art :tam :lin :ramo :pres :unidad :ubica :iva :prov :ccj_sin :ccj_con :cu_sin :cu_con :exis :stk :fech_an :fech_ac]) :_id :prev)
-        art-sorted (article/sort-by-vec (if (= (:iva article) 0)
-                                          (dissoc article :ccj_con :cu_con)
-                                          (dissoc article :ccj_sin :cu_sin))
+  (let [article (dissoc (article/get-by-id-only id [:codigo :nom_art :tam :lin :ramo :pres :unidad :ubica :iva :prov :ccj_sin :ccj_con :cu_sin :cu_con :exis :stk :fech_an :fech_ac]) :_id)
+        art-no-prevs (dissoc article :prev)
+        iva (globals/iva-is-current? (:iva article))
+        art-sorted (article/sort-by-vec (if (not iva)
+                                          (dissoc art-no-prevs :ccj_con :cu_con)
+                                          (dissoc art-no-prevs :ccj_sin :cu_sin))
                                         [:codigo :nom_art])
         content {:title "Consulta para ventas"
                  :active "Artículos"
                  :content [:div.container-fluid (show-article-tables art-sorted)
+                           (show-different-versions-form article (str "/articulos/id/" id "/ventas/"))
                            [:div.form-actions (link-to {:class "btn btn-success"}
-                                                       (str "/articulos/" ) "Regresar a buscar artículos")]]}]
+                                                       "/articulos/"  "Regresar a buscar artículos")]
+                           (highlight-js (if iva :ccj_con :ccj_sin))]}]
     (home-layout content)))
 
 ;;; Add an article
@@ -723,3 +731,26 @@ function redirect_to_add_codnom() {
                          (str "/articulos/agregar/codnom/" (:_id post) "/")
                          "/articulos/agregar/"))))))
 
+
+;;; Article images
+(defpartial show-image [img-path]
+  [:div.container-fluid
+   [:a {:href img-path :style "text-align:center;"}]
+   (image {:class "media-object"} img-path)])
+
+(defpage "/imagenes/:name/" {:keys [referrer name]}
+  (let [full-path (str (globals/full-image-path name))
+        title (if referrer
+                (str
+                 (:nom_art (article/get-by-id-only [:nom_art]))
+                 " | " name)
+                (str "Imagen " name))
+        content {:title title
+                 :active "Artículos"
+                 :nav-bar true
+                 :content (show-image (str (globals/get-image-path) name))}]
+    (home-layout content)))
+
+(defpage "/articles/reset/" []
+  (article/setup!)
+  "done!")

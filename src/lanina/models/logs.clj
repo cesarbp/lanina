@@ -13,6 +13,9 @@
 (defn add-logs! [art-id type changes date]
   (insert! log-coll {:art-id art-id :type type :date date :changes changes :cleared false}))
 
+(defn remove-log! [id]
+  (destroy! log-coll {:art-id id}))
+
 (defn retrieve-by-date [date]
   fetch log-coll :where {:date date} :sort {:date 1})
 

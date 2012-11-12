@@ -3,10 +3,11 @@
         hiccup.form
         lanina.views.common
         [hiccup.element :only [link-to]])
-  (:require [lanina.models.logs :as logs]
-            [lanina.models.article :as article]
+  (:require [lanina.models.logs     :as logs]
+            [lanina.models.article  :as article]
             [lanina.models.employee :as employee]
-            [clj-time.core :as time]))
+            [clj-time.core          :as time]
+            [noir.session           :as session]))
 
 (defpartial art-row [art]
   [:tr
@@ -59,7 +60,10 @@
          [:div.form-actions
           [:p (str "Grupo " n)]
           (label {:class "control-label"} "employee" "Nombre de empleado")
-          (text-field {:autocomplete "off"} "employee")
+          (text-field {:autocomplete "off" :class "inline"} "employee")
+          [:label.checkbox.inline {:class "checkbox inline" :style "position:relative;left:10px;"}
+           (check-box :remove false)
+           "Quitar también los artículos"]
           (hidden-field :ids (seq (map :_id arts)))
           [:br]
           (submit-button {:class "btn btn-primary"} "Imprimir")]])))
@@ -99,7 +103,8 @@
           barcodes names)]]])
 
 (defpage [:post "/listas/imprimir/"] {:as post}
-  (let [now (time/now)
+  (let [remove (:remove post)
+        now (time/now)
         date (str (format "%02d" (time/day now)) "/" (format "%02d" (time/month now)) "/" (format "%02d" (time/year now)))
         employee (:employee post)
         ids (read-string (:ids post))
@@ -110,4 +115,8 @@
                  :nav-bar true
                  :active "Listas"
                  :content [:div.container-fluid (list-as-printed employee date barcodes names)]}]
+    (when remove
+      (doseq [id ids]
+        (logs/remove-log! id))
+      (session/flash-put! :messages '({:type "alert-success" :text "Los artículos han sido quitados del registro."})))
     (home-layout content)))

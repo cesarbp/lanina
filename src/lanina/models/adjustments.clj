@@ -1,5 +1,6 @@
 (ns lanina.models.adjustments
-  (:use somnium.congomongo)
+  (:use somnium.congomongo
+        lanina.utils)
   (:require [lanina.models.article :as article]
             [lanina.views.utils :as utils]
             [lanina.models.utils :as db]))
@@ -12,21 +13,20 @@
     (println "Deleted collection " globals-coll))
   (create-collection! globals-coll)
   (insert! globals-coll {:iva 16.0 :date (utils/now) :prev []})
-  (insert! globals-coll {:modify-threshold 6 :unit "months" :date (utils/now)})
-  (insert! globals-coll {:image-path "resources/public/img/" :date (utils/now)}))
+  (insert! globals-coll {:modify-threshold 6 :unit "months" :date (utils/now) :prev []})
+  (insert! globals-coll {:image-path "/img/" :date (utils/now) :prev []}))
 
 (defn get-image-path []
   (:image-path (fetch-one globals-coll :where {:image-path {:$ne nil}})))
 
-(defn adjust-image-path [new-path]
-  (when (db/valid-path? new-path)
-    (let [old (fetch-one globals-coll :where {:image-path {:$ne nil}})
-          new (db/get-updated-map old {:image-path new-path})]
-      (update! globals-coll old new)
-      :success)))
-
 (defn get-current-iva []
   (:iva (fetch-one globals-coll :where {:iva {:$ne nil}} :only [:iva])))
+
+(defn iva-is-current? [iva]
+  (let [curr (get-current-iva)]
+    (if (number? iva)
+      (== curr iva)
+      (== curr ((coerce-to Double 0.0) iva)))))
 
 ;;; If an article hasn't been modified in a time lower than this threshold it
 ;;; should be shown as a database error.
@@ -47,6 +47,21 @@
 
 (defn get-modify-threshold-doc []
   (fetch-one globals-coll :where {:modify-threshold {:$ne nil}}))
+
+(def resources-root "resources/public/")
+
+(defn remove-first-slash-path [path]
+  (clojure.string/replace path #"^/" ""))
+
+(defn full-image-path [path]
+  (str resources-root (remove-first-slash-path path)))
+
+(defn adjust-image-path [new-path]
+  (when (db/valid-path? (full-image-path new-path))
+    (let [old (fetch-one globals-coll :where {:image-path {:$ne nil}})
+          new (db/get-updated-map old {:image-path new-path})]
+      (update! globals-coll old new)
+      :success)))
 
 (defn adjust-modify-threshold [threshold unit]
   (let [original (fetch-one globals-coll :where {:modify-threshold {:$ne nil}})

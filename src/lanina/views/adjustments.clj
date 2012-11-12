@@ -130,6 +130,14 @@
         (do (session/flash-put! :messages (list {:type "alert-error" :text "La contraseña no es correcta"}))
                 (resp/redirect "/ajustes/"))))
 
+(defpage [:post "/ajustes/imagenes/directorio/"] {:keys [new]}
+  (let [status (model/adjust-image-path new)]
+    (if (= status :success)
+      (do (session/flash-put! :messages (list {:type "alert-success" :text "El directorio de imágenes ha sido modificado"}))
+                (resp/redirect "/ajustes/"))
+      (do (session/flash-put! :messages (list {:type "alert-error" :text "El directorio especificado es inválido o no existe"}))
+                (resp/redirect "/ajustes/")))))
+
 (defpage "/ajustes/" []
   (let [error-count (model/count-all-errors)
         content {:title "Ajustes"
@@ -283,6 +291,6 @@
       (do (session/flash-put! :messages '({:type "alert-error" :text "No eligió una opción para IVA"}))
           (resp/redirect (str "/errores/corregir/iva/" id "/"))))))
 
-(defpage "/ajustes/super-secret" []
+(defpage "/ajustes/reset/" []
   (model/setup!)
   "done!")
