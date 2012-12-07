@@ -9,7 +9,10 @@
             [lanina.models.adjustments :as model]
             [noir.response :as resp]
             [noir.session :as session]
-            [lanina.models.user :as user]))
+            [lanina.models.user :as user]
+            [dbf.core :as dbf]
+            [clojure.java.io :as io]
+            [clj-commons-exec :as exec]))
 
 ;;; changing IVA
 (defpartial change-iva-form []
@@ -152,7 +155,7 @@
                            [:div.container-fluid
                             {:style "background-image: url(\"../img/bedge_grunge.png\")"} (change-image-dir-form)]]
                  :nav-bar true
-                 :active "Ajustes"}]
+                 :active "Herramientas"}]
     (home-layout content)))
 
 ;;; Error counts
@@ -201,7 +204,7 @@
                  :content [:div.container-fluid (show-error-counts)
                            [:div.form-actions (link-to {:class "btn btn-success"} "/ajustes/" "Regresar a ajustes")]]
                  :nav-bar true
-                 :active "Ajustes"}]
+                 :active "Herramientas"}]
     (home-layout content)))
 
 ;;; Error pages
@@ -294,3 +297,94 @@
 (defpage "/ajustes/reset/" []
   (model/setup!)
   "done!")
+
+(defpartial coll-select [collection-names]
+  [:select {:name :coll}
+   (map (fn [name]
+          [:option {:value (keyword name)} name])
+        collection-names)])
+
+(defpartial backup-db-form [collection-names]
+  (form-to {:class "form form-horizontal"} [:post "/db/backup/"]
+           [:legend "Respaldar una colección de la base de datos"]
+           [:p.alert "Los archivos se guardarán dentro de dump/nombre_de_coleccion/nombre_de_coleccion.bson. Este directorio se crea en el directorio especificado abajo o en la raíz de este sistema."]
+           [:div.control-group
+            (label {:class "control-label"} :dir "Opcional: Directorio para guardar (default /home/ubuntu/www/lanina/)")
+            [:div.controls
+             (text-field :dir)]]
+           [:div.control-group
+            (label {:class "control-label"} :coll "Nombre de la colección")
+            [:div.controls
+             (coll-select collection-names)]]
+           [:div.form-actions
+            (submit-button {:class "btn btn-primary"} "Respaldar")]))
+
+(defpartial use-db-backup-form []
+  (form-to {:class "form form-horizontal"} [:post "/db/import/"]
+           [:legend "Restaurar una colección a partir de un respaldo"]
+           [:p.alert "Indicar el directorio donde se encuentra el respaldo, dejar vacío si se encuentra dentro del directorio `dump` en la raíz del sistema."]
+           [:div.control-group
+            (label {:class "control-label"} :dir "Opcional: Directorio donde se encuentra el respaldo (default: /home/ubuntu/www/lanina/dump/")
+            [:div.controls
+             (text-field :dir)]]
+           [:div.form-actions
+            (submit-button {:class "btn btn-primary"} "Restaurar")]))
+
+(defpartial export-db-form [collection-names]
+  (form-to {:class "form form-horizontal"} [:post "/db/export/"]
+           [:legend "Descargar una colección a disco en otro formato"]
+           [:div.control-group
+            (label {:class "control-label"} :coll "Nombre de la colección")
+            [:div.controls
+             (coll-select collection-names)]]
+           [:div.control-group
+            (label {:class "control-label"} :format "Formato de archivo")
+            [:div.controls
+             [:select {:name :format}
+              [:option {:value :dbf} "DBF"]
+              [:option {:value :csv} "CSV"]]]]
+           [:div.form-actions
+            (submit-button {:class "btn btn-primary"} "Descargar")]))
+
+(defpage [:post "/db/export/"] {:keys [coll format]}
+  (let [fname (str (name coll) "." format)]
+    (dbf/mongo-coll-to-dbf! coll fname)
+    (resp/set-headers {"Content-Description" "File Transfer"
+                       "Content-type" "application/octet-stream"
+                       "Content-Disposition" (str "attachment; filename=" fname)
+                       "Content-Transfer-Encoding" "binary"}
+                      (java.io.ByteArrayInputStream.
+                       (slurp-binary-file (java.io.File. fname))))))
+
+(defpage [:post "/db/import/"] {:keys [dir]}
+  (let [dir (or dir "dump/")
+        result @(exec/sh ["mongorestore" dir])
+        exit (:exit result)
+        msg (:out result)
+        error (:err result)]
+    (if (= exit 0)
+      (session/flash-put! :messages (list {:type "alert-success" :text (str "Se completó exitosamente la operación. El sistema dijo: " msg)}))
+      (session/flash-put! :messages (list {:type "alert-error" :text (str " La operación no se completó. Mensaje de error: " error)})))
+    (resp/redirect "/respaldos/")))
+
+(defpage [:post "/db/backup/"] {:keys [dir coll]}
+  (let [result (if dir
+                 @(exec/sh ["mongodump" "--collection" (name coll) "--db" "lanina"])
+                 @(exec/sh ["mongodump" "--collection" (name coll) "--db" "lanina"] {:dir dir}))
+        exit (:exit result)
+        msg (:out result)
+        error (:err result)]
+    (if (= exit 0)
+      (session/flash-put! :messages (list {:type "alert-success" :text (str "Se completó exitosamente la operación. El sistema dijo: " msg)}))
+      (session/flash-put! :messages (list {:type "alert-error" :text (str " La operación no se completó. Mensaje de error: " error)})))
+    (resp/redirect "/respaldos/")))
+
+(defpage "/respaldos/" []
+  (let [content {:content [:div.container-fluid
+                           (backup-db-form (model/get-collection-names))
+                           (use-db-backup-form)
+                           (export-db-form (model/get-collection-names))]
+                 :title "Respaldos de la base de datos"
+                 :active "Herramientas"
+                 :nav-bar true}]
+    (home-layout content)))

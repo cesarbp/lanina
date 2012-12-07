@@ -175,6 +175,34 @@ csv of the articles"
    :codigo 
    :tam])
 
+;;; schema (yeah really)
+;;; points to the correct data type on each field to solve some dbf <-> mongo
+;;; conversion headaches
+;;; special fields like prev are not included
+(def schema
+  {:img ""
+   :date ""
+   :unidad ""
+   :stk 0
+   :lin ""
+   :ramo ""
+   :cu_sin 0.0
+   :cu_con 0.0
+   :pres 0
+   :ubica ""
+   :prov ""
+   :iva 0.0
+   :gan 0.0
+   :exis 0
+   :prev_con 0.0
+   :prev_sin 0.0
+   :ccj_con 0.0
+   :ccj_sin 0.0
+   :nom_art ""
+   :codigo ""
+   :tam ""
+   })
+
 (def verbose-names
   {:img "Nombre de imagen"
    :date "Fecha de última modificación"

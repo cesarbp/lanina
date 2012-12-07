@@ -31,6 +31,9 @@
 
 (defpartial pay-notice [pay total change]
   [:div.container-fluid
+   [:div.alert.alert-error
+    [:h1 "Cambio: "
+     (format "%.2f" (double change))]]
    [:div.alert.alert-info
     [:h2 "Total: "
      (format "%.2f" (double total))]]
@@ -57,7 +60,7 @@
         date (str (time/day now) "/" (time/month now) "/" (time/year now))
         t (str (format "%02d" (time/hour now)) ":"
                (format "%02d" (time/minute now)) ":" (format "%02d" (time/sec now)))]
-    [:pre.prettyprint.linenums {:style "max-width:235px;"}
+    [:pre.prettyprint.linenums {:style "max-width:250px;"}
      [:ol.linenums {:style "list-style-type:none;"}
       [:p 
        [:li {:style "text-align:center;"} "\"L A N I Ñ A\""]
@@ -101,9 +104,7 @@
         change (- pay total)
         ticket-number (ticket/get-next-ticket-number)
         folio (ticket/get-next-folio)
-        content {:title [:div.alert.alert-error
-                         [:h1 "Cambio: "
-                          (format "%.2f" (double change))]]
+        content {:title "Ticket impreso"
                  :content [:div.container-fluid
                            (pay-notice pay total change)
                            [:hr]

@@ -2,14 +2,8 @@
 
 A small website for a small supermarket
 
-## Usage
-
-If you use cake, substitute 'lein' with 'cake' below. Everything should work fine.
-
-```bash
-lein deps
-lein run
-```
+## Need to do this first:
+mvn deploy:deploy-file -Dfile=maven_repository/javadbf-0.4.4.jar -DartifactId=javadbf -Dversion=0.4.4 -DgroupId=local -Dpackaging=jar -Durl=file:maven_repository
 
 ## License
 

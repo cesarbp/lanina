@@ -27,6 +27,7 @@
    :verify-js     (include-js "/js/verify.js")
    :modify-js     (include-js "/js/modify.js")
    :art-res-js    (include-js "/js/article-results.js")
+   :list-js       (include-js "/js/list.js")
    })
 
 ;;; Links on the nav
@@ -34,9 +35,15 @@
   [["Ventas"    "/ventas/"]
    ["Artículos" "/articulos/"]
    ["Tickets"   "/tickets/"]
-   ["Listas"    "/listas/"]
-   ["Inicio"    "/inicio/"]
-   ["Ajustes"   "/ajustes/"]
+   {:title "Listas"
+    :links
+    [["Para empleados"   "/listas/"]
+     ["Para proveedores" "/listas/proveedor/"]]}
+   ["Inicio" "/inicio/"]
+   {:title "Herramientas"
+    :links
+    [["Ajustes de la BD" "/ajustes/"]
+     ["Respaldos de la BD" "/respaldos/"]]}
    ["Salir"     "/salir/"]])
 
 (def nav-links-empl
@@ -64,9 +71,17 @@
         [:span.icon-bar]]
        (link-to {:class "brand"} "/" "Lonja Mercantil La Niña")
        [:ul.nav
-        (map (fn [[title lnk]]
-               [:li {:class (if (= title active) "active" "")}
-                (link-to lnk title)])
+        (map (fn [nav-item]
+               (if (vector? nav-item)
+                 (let [[title lnk] nav-item]
+                   [:li {:class (if (= title active) "active" "")}
+                    (link-to lnk title)])
+                 [:li {:class (str "dropdown" (if (= (:title nav-item) active) " active" ""))}
+                  (link-to {:class "dropdown-toggle" :data-toggle "dropdown"} "#" (str (:title nav-item) "<b class=\"caret\"></b>"))
+                  [:ul.dropdown-menu
+                   (map (fn [[title lnk]]
+                          [:li (link-to lnk title)])
+                        (:links nav-item))]]))
              links)]]]]))
 
 (defpartial nav-bar-no-links []
@@ -103,7 +118,7 @@
             [:p "Gracias por visitar"])]]]]))
 
 (defpartial main-layout [content]
-  (main-layout-incl content [:base-css :jquery]))
+  (main-layout-incl content [:base-css :jquery :base-js]))
 
 (defpartial home-layout [content]
   (main-layout (into content {:nav-bar true})))

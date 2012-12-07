@@ -1,6 +1,10 @@
 (ns lanina.models.adjustments
   (:use somnium.congomongo
-        lanina.utils)
+        lanina.utils
+        [lanina.models.logs :only [log-coll]]
+        [lanina.models.article :only [article-coll]]
+        [lanina.models.user :only [users-coll]]
+        [lanina.models.ticket :only [ticket-coll]])
   (:require [lanina.models.article :as article]
             [lanina.views.utils :as utils]
             [lanina.models.utils :as db]))
@@ -14,10 +18,14 @@
   (create-collection! globals-coll)
   (insert! globals-coll {:iva 16.0 :date (utils/now) :prev []})
   (insert! globals-coll {:modify-threshold 6 :unit "months" :date (utils/now) :prev []})
-  (insert! globals-coll {:image-path "/img/" :date (utils/now) :prev []}))
+  (insert! globals-coll {:image-path "/img/" :date (utils/now) :prev []})
+  (insert! globals-coll {:collections [article-coll ticket-coll globals-coll log-coll users-coll]}))
 
 (defn get-image-path []
   (:image-path (fetch-one globals-coll :where {:image-path {:$ne nil}})))
+
+(defn get-collection-names []
+  (:collections (fetch-one globals-coll :where {:collections {:$ne nil}})))
 
 (defn get-current-iva []
   (:iva (fetch-one globals-coll :where {:iva {:$ne nil}} :only [:iva])))

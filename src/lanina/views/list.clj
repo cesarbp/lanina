@@ -43,7 +43,7 @@
                  :nav-bar true
                  :active "Listas"}]
     (println (seq arts))
-    (main-layout-incl content [:base-css :jquery])))
+    (main-layout-incl content [:base-css :jquery :base-js])))
 
 (defpartial assign-employees-row [[n ids]]
   (let [employees employee/employee-list
@@ -84,7 +84,7 @@
                             (link-to {:class "btn btn-danger"} "/listas/" "Cancelar")]]
                  :nav-bar true
                  :active "Listas"}]
-    (main-layout-incl content [:base-css :jquery])))
+    (main-layout-incl content [:base-css :jquery :base-js])))
 
 (defpage "/logs/clear/" []
   (logs/remove-logs)
@@ -119,4 +119,94 @@
       (doseq [id ids]
         (logs/remove-log! id))
       (session/flash-put! :messages '({:type "alert-success" :text "Los artículos han sido quitados del registro."})))
+    (home-layout content)))
+
+;;; Shopping list
+(defpartial barcode-form []
+  (form-to {:id "barcode-form" :class "form-inline"} [:get ""]
+    [:div.subnav
+     [:ul.nav.nav-pills
+      [:li [:h2#total "Total: 0.00"]]
+      [:li
+       (text-field {:class "input-small" :style "position:relative;top:14px;text-align:right;width:40px;" :id "quantity-field" :onkeypress "return quantity_listener(this, event)" :autocomplete "off" :placeholder "F10"} "quantity")]
+      [:li
+       (text-field {:class "input-small" :style "position:relative;top:14px;left:2px;text-align:right" :id "barcode-field" :onkeypress "return barcode_listener(this, event)" :autocomplete "off" :placeholder "F3 - Código"} "barcode")]
+      [:li
+       [:a [:p {:style "position:relative;top:7px;"} "F4 - Agregar por nombre de artículo"]]]]]))
+
+(defpartial item-list []
+  [:table {:id "articles-table" :class "table table-condensed"}
+   [:tr
+    [:th#name-header "Artículo"]
+    [:th#quantity-header "Cantidad"]
+    [:th#price-header "Precio"]
+    [:th#total-header "Total"]
+    [:th "Aumentar/Disminuir"]
+    [:th "Quitar"]]])
+
+(defpage "/listas/proveedor/" []
+  (let [content {:title (str "Lista para proveedores")
+                 :content [:div#main.container-fluid (barcode-form) (item-list)]
+                 :footer [:p "Gracias por su compra."]
+                 :nav-bar true
+                 :active "Listas"}]
+    (main-layout-incl content [:base-css :search-css :switch-css :jquery :jquery-ui :base-js :shortcut :scroll-js :list-js :custom-css :subnav-js :switch-js])))
+
+(defn get-article [denom]
+  (letfn [(is-bc [d] (every? (set (map str (range 10)))
+                             (rest (clojure.string/split (name d) #""))))
+          (is-gvdo [d] (= "gvdo" (clojure.string/lower-case (apply str (take 4 (name d))))))
+          (is-exto [d] (= "exto" (clojure.string/lower-case (apply str (take 4 (name d))))))]
+    (cond (is-bc denom) (article/get-by-barcode denom)
+          (is-gvdo denom) {:codigo "0" :nom_art "ARTÍCULO GRAVADO"
+                           :prev_con (Double/parseDouble (clojure.string/replace (clojure.string/replace denom #"gvdo\d+_" "")
+                                                                                 #"_" "."))}
+          (is-exto denom) {:codigo "0" :nom_art "ARTÍCULO EXENTO"
+                           :prev_sin (Double/parseDouble (clojure.string/replace (clojure.string/replace denom #"exto\d+_" "")
+                                                                                 #"_" "."))}
+          :else (article/get-by-name (clojure.string/replace denom #"_" " ")))))
+
+(defpartial printed-ticket [prods total]
+  (let [now (time/now)
+        date (str (time/day now) "/" (time/month now) "/" (time/year now))
+        t (str (format "%02d" (time/hour now)) ":"
+               (format "%02d" (time/minute now)) ":" (format "%02d" (time/sec now)))]
+    [:pre.prettyprint.linenums {:style "max-width:250px;"}
+     [:ol.linenums {:style "list-style-type:none;"}
+      [:p 
+       [:li {:style "text-align:center;"} "\"L A N I Ñ A\""]
+       [:li {:style "text-align:center;"} "R.F.C: ROHE510827-8T7"]
+       [:li {:style "text-align:center;"} "GUERRERO No. 45 METEPEC MEX."]
+       [:li {:style "text-align:center;"} (str date " " t)]]
+      (map (fn [art] [:p
+                      [:li (:nom_art art)]
+                      [:li {:style "text-align:right;"}
+                       (str (:quantity art) " x "
+                            (format "%.2f" (double (:precio_unitario art))) " = "
+                            (format "%.2f" (double (:total art))))]])
+           prods)
+      [:br]
+      [:p
+       [:li {:style "text-align:right;"}
+        (format "SUMA ==> $ %8.2f" (double total))]]]]))
+
+(defpage "/listas/proveedor/nuevo/" {:as items}
+  (let [items (dissoc items :pay)
+        pairs (zipmap (keys items) (map #(Integer/parseInt %) (vals items)))
+        prods (reduce (fn [acc [bc times]]
+                        (let [article (get-article (name bc))
+                              name (:nom_art article)
+                              type (if (and (:prev_con article) (> (:prev_con article) 0.0))
+                                      :gvdo :exto)
+                              price (if (and (:prev_con article) (> (:prev_con article) 0.0))
+                                      (:prev_con article) (:prev_sin article))
+                              total (* price times)
+                              art {:type type :quantity times :nom_art name :precio_unitario price :total total :codigo bc :cantidad times}]
+                          (into acc [art])))
+                      [] pairs)
+        total (reduce + (map :total prods))
+        content {:title "Lista impresa de proveedores"
+                 :content [:div.container-fluid
+                           (printed-ticket prods total)]
+                 :active "Listas"}]
     (home-layout content)))

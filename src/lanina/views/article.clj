@@ -368,7 +368,7 @@ function redirect_to_add_codnom() {
                                    (search-art-by-providers (apply str s)))]
       :nav-bar true
       :active "Artículos"}
-     [:base-css :jquery :shortcut :art-res-js])
+     [:base-css :jquery :base-js :shortcut :art-res-js])
     (do (session/flash-put! :messages '({:type "alert-error" :text "No introdujo una búsqueda"}))
         (resp/redirect "/articulos/"))))
 
@@ -404,7 +404,7 @@ function redirect_to_add_codnom() {
                               (link-to {:class "btn btn-success"} "/articulos/" "Regresar")]])
                  :nav-bar true
                  :active "Artículos"}]
-    (main-layout-incl content [:base-css :jquery])))
+    (main-layout-incl content [:base-css :jquery :base-js])))
 
 (defpage [:post "/articulos/id/:id/eliminar/"] {:as post}
   (let [art-name (:nom_art (article/get-by-id (:id post)))
@@ -475,7 +475,7 @@ function redirect_to_add_codnom() {
                            [:div.form-actions (link-to {:class "btn btn-success"}
                                                        (str "/articulos/") "Regresar a buscar artículos")]
                            (highlight-js (if iva :prev_con :prev_sin))]}]
-    (main-layout-incl content [:base-css :jquery])))
+    (main-layout-incl content [:base-css :jquery :base-js])))
 
 (defpage "/articulos/id/:id/ventas/" {id :id}
   (let [article (dissoc (article/get-by-id-only id [:codigo :nom_art :tam :lin :ramo :pres :unidad :ubica :iva :exis :stk :prev_con :prev_sin :fech_an :fech_ac]) :_id)
@@ -702,7 +702,7 @@ function redirect_to_add_codnom() {
                  :active "Artículos"
                  :content [:div.container (modify-article-form article to-modify :nombre)
                            [:script "$('#nom_art').focus();"]]}]
-    (main-layout-incl content [:base-css :jquery])))
+    (main-layout-incl content [:base-css :jquery :base-js])))
 
 (defpage "/articulos/agregar/" []
   (let [to-modify []
