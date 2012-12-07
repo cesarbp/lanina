@@ -66,7 +66,6 @@ Returns a map of field names -> dbf type"
          (map (fn [[field-name val]] {field-name (get-dbf-type val)}))
          (apply merge))))
 
-;;; TODO - 1 record sample is not good enough when the db is full of crap
 (defn ^DBFField create-fields [schema]
   "Creates the fields with the schema provided (record-map with correct types and correct
 number of fields)"

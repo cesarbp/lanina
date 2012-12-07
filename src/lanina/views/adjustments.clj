@@ -330,6 +330,21 @@
            [:div.form-actions
             (submit-button {:class "btn btn-primary"} "Restaurar")]))
 
+(defpartial import-dbf-form [collection-names]
+  (form-to {:class "form form-horizontal"} [:post "/db/import/dbf/"]
+           [:legend "Importar un archivo dbf a una colección del sistema"]
+           [:p.alert "Indicar la ubicación completa del archivo dbf, esto agrega los registros del dbf a la colección escogida y la crea si no existe."]
+           [:div.control-group
+            (label {:class "control-label"} :coll "Nombre de la colección a ser modificada")
+            [:div.controls
+             (coll-select collection-names)]]
+           [:div.control-group
+            (label {:class "control-label"} :path "Dirección completa del archivo dbf")
+            [:div.controls
+             (text-field :path)]]
+           [:div.form-actions
+            (submit-button {:class "btn btn-primary"} "Importar DBF")]))
+
 (defpartial export-db-form [collection-names]
   (form-to {:class "form form-horizontal"} [:post "/db/export/"]
            [:legend "Descargar una colección a disco en otro formato"]
@@ -367,6 +382,13 @@
       (session/flash-put! :messages (list {:type "alert-error" :text (str " La operación no se completó. Mensaje de error: " error)})))
     (resp/redirect "/respaldos/")))
 
+(defpage [:post "/db/import/dbf/"] {:keys [coll path]}
+  (try (dbf/dbf-to-mongo! coll path)
+       (session/flash-put! :messages (list {:type "alert-success" :text (str "Se agregaron exitosamente los registros a la colección " (name coll))}))
+       (catch Exception e
+         (session/flash-put! :messages (list {:type "alert-error" :text (str "No se pudieron agregar los registros, verifique la dirección del archivo")}))))
+  (resp/redirect "/respaldos/"))
+
 (defpage [:post "/db/backup/"] {:keys [dir coll]}
   (let [result (if dir
                  @(exec/sh ["mongodump" "--collection" (name coll) "--db" "lanina"])
@@ -383,7 +405,8 @@
   (let [content {:content [:div.container-fluid
                            (backup-db-form (model/get-collection-names))
                            (use-db-backup-form)
-                           (export-db-form (model/get-collection-names))]
+                           (export-db-form (model/get-collection-names))
+                           (import-dbf-form (model/get-collection-names))]
                  :title "Respaldos de la base de datos"
                  :active "Herramientas"
                  :nav-bar true}]
