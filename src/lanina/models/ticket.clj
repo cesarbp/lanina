@@ -27,8 +27,9 @@
       1)))
 
 (defn setup! []
-  (when-not (collection-exists? ticket-coll)
-    (create-collection! ticket-coll)))
+  (when (collection-exists? ticket-coll)
+    (drop-coll! ticket-coll))
+  (create-collection! ticket-coll))
 
 (defn insert-ticket [pay articles]
   (let [now (time/now)

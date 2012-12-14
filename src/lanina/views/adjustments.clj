@@ -50,11 +50,11 @@
      (submit-button {:class "btn btn-primary"} "Cambiar contraseña")]))
 ;;; Changing modify article threshold
 (defpartial modify-threshold-unit-select [orig]
-  (let [remaining (clojure.set/difference (set model/valid-modify-threshold-units) #{orig})]
+  (let [remaining (clojure.set/difference (set model/valid-time-units) #{orig})]
     [:select {:name :unit}
-     [:option {:value orig} (model/valid-modify-threshold-units-trans orig)]
+     [:option {:value orig} (model/valid-time-units-trans orig)]
      (map (fn [opt]
-            [:option {:value opt} (model/valid-modify-threshold-units-trans opt)])
+            [:option {:value opt} (model/valid-time-units-trans opt)])
           (vec remaining))]))
 
 (defpartial change-modify-threshold-form []
@@ -88,6 +88,41 @@
          (text-field :new)]]]
       [:div.form-actions
        (submit-button {:class "btn btn-primary"} "Cambiar")])))
+
+(defpartial backup-time-unit-select [default sname]
+  (let [valid {"hours" "horas"
+               "days" "días"}
+        other (first (keys (dissoc valid default)))]
+    [:select {:name sname}
+     [:option {:value default} (valid default)]
+     [:option {:value other} (valid other)]]))
+
+(defpartial change-backup-settings-form [previous]
+  (form-to [:post "/ajustes/respaldos/"]
+           [:legend "Ajustes en el sistema de respaldos"]
+           [:fieldset
+            [:div.control-group
+             (label {:class "control-label"} :amount "Cantidad")
+             [:div.controls
+              (text-field {:placeholder (str "Previo: " (:amount previous))} :amount (:amount previous))]]
+            [:div.control-group
+             (label {:class "control-label"} :unit "Unidad de tiempo")
+             [:div.controls
+              (backup-time-unit-select (:unit previous) :unit)]]
+            [:div.control-group
+             (label {:class "control-label"} :start "Hora de inicio")
+             [:div.controls
+              (text-field {:placeholder (str "Previo: " (:start previous))} :start (:start previous))]]
+            [:div.control-group
+             (label {:class "control-label"} :primary "Respaldo primario")
+             [:div.controls
+              (text-field {:placeholder (str "Previo: " (:primary previous))} :primary (:primary previous))]]
+            [:div.control-group
+             (label {:class "control-label"} :secondary "Respaldo secundario")
+             [:div.control-group
+              (text-field {:placeholder (str "Previo: " (:secondary previous))} :secondary (:secondary previous))]]]
+           [:div.form-actions
+            (submit-button {:class "btn btn-primary"} "Cambiar")]))
 
 ;;; Database errors
 (defpartial error-notice [error-count]
@@ -143,6 +178,7 @@
 
 (defpage "/ajustes/" []
   (let [error-count (model/count-all-errors)
+        previous-backup-settings (model/get-backup-settings)
         content {:title "Ajustes"
                  :content [:div
                            [:div.container-fluid
@@ -153,7 +189,9 @@
                            [:div.container-fluid
                             (change-modify-threshold-form)]
                            [:div.container-fluid
-                            {:style "background-image: url(\"../img/bedge_grunge.png\")"} (change-image-dir-form)]]
+                            {:style "background-image: url(\"../img/bedge_grunge.png\")"} (change-image-dir-form)]
+                           [:div.container-fluid
+                            (change-backup-settings-form previous-backup-settings)]]
                  :nav-bar true
                  :active "Herramientas"}]
     (home-layout content)))
@@ -182,7 +220,7 @@
 (defpartial beyond-threshold-errors-count-li []
   (let [thresh (model/get-modify-threshold-doc)
         thresh-count (:modify-threshold thresh)
-        thresh-unit (model/valid-modify-threshold-units-trans (:unit thresh))
+        thresh-unit (model/valid-time-units-trans (:unit thresh))
         errs (model/find-beyond-threshold-errors)]
     (when (seq errs)
       [:li (link-to (str "/errores/sin-modificar/")
@@ -307,9 +345,9 @@
 (defpartial backup-db-form [collection-names]
   (form-to {:class "form form-horizontal"} [:post "/db/backup/"]
            [:legend "Respaldar una colección de la base de datos"]
-           [:p.alert "Los archivos se guardarán dentro de dump/nombre_de_coleccion/nombre_de_coleccion.bson. Este directorio se crea en el directorio especificado abajo o en la raíz de este sistema."]
+           [:p.alert "Los archivos se guardarán dentro de dump/nombre_de_coleccion/nombre_de_coleccion.bson dentro de los directorios primario, secundario y opcionalmente el directorio especificado abajo."]
            [:div.control-group
-            (label {:class "control-label"} :dir "Opcional: Directorio para guardar (default /home/ubuntu/www/lanina/)")
+            (label {:class "control-label"} :dir "Opcional: Tercer directorio de respaldo (default /home/ubuntu/www/lanina/)")
             [:div.controls
              (text-field :dir)]]
            [:div.control-group
@@ -371,15 +409,19 @@
                       (java.io.ByteArrayInputStream.
                        (slurp-binary-file (java.io.File. fname))))))
 
+(defn system-messages [results]
+  (doseq [result results]
+    (let [exit (:exit result)
+          msg (:out result)
+          error (:err result)]
+      (if (= exit 0)
+        (session/flash-put! :messages (list {:type "alert-success" :text (str "Se completó exitosamente la operación. El sistema dijo: " msg)}))
+        (session/flash-put! :messages (list {:type "alert-error" :text (str " La operación no se completó. Mensaje de error: " error)}))))))
+
 (defpage [:post "/db/import/"] {:keys [dir]}
   (let [dir (or dir "dump/")
-        result @(exec/sh ["mongorestore" dir])
-        exit (:exit result)
-        msg (:out result)
-        error (:err result)]
-    (if (= exit 0)
-      (session/flash-put! :messages (list {:type "alert-success" :text (str "Se completó exitosamente la operación. El sistema dijo: " msg)}))
-      (session/flash-put! :messages (list {:type "alert-error" :text (str " La operación no se completó. Mensaje de error: " error)})))
+        results  (list @(exec/sh ["mongorestore" dir]))]
+    (system-messages results)
     (resp/redirect "/respaldos/")))
 
 (defpage [:post "/db/import/dbf/"] {:keys [coll path]}
@@ -390,16 +432,27 @@
   (resp/redirect "/respaldos/"))
 
 (defpage [:post "/db/backup/"] {:keys [dir coll]}
-  (let [result (if dir
-                 @(exec/sh ["mongodump" "--collection" (name coll) "--db" "lanina"])
-                 @(exec/sh ["mongodump" "--collection" (name coll) "--db" "lanina"] {:dir dir}))
-        exit (:exit result)
-        msg (:out result)
-        error (:err result)]
-    (if (= exit 0)
-      (session/flash-put! :messages (list {:type "alert-success" :text (str "Se completó exitosamente la operación. El sistema dijo: " msg)}))
-      (session/flash-put! :messages (list {:type "alert-error" :text (str " La operación no se completó. Mensaje de error: " error)})))
+  (let [backup-settings (model/get-backup-settings)
+        primary (:primary backup-settings)
+        secondary (:secondary backup-settings)
+        results (map (fn [d]
+                       (if (seq d)
+                         (try
+                           @(exec/sh ["mongodump" "--collection" (name coll) "--db" "lanina"] {:dir d})
+                           (catch java.io.IOException e
+                             {:exit 1
+                              :error (str e)}))
+                         @(exec/sh ["mongodump" "--collection" (name coll) "--db" "lanina"])))
+                     [primary secondary dir])]
+    (system-messages results)
     (resp/redirect "/respaldos/")))
+
+(defpage [:post "/ajustes/respaldos/"] {:keys [amount unit start primary secondary]}
+  (let [amount ((coerce-to Integer 12) amount)
+        m {:amount amount :unit unit :primary primary :secondary secondary :start start}]
+    (model/adjust-backup-settings m)
+    (session/flash-put! :messages (list {:type "alert-success" :text (str "Se modificaron exitosamente las condiciones de respaldo")}))
+    (resp/redirect "/ajustes/")))
 
 (defpage "/respaldos/" []
   (let [content {:content [:div.container-fluid
@@ -411,3 +464,4 @@
                  :active "Herramientas"
                  :nav-bar true}]
     (home-layout content)))
+

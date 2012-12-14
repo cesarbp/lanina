@@ -4,8 +4,9 @@
 (def log-coll :article-logs)
 
 (defn setup! []
-  (when-not (collection-exists? log-coll)
-    (create-collection! log-coll)))
+  (when (collection-exists? log-coll)
+    (drop-coll! log-coll))
+  (create-collection! log-coll))
 
 (def log-keys [:art-id :changes :date :type :cleared])
 (def log-types [:deleted :updated :added])

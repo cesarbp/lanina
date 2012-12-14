@@ -54,8 +54,9 @@
                  :content [:div.container
                            (login-form)
                            [:script "$('#password').focus();"]]}]
-    (users/setup! "password" "empleado")
-    (main-layout content)))
+    (if (users/logged-in?)
+      (resp/redirect "/inicio/")
+      (main-layout content))))
 
 (defpage [:post "/entrar/"] {:as pst}
   (let [usr (:user pst)
@@ -97,11 +98,6 @@
    [:div#logs
     [:ol
      (map logrow logs)]]])
-
-(pre-route "/inicio/" {}
-           (when-not (users/logged-in?)
-             (session/flash-put! :messages '({:type "alert-error" :text "Necesita estar firmado para accesar esta página"}))
-             (resp/redirect "/entrar/")))
 
 (defpage "/inicio/" []
   (let [lgs (logs/retrieve-all)

@@ -1,7 +1,8 @@
 (ns lanina.views.utils
   (:require [clj-time.core :as t]
             [clj-time.format :as tf]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [noir.session :as session]))
 
 ;;; Fixme: adjust offset for daytime saving shenanigans
 
@@ -56,3 +57,7 @@
                  (-> (parse-bytes chars)
                      (String. "UTF-8")
                      (double-escape)))))
+
+(defn flash-message [content type]
+  "Type should be one of \"error\" \"success\" \"info\""
+  (session/flash-put! :messages (list {:type (str "alert-" type) :text content})))

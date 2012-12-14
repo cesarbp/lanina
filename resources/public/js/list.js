@@ -31,6 +31,26 @@ function readFile(url) {
     return html;
 }
 
+function restore_progress() {
+    $.getJSON('/backup/list/get/', {}, function(h) {
+	if (h !== "") {
+	    $('#main').html(h);
+	} else {
+	    alert('No hay ninguna lista guardada.')
+	}
+    });
+    return false;
+}
+
+function save_progress() {
+    $.getJSON('/backup/list/', {'html': $('#main').html()}, function (r) {
+	if (r === "success") {
+	    alert("Se ha guardado la lista.");
+	}
+    });
+    return false;
+}
+
 function article_row(article, quantity) {
 
     if (article.codigo === "0") {
@@ -86,7 +106,6 @@ function update_total() {
 
 function ticket_links(barcode, quantity, increase) {
     var ticket_link = $("#ticket");
-    var bill_link = $("#bill");
     barcode = barcode.replace(/\s/g, '_');
     var req_html =  barcode + "=" + quantity;
     var prev_quant = increase ? quantity - 1 : quantity + 1;
@@ -95,21 +114,15 @@ function ticket_links(barcode, quantity, increase) {
 
     if (ticket_link.length !== 0) {
 	ticket_link_href = ticket_link[0].href;
-	bill_link_href = bill_link[0].href;
 	if (ticket_link_href.search("\\?" + prev_html) >= 0 || ticket_link_href.search("&" + prev_html) >= 0){
 	    $("#ticket")[0].href = $("#ticket")[0].href.replace("?" + prev_html, "?" + req_html);
 	    $("#ticket")[0].href = $("#ticket")[0].href.replace("&" + prev_html, "&" + req_html);
-	    $("#bill")[0].href = $("#bill")[0].href.replace("?" + prev_html, "?" + req_html);
-	    $("#bill")[0].href = $("#bill")[0].href.replace("&" + prev_html, "&" + req_html);	    
 	} else {
 	    $("#ticket")[0].href = ticket_link_href + "&" + req_html;
-	    $("#bill")[0].href = bill_link_href + "&" + req_html;
 	}
     } else {
-	var ticket_html = '<a id="ticket" class="btn btn-primary" href="/listas/proveedor/nuevo/?' +
+	var ticket_html = '<a id="ticket" class="btn btn-primary" href="/listas/compras/nuevo/?' +
 	    req_html + '">Generar Lista</a>';
-	var bill_html = '<a id="bill" class="btn btn-success" href="/facturas/nuevo/?' +
-	    req_html + '">F10 - Generar Factura</a>';
 	var form_html = '<div id="gen-tickets" class="form-actions">' + ticket_html + '</div>';
 	$("#main").append(form_html);
     }
@@ -118,17 +131,13 @@ function ticket_links(barcode, quantity, increase) {
 
 function remove_ticket_links(barcode) {
     var ticket_link = $("#ticket")[0];
-    var bill_link = $("#bill")[0];
-    
     if (ticket_link) {
 	var re = new RegExp ('[?|&]' + barcode + '=\\d+');
 	ticket_link.href = ticket_link.href.replace(re, '');
-	bill_link.href = bill_link.href.replace(re, '');
 
 	if (-1 === ticket_link.href.search(/\?/)) {
 	    if (ticket_link.href.search(/&/) !== -1) {
 		ticket_link.href = ticket_link.href.replace(/&/, '?');
-		bill_link.href = bill_link.href.replace(/&/, '?');
 	    }
 	    else {
 		$('#gen-tickets').remove();
@@ -689,28 +698,5 @@ $(document).ready(function(){
 	}
     });
     $('#barcode-field').focus();
-
-    $('#unregistered-quantity').tooltip({
-	title: 'Cantidad'
-    });
-    $('#unregistered-price').tooltip({
-	title: 'Precio'
-    });
-    $('#quantity-field').tooltip({
-	title: 'Cantidad'
-    });
-    $('#barcode-field').tooltip({
-	title: 'Código de barras'
-    });
-    $('#unregistered-quantity').tooltip('show');
-    $('#unregistered-price').tooltip('show');
-    $('#quantity-field').tooltip('show');
-    $('#barcode-field').tooltip('show');
-    setTimeout(function() {
-	$('#unregistered-quantity').tooltip('hide');
-	$('#unregistered-price').tooltip('hide');
-	$('#quantity-field').tooltip('hide');
-	$('#barcode-field').tooltip('hide');
-    }, 5000);    
 });
 

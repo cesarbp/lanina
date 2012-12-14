@@ -19,7 +19,18 @@
   (insert! globals-coll {:iva 16.0 :date (utils/now) :prev []})
   (insert! globals-coll {:modify-threshold 6 :unit "months" :date (utils/now) :prev []})
   (insert! globals-coll {:image-path "/img/" :date (utils/now) :prev []})
-  (insert! globals-coll {:collections [article-coll ticket-coll globals-coll log-coll users-coll]}))
+  (insert! globals-coll {:collections [article-coll ticket-coll globals-coll log-coll users-coll]})
+  (insert! globals-coll {:name "backups"
+                         :amount 12
+                         :unit "hours"
+                         :start "00:00"
+                         :primary ""
+                         :secondary "/dev/sdb1/"
+                         :date (utils/now)
+                         :prev []}))
+
+(defn get-backup-settings []
+  (dissoc (fetch-one globals-coll :where {:name "backups"}) :date :prev))
 
 (defn get-image-path []
   (:image-path (fetch-one globals-coll :where {:image-path {:$ne nil}})))
@@ -39,13 +50,14 @@
 ;;; If an article hasn't been modified in a time lower than this threshold it
 ;;; should be shown as a database error.
 ;;; Returns the amount in days
-(def valid-modify-threshold-units
+(def valid-time-units
   ["months" "days" "years"])
 
-(def valid-modify-threshold-units-trans
+(def valid-time-units-trans
   {"months" "meses"
    "days" "días"
-   "years" "años"})
+   "years" "años"
+   "hours" "horas"})
 
 (defn get-modify-threshold []
   (let [doc (fetch-one globals-coll :where {:modify-threshold {:$ne nil}} :only [:modify-threshold :unit])
@@ -92,12 +104,17 @@
         new-art (db/get-updated-map art new-map)]
     (update! article-coll art new-art)))
 
+(defn adjust-backup-settings [backup-map]
+  (let [original (fetch-one globals-coll :where {:name "backups"})
+        new-backups-map (into backup-map {:date (utils/now-with-time)})
+        new (db/get-updated-map original new-backups-map)]
+    (update! globals-coll original new)))
+
 (defn adjust-iva [new-iva]
   (assert (and (number? new-iva) (pos? new-iva)))
   (let [original (fetch-one globals-coll :where {:iva {:$ne nil}})
         new-iva-map {:iva new-iva :date (utils/now-with-time)}
         new (db/get-updated-map original new-iva-map)
-        article-coll article/article-coll
         current-iva (get-current-iva)]
     (do
       (assert (not= new-iva original))

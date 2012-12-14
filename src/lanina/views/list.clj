@@ -144,9 +144,16 @@
     [:th "Aumentar/Disminuir"]
     [:th "Quitar"]]])
 
-(defpage "/listas/proveedor/" []
-  (let [content {:title (str "Lista para proveedores")
-                 :content [:div#main.container-fluid (barcode-form) (item-list)]
+(defpartial save-restore-links []
+  [:div
+   [:a {:onclick "restore_progress();" :class "btn btn-primary"} "Usar la última versión guardada"]
+   [:a {:onclick "save_progress();" :class "btn btn-success"} "Guardar la lista de compras"]])
+
+(defpage "/listas/compras/" []
+  (let [content {:title (str "Lista para compras")
+                 :content [:div
+                           (save-restore-links)
+                           [:div#main.container-fluid (barcode-form) (item-list)]]
                  :footer [:p "Gracias por su compra."]
                  :nav-bar true
                  :active "Listas"}]
@@ -190,7 +197,7 @@
        [:li {:style "text-align:right;"}
         (format "SUMA ==> $ %8.2f" (double total))]]]]))
 
-(defpage "/listas/proveedor/nuevo/" {:as items}
+(defpage "/listas/compras/nuevo/" {:as items}
   (let [items (dissoc items :pay)
         pairs (zipmap (keys items) (map #(Integer/parseInt %) (vals items)))
         prods (reduce (fn [acc [bc times]]
@@ -205,7 +212,7 @@
                           (into acc [art])))
                       [] pairs)
         total (reduce + (map :total prods))
-        content {:title "Lista impresa de proveedores"
+        content {:title "Lista impresa de compras"
                  :content [:div.container-fluid
                            (printed-ticket prods total)]
                  :active "Listas"}]

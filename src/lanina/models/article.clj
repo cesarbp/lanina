@@ -306,9 +306,10 @@ csv of the articles"
         errors (validate-article (get-different-fields old new))
         date (view-utils/now-with-time)
         updated (db/get-updated-map old
-                                (into (into old (first (coerce-to-useful-types (list (dissoc new :_id)))))
-                                      {:date date}))]
+                                    (into (first (coerce-to-useful-types (list (dissoc new :_id :prev))))
+                                          {:date date}))]
     (if (seq errors)
       errors
-      (do (update! article-coll old updated)
+      (do (println (seq old) "\n" (seq updated))
+          (update! article-coll old updated)
           :success))))

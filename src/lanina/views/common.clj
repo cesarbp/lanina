@@ -38,7 +38,7 @@
    {:title "Listas"
     :links
     [["Para empleados"   "/listas/"]
-     ["Para proveedores" "/listas/proveedor/"]]}
+     ["Para compras" "/listas/compras/"]]}
    ["Inicio" "/inicio/"]
    {:title "Herramientas"
     :links
