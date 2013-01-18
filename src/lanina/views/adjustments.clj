@@ -12,7 +12,9 @@
             [lanina.models.user :as user]
             [dbf.core :as dbf]
             [clojure.java.io :as io]
-            [clj-commons-exec :as exec]))
+            [clj-commons-exec :as exec]
+            [zip.core :as z]
+            [clojure.string :as s]))
 
 ;;; changing IVA
 (defpartial change-iva-form []
@@ -207,14 +209,14 @@
   (let [errs (if (= prop :codigo) (model/find-duplicate-barcode-errors) (model/find-duplicate-value-errors prop))]
     (when (seq errs)
       [:li (link-to (str "/errores/" (name prop) "/duplicado/")
-                    (str "Hay " (count (map second errs))                     
+                    (str "Hay " (count (map second errs))
                          " artículos con " (article/verbose-names prop) " duplicado"))])))
 
 (defpartial empty-value-errors-count-li [prop]
   (let [errs (model/find-empty-value-errors prop)]
     (when (seq errs)
       [:li (link-to (str "/errores/" (name prop) "/faltante/")
-                    (str "Hay " (count (map second errs))                     
+                    (str "Hay " (count (map second errs))
                          " artículos que no tienen " (article/verbose-names prop)))])))
 
 (defpartial beyond-threshold-errors-count-li []
@@ -224,7 +226,7 @@
         errs (model/find-beyond-threshold-errors)]
     (when (seq errs)
       [:li (link-to (str "/errores/sin-modificar/")
-                    (str "Hay " (count errs)                     
+                    (str "Hay " (count errs)
                          " artículos que no han sido modificados desde hace " thresh-count " " thresh-unit " o más."))])))
 
 (defpartial show-error-counts []
@@ -324,7 +326,7 @@
         new-iva (cond (= "yes" iva)
                   (model/get-current-iva)
                   (= "no" iva) 0
-                  :else nil)]    
+                  :else nil)]
     (if iva
       (do (model/adjust-individual-article-prop id :iva new-iva)
           (session/flash-put! :messages '({:type "alert-success" :text "El IVA ha sido corregido"}))
@@ -431,10 +433,29 @@
          (session/flash-put! :messages (list {:type "alert-error" :text (str "No se pudieron agregar los registros, verifique la dirección del archivo")}))))
   (resp/redirect "/respaldos/"))
 
+(defn backup-multiple-colls-seq
+  "Creates a lazy-seq of commands to backup each coll in coll-names
+on each of the directories.
+dorun or do something similar to the seq to actually back them up."
+  [{:keys [primary secondary dir]} coll-names]
+  (for [d [primary secondary dir] c coll-names :when (seq d)]
+    (try @(exec/sh ["mongodump" "--collection" (name c) "--db" "lanina"] {:dir d})
+         (catch java.io.IOException e
+           {:exit 1
+            :error (str e)}))))
+
+(defn fix-target-fname [target]
+  (if (re-find #".zip\s*$" target)
+    (s/trim target)
+    (str (s/trim target) ".zip")))
+
+(defn zip-backup-dir [dir]
+  (z/compress-files [dir] (str (.getParentFile (io/file dir)) "/lanina.zip"))
+  (when (re-seq #"/dump/" dir)
+    (delete-file-recursively dir)))
+
 (defpage [:post "/db/backup/"] {:keys [dir coll]}
-  (let [backup-settings (model/get-backup-settings)
-        primary (:primary backup-settings)
-        secondary (:secondary backup-settings)
+  (let [{:keys [primary secondary]} (model/get-backup-settings)
         results (map (fn [d]
                        (if (seq d)
                          (try
@@ -464,4 +485,3 @@
                  :active "Herramientas"
                  :nav-bar true}]
     (home-layout content)))
-
