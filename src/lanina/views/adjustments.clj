@@ -353,7 +353,8 @@
             [:div.controls
              (text-field :dir)]]
            [:div.control-group
-            (check-box :zip true "Respaldar en formato zip (lanina.zip)")]
+            (label {:class "control-label"} :zip "Respaldar toda la base de datos en formato zip.")
+            (check-box :zip true)]
            [:div.control-group
             (label {:class "control-label"} :coll "Nombre de la colección")
             [:div.controls
@@ -366,7 +367,7 @@
            [:legend "Restaurar una colección a partir de un respaldo o un archivo zip"]
            [:p.alert "Indicar el directorio donde se encuentra el respaldo o indicar la ubicación completa del archivo zip. Ejemplos: C:/respaldos/, C:/respaldos/lanina.zip"]
            [:div.control-group
-            (label {:class "control-label"} :dir "Opcional: Directorio donde se encuentra el respaldo. Si no se especifica se usa el directorio de respaldo primario.")
+            (label {:class "control-label"} :dir "Opcional: Directorio donde se encuentra el respaldo. Si no se especifica se busca el zip dump/lanina.zip en el directorio de respaldo primario.")
             [:div.controls
              (text-field :dir)]]
            [:div.form-actions
@@ -426,15 +427,17 @@
   (if-not (re-seq #".zip$" zip-path)
     (throw (java.lang.IllegalArgumentException. "Invalid zip file path"))
     (do
-      (z/extract-files zip-path (str (.getParent zip-path) "/tempdir/"))
-      (list (@exec/sh ["mongorestore" (str (.getParent zip-path) "/tempdir/")])))))
+      (z/extract-files zip-path (str (.getParent (io/file zip-path)) "/tempdir/"))
+      (list @(exec/sh ["mongorestore" (str (.getParent (io/file zip-path)) "/tempdir/lanina/")])))))
 
 (defpage [:post "/db/import/"] {:keys [dir]}
-  (let [dir (or dir (str (io/file (:primary (model/get-backup-settings)) "dump")))
-        results  (if (re-seq #".zip$" dir)
+  (let [dir (if (seq dir) dir (str (io/file (:primary (model/get-backup-settings)) "dump" "lanina.zip")))
+        results  (if (re-find #".zip$" dir)
                    (restore-from-zip dir)
                    (list @(exec/sh ["mongorestore" dir])))]
     (system-messages results)
+    (when (re-find #".zip$" dir)
+      (delete-file-recursively (str (.getParent (io/file dir)) "/tempdir")))
     (resp/redirect "/respaldos/")))
 
 (defpage [:post "/db/import/dbf/"] {:keys [coll path]}
@@ -467,12 +470,13 @@ dorun or do something similar to the seq to actually back them up."
 
 (defpage [:post "/db/backup/"] {:keys [dir coll zip]}
   (let [{:keys [primary secondary]} (model/get-backup-settings)
-        results (if (true? zip)
-                  (do (backup-multiple-colls-seq [primary secondary dir] (model/get-collection-names))
+        results (if (= "true" zip)
+                  (do (dorun (backup-multiple-colls-seq [primary secondary dir]
+                                                        (model/get-collection-names)))
                       (doseq [d [primary secondary dir] :when (seq d)]
                         (zip-backup-dir (str (io/file d "dump" "lanina"))))
-                      {:exit 0
-                       :out "Archivos zip creados exitosamente."})
+                      (list {:exit 0
+                             :out "Archivos zip creados exitosamente."}))
                   (map (fn [d]
                          (if (seq d)
                            (try
