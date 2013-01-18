@@ -10,4 +10,6 @@
         port (Integer. (get (System/getenv) "PORT" "8080"))]
     @(exec/sh ["mongod"])
     (server/start port {:mode mode
-                        :ns 'lanina})))
+                        :ns 'lanina})
+    @(exec/sh ["start" "http://localhost:8080/"]) ;FIXME: Make this multiplatform?
+    ))
