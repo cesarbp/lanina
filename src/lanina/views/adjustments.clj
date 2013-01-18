@@ -353,6 +353,8 @@
             [:div.controls
              (text-field :dir)]]
            [:div.control-group
+            (check-box :zip true "Respaldar en formato zip (lanina.zip)")]
+           [:div.control-group
             (label {:class "control-label"} :coll "Nombre de la colección")
             [:div.controls
              (coll-select collection-names)]]
@@ -361,10 +363,10 @@
 
 (defpartial use-db-backup-form []
   (form-to {:class "form form-horizontal"} [:post "/db/import/"]
-           [:legend "Restaurar una colección a partir de un respaldo"]
-           [:p.alert "Indicar el directorio donde se encuentra el respaldo, dejar vacío si se encuentra dentro del directorio `dump` en la raíz del sistema."]
+           [:legend "Restaurar una colección a partir de un respaldo o un archivo zip"]
+           [:p.alert "Indicar el directorio donde se encuentra el respaldo o indicar la ubicación completa del archivo zip. Ejemplos: C:/respaldos/, C:/respaldos/lanina.zip"]
            [:div.control-group
-            (label {:class "control-label"} :dir "Opcional: Directorio donde se encuentra el respaldo (default: /home/ubuntu/www/lanina/dump/")
+            (label {:class "control-label"} :dir "Opcional: Directorio donde se encuentra el respaldo. Si no se especifica se usa el directorio de respaldo primario.")
             [:div.controls
              (text-field :dir)]]
            [:div.form-actions
@@ -420,9 +422,18 @@
         (session/flash-put! :messages (list {:type "alert-success" :text (str "Se completó exitosamente la operación. El sistema dijo: " msg)}))
         (session/flash-put! :messages (list {:type "alert-error" :text (str " La operación no se completó. Mensaje de error: " error)}))))))
 
+(defn restore-from-zip [zip-path]
+  (if-not (re-seq #".zip$" zip-path)
+    (throw (java.lang.IllegalArgumentException. "Invalid zip file path"))
+    (do
+      (z/extract-files zip-path (str (.getParent zip-path) "/tempdir/"))
+      (list (@exec/sh ["mongorestore" (str (.getParent zip-path) "/tempdir/")])))))
+
 (defpage [:post "/db/import/"] {:keys [dir]}
-  (let [dir (or dir "dump/")
-        results  (list @(exec/sh ["mongorestore" dir]))]
+  (let [dir (or dir (str (io/file (:primary (model/get-backup-settings)) "dump")))
+        results  (if (re-seq #".zip$" dir)
+                   (restore-from-zip dir)
+                   (list @(exec/sh ["mongorestore" dir])))]
     (system-messages results)
     (resp/redirect "/respaldos/")))
 
@@ -437,7 +448,7 @@
   "Creates a lazy-seq of commands to backup each coll in coll-names
 on each of the directories.
 dorun or do something similar to the seq to actually back them up."
-  [{:keys [primary secondary dir]} coll-names]
+  [[primary secondary dir] coll-names]
   (for [d [primary secondary dir] c coll-names :when (seq d)]
     (try @(exec/sh ["mongodump" "--collection" (name c) "--db" "lanina"] {:dir d})
          (catch java.io.IOException e
@@ -450,21 +461,27 @@ dorun or do something similar to the seq to actually back them up."
     (str (s/trim target) ".zip")))
 
 (defn zip-backup-dir [dir]
-  (z/compress-files [dir] (str (.getParentFile (io/file dir)) "/lanina.zip"))
+  (z/compress-files [dir] (str (.getParent (io/file dir)) "/lanina.zip"))
   (when (re-seq #"/dump/" dir)
     (delete-file-recursively dir)))
 
-(defpage [:post "/db/backup/"] {:keys [dir coll]}
+(defpage [:post "/db/backup/"] {:keys [dir coll zip]}
   (let [{:keys [primary secondary]} (model/get-backup-settings)
-        results (map (fn [d]
-                       (if (seq d)
-                         (try
-                           @(exec/sh ["mongodump" "--collection" (name coll) "--db" "lanina"] {:dir d})
-                           (catch java.io.IOException e
-                             {:exit 1
-                              :error (str e)}))
-                         @(exec/sh ["mongodump" "--collection" (name coll) "--db" "lanina"])))
-                     [primary secondary dir])]
+        results (if (true? zip)
+                  (do (backup-multiple-colls-seq [primary secondary dir] (model/get-collection-names))
+                      (doseq [d [primary secondary dir] :when (seq d)]
+                        (zip-backup-dir (str (io/file d "dump" "lanina"))))
+                      {:exit 0
+                       :out "Archivos zip creados exitosamente."})
+                  (map (fn [d]
+                         (if (seq d)
+                           (try
+                             @(exec/sh ["mongodump" "--collection" (name coll) "--db" "lanina"] {:dir d})
+                             (catch java.io.IOException e
+                               {:exit 1
+                                :error (str e)}))
+                           @(exec/sh ["mongodump" "--collection" (name coll) "--db" "lanina"])))
+                       [primary secondary dir]))]
     (system-messages results)
     (resp/redirect "/respaldos/")))
 
