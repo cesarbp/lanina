@@ -8,8 +8,5 @@
 (defn -main [& m]
   (let [mode (keyword (or (first m) :dev))
         port (Integer. (get (System/getenv) "PORT" "8080"))]
-    @(exec/sh ["mongod"])
     (server/start port {:mode mode
-                        :ns 'lanina})
-    @(exec/sh ["start" "http://localhost:8080/"]) ;FIXME: Make this multiplatform?
-    ))
+                        :ns 'lanina})))
