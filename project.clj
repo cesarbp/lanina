@@ -6,6 +6,6 @@
                  [clj-http "0.4.0"]
                  [congomongo "0.1.9"]
                  [local/javadbf "0.4.4"]]
-  :repositories {"project" "file:repo"}
+  :repositories {"project" "file:repo"
+                 "local" ~(str (.toURI (java.io.File. "maven_repository")))}
   :main lanina.server)
-

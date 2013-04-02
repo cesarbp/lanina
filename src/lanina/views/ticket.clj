@@ -42,18 +42,15 @@
      (format "%.2f" (double pay))]]])
 
 (defn get-article [denom]
-  (letfn [(is-bc [d] (every? (set (map str (range 10)))
-                             (rest (clojure.string/split (name d) #""))))
-          (is-gvdo [d] (= "gvdo" (clojure.string/lower-case (apply str (take 4 (name d))))))
+  (letfn [(is-gvdo [d] (= "gvdo" (clojure.string/lower-case (apply str (take 4 (name d))))))
           (is-exto [d] (= "exto" (clojure.string/lower-case (apply str (take 4 (name d))))))]
-    (cond (is-bc denom) (article/get-by-barcode denom)
-          (is-gvdo denom) {:codigo "0" :nom_art "ARTÍCULO GRAVADO"
+    (cond (is-gvdo denom) {:codigo "0" :nom_art "ARTÍCULO GRAVADO"
                            :prev_con (Double/parseDouble (clojure.string/replace (clojure.string/replace denom #"gvdo\d+_" "")
                                                                                  #"_" "."))}
           (is-exto denom) {:codigo "0" :nom_art "ARTÍCULO EXENTO"
                            :prev_sin (Double/parseDouble (clojure.string/replace (clojure.string/replace denom #"exto\d+_" "")
                                                                                  #"_" "."))}
-          :else (article/get-by-name (clojure.string/replace denom #"_" " ")))))
+          :else (article/get-by-id denom))))
 
 (defpartial printed-ticket [prods pay total change ticket-number folio]
   (let [now (time/now)
@@ -62,7 +59,7 @@
                (format "%02d" (time/minute now)) ":" (format "%02d" (time/sec now)))]
     [:pre.prettyprint.linenums {:style "max-width:250px;"}
      [:ol.linenums {:style "list-style-type:none;"}
-      [:p 
+      [:p
        [:li {:style "text-align:center;"} "\"L A N I Ñ A\""]
        [:li {:style "text-align:center;"} "R.F.C: ROHE510827-8T7"]
        [:li {:style "text-align:center;"} "GUERRERO No. 45 METEPEC MEX."]

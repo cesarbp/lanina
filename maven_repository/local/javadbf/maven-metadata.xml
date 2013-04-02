@@ -2,11 +2,11 @@
 <metadata>
   <groupId>local</groupId>
   <artifactId>javadbf</artifactId>
-  <version>0.4.4</version>
   <versioning>
+    <release>0.4.4</release>
     <versions>
       <version>0.4.4</version>
     </versions>
-    <lastUpdated>20121129172754</lastUpdated>
+    <lastUpdated>20130316195941</lastUpdated>
   </versioning>
 </metadata>

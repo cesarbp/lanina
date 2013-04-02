@@ -22,6 +22,12 @@
       (resp/json response)
       (resp/json {}))))
 
+(defpage "/json/article/id" {:keys [id]}
+  (let [response (article/get-by-id id)]
+    (if (not= "null" response)
+      (resp/json response)
+      (resp/json {}))))
+
 (defpage "/json/article/starts_with" {:keys [letter]}
   (let [re (re-pattern (str "(?i)^" letter))
         response (article/get-articles-regex re)]
@@ -87,7 +93,7 @@
     (resp/redirect "/entrar/")))
 
 (defpage "/ventas/" []
-  (let [content {:title (str "Ventas, número de ticket: " (ticket/get-next-ticket-number))
+  (let [content {:title (str "Ventas, número de ticket: " "<span id=\"ticketn\">"  (ticket/get-next-ticket-number) "</span>")
                  :content [:div#main.container-fluid (barcode-form) (item-list) (add-unregistered-form)]
                  :footer [:p "Gracias por su compra."]
                  :nav-bar true
@@ -228,7 +234,7 @@
         type-mod (:type-mod pst)
         now (time/now)
         date (str (format "%02d" (time/day now)) "/" (format "%02d" (time/month now)) "/" (format "%02d" (time/year now)))]
-    (cond 
+    (cond
       (= "Modificar" (:submit pst))
       (let [ks (article/get-keys)
             common-keys (clojure.set/intersection (set (keys article))
@@ -280,8 +286,8 @@
 function redirect_to_add_codnom() {
     var search = $('#search').val();
     if (search.length > 0) {
-	var url = '/articulos/agregar/codnom/?busqueda=' + search;
-	window.location = url;
+        var url = '/articulos/agregar/codnom/?busqueda=' + search;
+        window.location = url;
     }
     return false;
 }"])
@@ -459,7 +465,7 @@ function redirect_to_add_codnom() {
         article (if (seq date)
                   (dissoc (article/get-by-id-date id (clojure.string/replace date #"-" "/")) :_id)
                   (dissoc (article/get-by-id id) :_id))
-        
+
         art-name (:nom_art article)
         iva (globals/iva-is-current? (:iva article))
         art-no-prevs (article/sort-by-vec (dissoc article :prev)
