@@ -32,14 +32,15 @@
 
 ;;; Links on the nav
 (def nav-links-admin
-  [["Ventas"    "/ventas/"]
+  [["Inicio" "/inicio/"]
+   ["Ventas"    "/ventas/"]
    ["Artículos" "/articulos/"]
    ["Tickets"   "/tickets/"]
+   ["Reportes" "/reportes/"]
    {:title "Listas"
     :links
     [["Para empleados"   "/listas/"]
      ["Para compras" "/listas/compras/"]]}
-   ["Inicio" "/inicio/"]
    {:title "Herramientas"
     :links
     [["Ajustes de la BD" "/ajustes/"]
@@ -93,7 +94,7 @@
       [:span.icon-bar]
       [:span.icon-bar]]
      (link-to {:class "brand"} "/inicio/" "Lonja Mercantil La Niña")]]])
- 
+
 (defpartial disp-message [msg]
   [:div {:class (str "alert " (:type msg))} (:text msg)])
 

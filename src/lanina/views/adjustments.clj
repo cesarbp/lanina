@@ -7,6 +7,7 @@
         lanina.utils)
   (:require [lanina.models.article :as article]
             [lanina.models.adjustments :as model]
+            [lanina.models.error :as error]
             [noir.response :as resp]
             [noir.session :as session]
             [lanina.models.user :as user]
@@ -18,19 +19,21 @@
 
 ;;; changing IVA
 (defpartial change-iva-form []
-  (form-to {:class "form-horizontal"} [:post "/ajustes/iva/"]
-    [:legend "Ajuste de IVA"]
-    [:fieldset
-     [:div.control-group
-      [:p.control-label {:style "clear:left;"} "Viejo valor de iva:"]
-      [:div.controls
-       [:p {:style "position:relative;top:5px;"} (str (model/get-current-iva))]]]
-     [:div.control-group
-      (label {:class "control-label"} "iva" "Nuevo valor del IVA")
-      [:div.controls
-       (text-field {:autocomplete "off"} "iva")]]]
-    [:div.form-actions
-     (submit-button {:class "btn btn-primary"} "Cambiar IVA")]))
+  (let [ivas (model/get-valid-ivas)
+        ivas-str (clojure.string/join ", " ivas)]
+    (form-to {:class "form-horizontal"} [:post "/ajustes/iva/"]
+             [:legend "Ajuste de IVA"]
+             [:fieldset
+              [:div.control-group
+               [:p.control-label {:style "clear:left;"} "Valores de IVA actuales"]
+               [:div.controls
+                [:p {:style "position:relative;top:5px;"} ivas-str]]]
+              [:div.control-group
+               (label {:class "control-label"} "iva" "Nuevos valores de IVA, separe por comas.")
+               [:div.controls
+                (text-field {:autocomplete "off"} "iva")]]]
+             [:div.form-actions
+              (submit-button {:class "btn btn-primary"} "Cambiar IVA")])))
 ;;; changing passwords
 (defpartial change-password-form []
   (form-to {:class "form-horizontal"} [:post "/ajustes/password/"]
@@ -134,17 +137,20 @@
      (if error-msg
        [:div
         [:p "Errores a corregir: " [:span.label.label-important error-msg]]
-        [:div.form-actions (link-to {:class "btn btn-primary"} "/ajustes/bd/" "Ver errores")]]
+        [:div.form-actions (link-to {:class "btn btn-primary"} "/ajustes/errores/" "Ver errores")]]
        [:span.label.label-info "No hay errores para corregir en la base de datos"])]))
-;;; Adjust IVA/password/threshold pages
-(defpage [:post "/ajustes/iva/"] {:as pst}
-  (let [new-iva ((coerce-to Double) (:iva pst))]
-    (if new-iva
-      (do (model/adjust-iva new-iva)
-          (session/flash-put! :messages (list {:type "alert-success" :text (str "El IVA ha sido cambiado a " new-iva)}))
-          (resp/redirect "/ajustes/"))
-      (do (session/flash-put! :messages (list {:type "alert-error" :text "El valor de IVA \"" new-iva "\" no es válido"}))))))
+;;; Database Warnings
+(defpartial warning-notice [warning-count]
+  (let [warning-msg (when warning-count (str "Hay " warning-count " advertencias a corregir en la base de datos"))]
+    [:div.container-fluid
+     [:legend "Advertencias en la Base de Datos"]
+     (if warning-msg
+       [:div
+        [:p "Advertencias a corregir: " [:span.label.label-important warning-msg]]
+        [:div.form-actions (link-to {:class "btn btn-primary"} "/ajustes/advertencias/" "Ver advertencias")]]
+       [:span.label.label-info "No hay errores para corregir en la base de datos"])]))
 
+;;; Adjust threshold pages
 (defpage [:post "/ajustes/modify-threshold/"] {:as pst}
   (let [thresh ((coerce-to Integer) (:threshold pst))
         unit (:unit pst)]
@@ -179,7 +185,9 @@
                 (resp/redirect "/ajustes/")))))
 
 (defpage "/ajustes/" []
-  (let [error-count (model/count-all-errors)
+  (let [errors-warnings (error/find-errors-warnings)
+        error-count (:error-count errors-warnings)
+        warning-count (:warning-count errors-warnings)
         previous-backup-settings (model/get-backup-settings)
         content {:title "Ajustes"
                  :content [:div
@@ -188,6 +196,8 @@
                            [:div.container-fluid (change-password-form)]
                            [:div.container-fluid
                             {:style "background-image: url(\"../img/bedge_grunge.png\")"} (error-notice error-count)]
+                           [:div.container-fluid
+                            (warning-notice warning-count)]
                            [:div.container-fluid
                             (change-modify-threshold-form)]
                            [:div.container-fluid
@@ -198,141 +208,92 @@
                  :active "Herramientas"}]
     (home-layout content)))
 
-;;; Error counts
-
-(defpartial iva-errors-count-li []
-  (let [errors (model/find-iva-errors)
-        number (count errors)]
-    [:li (link-to "/errores/iva/" (str "Hay " number " artículos con IVA incorrecto"))]))
-
-(defpartial duplicate-value-errors-count-li [prop]
-  (let [errs (if (= prop :codigo) (model/find-duplicate-barcode-errors) (model/find-duplicate-value-errors prop))]
-    (when (seq errs)
-      [:li (link-to (str "/errores/" (name prop) "/duplicado/")
-                    (str "Hay " (count (map second errs))
-                         " artículos con " (article/verbose-names prop) " duplicado"))])))
-
-(defpartial empty-value-errors-count-li [prop]
-  (let [errs (model/find-empty-value-errors prop)]
-    (when (seq errs)
-      [:li (link-to (str "/errores/" (name prop) "/faltante/")
-                    (str "Hay " (count (map second errs))
-                         " artículos que no tienen " (article/verbose-names prop)))])))
-
-(defpartial beyond-threshold-errors-count-li []
-  (let [thresh (model/get-modify-threshold-doc)
-        thresh-count (:modify-threshold thresh)
-        thresh-unit (model/valid-time-units-trans (:unit thresh))
-        errs (model/find-beyond-threshold-errors)]
-    (when (seq errs)
-      [:li (link-to (str "/errores/sin-modificar/")
-                    (str "Hay " (count errs)
-                         " artículos que no han sido modificados desde hace " thresh-count " " thresh-unit " o más."))])))
-
-(defpartial show-error-counts []
+(defpartial show-wrong-articles [{errors :errors} errors-warnings]
   [:ul.nav.nav-tabs.nav-stacked
-   ;; All the partials for error counts
-   (iva-errors-count-li)
-   (duplicate-value-errors-count-li :nom_art)
-   (duplicate-value-errors-count-li :codigo)
-   (empty-value-errors-count-li :nom_art)
-   (empty-value-errors-count-li :codigo)
-   (beyond-threshold-errors-count-li)])
+   (map (fn [{_id :_id} art]
+          (let [{:keys [nom_art codigo iva]}
+                (article/get-by-id-only _id [:codigo :nom_art :iva :precio_venta])]
+            [:li (link-to (str "/ajustes/errores/" _id "/")
+                          (str "Nombre: " nom_art ", Código: " codigo " iva: \"" iva "\""))])))])
 
-(defpage "/ajustes/bd/" []
-  (let [content {:title "Errores en la base de datos"
-                 :content [:div.container-fluid (show-error-counts)
+(defpartial show-warnings-articles [{warnings :warnings} errors-warnings]
+  [:ul.nav.nav-tabs.nav-stacked
+   (map (fn [{_id :_id} art]
+          (let [{:keys [nom_art codigo iva]}
+                (article/get-by-id-only _id [:codigo :nom_art :iva :precio_venta])]
+            [:li (link-to (str "/ajustes/advertencias/" _id "/")
+                          (str "Nombre: " nom_art ", Código: " codigo " iva: \"" iva "\""))])))])
+
+(defpage "/ajustes/errores/" []
+  (let [errors-warnings (error/find-errors-warnings)
+        content {:title "Errores en la base de datos"
+                 :content [:div.container-fluid (show-wrong-articles errors-warnings)
                            [:div.form-actions (link-to {:class "btn btn-success"} "/ajustes/" "Regresar a ajustes")]]
                  :nav-bar true
                  :active "Herramientas"}]
     (home-layout content)))
 
-;;; Error pages
-(defpartial iva-error-row [id]
-  (let [{:keys [nom_art codigo iva _id]} (article/get-by-id-only id [:nom_art :codigo :iva])]
-    [:li (link-to (str "/errores/corregir/iva/" _id "/")
-                  (str "Nombre: " nom_art ", Código: " codigo " iva: \"" iva "\""))]))
-
-(defpartial iva-error-list [ids]
-  [:ul.nav.nav-tabs.nav-stacked
-   (map iva-error-row ids)])
-
-(defpartial duplicate-value-errors-row [prop [repeated-prop ids]]
-  (let [identifiers (map (comp (if (= :nom_art prop) :codigo :nom_art) #(article/get-by-id %)) ids)
-        repeat-msg (str "\" se repite en los artículos con los " (if (= :nom_art prop) "códigos" "nombres") " siguientes: ")]
-    [:li (link-to (str "/errores/corregir/duplicado/" (name prop) "/?ids=" (clojure.string/join "," ids))
-                  (str "El " (article/verbose-names prop) " \"" repeated-prop repeat-msg (clojure.string/join "," identifiers)))]))
-
-(defpartial duplicate-value-errors-list [prop id-groups]
-  [:ul.nav.nav-tabs.nav-stacked
-   (map (partial duplicate-value-errors-row prop) id-groups)])
-
-(defpartial empty-value-errors-list [prop ids]
-  [:ul.nav.nav-tabs.nav-stacked
-   (map (fn [id]
-          (let [id (:_id id)
-                bc (:codigo (article/get-by-id-only id [:codigo]))]
-            [:li (link-to (str "/errores/corregir/faltante/" (name prop) "/")
-                          (str "El artículo con código \"" bc "\" no tiene " (article/verbose-names prop)))]))
-        ids)])
-
-(defpage "/errores/:prop/faltante/" {prop :prop}
-  (let [errors (model/find-empty-value-errors :nom_art)
-        content {:title "Artículos sin nombre"
+(defpage "/ajustes/advertencias/" []
+  (let [errors-warnings (error/find-errors-warnings)
+        content {:title "Errores en la base de datos"
+                 :content [:div.container-fluid (show-warnings-articles errors-warnings)
+                           [:div.form-actions (link-to {:class "btn btn-success"} "/ajustes/" "Regresar a ajustes")]]
                  :nav-bar true
-                 :content [:div.container-fluid (empty-value-errors-list :nom_art errors)]}]
+                 :active "Herramientas"}]
     (home-layout content)))
 
-(defpage "/errores/:prop/duplicado/" {prop :prop}
-  (let [prop (keyword prop)
-        errors (if (= :codigo prop) (model/find-duplicate-barcode-errors) (model/find-duplicate-value-errors prop))
-        content {:title (str "Artículos con " (article/verbose-names prop) " duplicado")
-                 :nav-bar true
-                 :content [:div.container-fluid (duplicate-value-errors-list prop errors)]}]
+(defpartial error-row [k v es]
+  [:tr
+   [:td (article/verbose-names-new k)]
+   [:td v]
+   [:td (text-field k)]
+   [:td [:ul (for [e es]
+               [:li e])]]])
+
+(defpartial art-error-form [id art errors]
+  (form-to {:class "form-horizontal" :id "modify-article-form" :name "modify-article"}
+           [:post (str "/ajustes/errores/" id "/confirmar/")]
+           [:table.table.table-condensed
+            [:tr
+             [:th "Nombre"]
+             [:th "Valor Previo"]
+             [:th "Valor Nuevo"]
+             [:th "Errores"]]
+            (for [k art :when (seq (k errors))]
+              (error-row k (k art) (k errors)))]))
+
+(defpage "/ajustes/errores/:id/" {id :id}
+  (let [art (article/sort-by-vec (article/get-by-id id) article/new-art-props-sorted)
+        {errors :errors} (article/errors-warnings art)
+        content {:title (str "Errores de " (:nom_art art))
+                 :content [:div.container-fluid (art-error-form id art errors)]
+                 :active "Ajustes"
+                 :footer [:p "Gracias por visitar."]
+                 :nav-bar true}]
     (home-layout content)))
 
-(defpage "/errores/iva/" []
-  (let [errors (model/find-iva-errors)
-        content {:title "Artículos con errores en el iva"
-                 :nav-bar true
-                 :content [:div.container-fluid (iva-error-list errors)]}]
+(defpartial art-warning-form [id art warnings]
+  (form-to {:class "form-horizontal" :id "modify-article-form" :name "modify-article"}
+           [:post (str "/ajustes/advertencias/" id "/confirmar/")]
+           [:table.table.table-condensed
+            [:tr
+             [:th "Nombre"]
+             [:th "Valor Previo"]
+             [:th "Valor Nuevo"]
+             [:th "Advertencias"]]
+            (for [k art :when (seq (k warnings))]
+              (error-row k (k art) (k warnings)))]))
+
+(defpage "/ajustes/advertencias/:id/" {id :id}
+  (let [art (article/sort-by-vec (article/get-by-id id) article/new-art-props-sorted)
+        {warnings :warnings} (article/errors-warnings art)
+        content {:title (str "Advertencias de " (:nom_art art))
+                 :content (if (seq art) [:div.container-fluid (art-error-form id art warnings)]
+                              [:div.container-fluid [:p.error-notice "Este artículo no existe."]])
+                 :active "Ajustes"
+                 :footer [:p "Gracias por visitar."]
+                 :nav-bar true}]
     (home-layout content)))
-
-;;; Fix the error pages
-(defpartial fix-error-form [art]
-  (let [art-map (apply hash-map (reduce into [] art))]
-    (form-to [:post (str "/errores/corregir/iva/" (:_id art-map) "/")]
-        [:table.table.table-condensed
-         (map (fn [[k v]]
-                (when (not= k :_id)
-                  [:tr [:td (article/verbose-names k)]
-                   [:td (str v)]]))
-              art)
-         [:tr.info [:td "Poner iva:"] [:td "Sí" (radio-button "iva" false "yes") "No" (radio-button "iva" false "no")]]]
-      [:div.form-actions
-       (submit-button {:class "btn btn-primary"} "Corregir IVA")])))
-
-(defpage "/errores/corregir/iva/:_id/" {id :_id}
-  (let [art (article/sort-by-vec (article/get-by-id-only id [:codigo :nom_art :prev_con :prev_sin :ccj_con :ccj_sin])
-                         [:codigo :nom_art :ccj_con :prev_con :ccj_sin :prev_sin])
-        content {:title "Corrigiendo errores en el iva"
-                 :nav-bar true
-                 :content (fix-error-form art)}]
-    (home-layout content)))
-
-(defpage [:post "/errores/corregir/iva/:_id/"] {:as pst}
-  (let [id (:_id pst)
-        iva (:iva pst)
-        new-iva (cond (= "yes" iva)
-                  (model/get-current-iva)
-                  (= "no" iva) 0
-                  :else nil)]
-    (if iva
-      (do (model/adjust-individual-article-prop id :iva new-iva)
-          (session/flash-put! :messages '({:type "alert-success" :text "El IVA ha sido corregido"}))
-          (resp/redirect "/errores/iva/"))
-      (do (session/flash-put! :messages '({:type "alert-error" :text "No eligió una opción para IVA"}))
-          (resp/redirect (str "/errores/corregir/iva/" id "/"))))))
 
 (defpage "/ajustes/reset/" []
   (model/setup!)

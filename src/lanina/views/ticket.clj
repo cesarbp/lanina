@@ -2,9 +2,11 @@
   (:use noir.core
         hiccup.form
         lanina.views.common
-        [hiccup.element :only [link-to]])
+        [hiccup.element :only [link-to]]
+        [lanina.utils :only [coerce-to]] )
   (:require [lanina.models.ticket  :as ticket]
             [lanina.models.article :as article]
+            [lanina.models.adjustments :as settings]
             [lanina.views.utils    :as utils]
             [clj-time.core         :as time]
             [noir.response         :as resp]
@@ -44,11 +46,11 @@
 (defn get-article [denom]
   (letfn [(is-gvdo [d] (= "gvdo" (clojure.string/lower-case (apply str (take 4 (name d))))))
           (is-exto [d] (= "exto" (clojure.string/lower-case (apply str (take 4 (name d))))))]
-    (cond (is-gvdo denom) {:codigo "0" :nom_art "ARTÍCULO GRAVADO"
-                           :prev_con (Double/parseDouble (clojure.string/replace (clojure.string/replace denom #"gvdo\d+_" "")
+    (cond (is-gvdo denom) {:_id denom :codigo "0" :nom_art "ARTÍCULO GRAVADO"
+                           :iva 16.0 :precio_venta ((coerce-to Double 0.0) (clojure.string/replace (clojure.string/replace denom #"gvdo\d+_" "")
                                                                                  #"_" "."))}
-          (is-exto denom) {:codigo "0" :nom_art "ARTÍCULO EXENTO"
-                           :prev_sin (Double/parseDouble (clojure.string/replace (clojure.string/replace denom #"exto\d+_" "")
+          (is-exto denom) {:_id denom :codigo "0" :nom_art "ARTÍCULO EXENTO"
+                           :iva 0 :precio_venta ((coerce-to Double 0.0) (clojure.string/replace (clojure.string/replace denom #"exto\d+_" "")
                                                                                  #"_" "."))}
           :else (article/get-by-id denom))))
 
@@ -68,7 +70,7 @@
                       [:li (:nom_art art)]
                       [:li {:style "text-align:right;"}
                        (str (:quantity art) " x "
-                            (format "%.2f" (double (:precio_unitario art))) " = "
+                            (format "%.2f" (double (:precio_venta art))) " = "
                             (format "%.2f" (double (:total art))))]])
            prods)
       [:br]
@@ -81,45 +83,60 @@
         (format "EFECTIVO ==> $ %8.2f" (double pay))]
        [:li (str "Folio: " folio)]]]]))
 
-;;; Fixme - this should be POST
+(defn sanitize-ticket [items]
+  {:pay (try (Double/valueOf (:pay items))
+            (catch Exception e
+              nil))
+   :ticketn (try (Integer/valueOf (:ticketn items))
+                (catch Exception e
+                  nil))
+   :pairs (reduce (fn [acc [id quant]]
+                    (try (Integer/valueOf quant)
+                         (conj acc [id (Integer/valueOf quant)])
+                         (catch Exception e
+                           acc)))
+                  []
+                  (dissoc items :pay :ticketn))})
+
 (defpage "/tickets/nuevo/" {:as items}
-  (let [pay (Double/parseDouble (:pay items))
-        items (dissoc items :pay)
-        pairs (zipmap (keys items) (map #(Integer/parseInt %) (vals items)))
+  (let [{pay :pay ticketn :ticketn pairs :pairs} (sanitize-ticket items)
         prods (reduce (fn [acc [bc times]]
                         (let [article (get-article (name bc))
                               name (:nom_art article)
-                              type (if (and (:prev_con article) (> (:prev_con article) 0.0))
-                                      :gvdo :exto)
-                              price (if (and (:prev_con article) (> (:prev_con article) 0.0))
-                                      (:prev_con article) (:prev_sin article))
-                              total (* price times)
-                              art {:type type :quantity times :nom_art name :precio_unitario price :total total :codigo bc :cantidad times}]
+                              type (if (settings/valid-iva? (:iva article))
+                                     (if (< 0 (:iva article))
+                                       "gvdo"
+                                       "exto")
+                                     "exto")
+                              price (:precio_venta article)
+                              total (if (number? price) (* price times) 0.0)
+                              art {:type type :quantity times :_id bc :codigo (:codigo article) :nom_art name :precio_unitario price :total total}]
                           (into acc [art])))
                       [] pairs)
         total (reduce + (map :total prods))
-        change (- pay total)
+        change (if pay (- pay total) 0)
         ticket-number (ticket/get-next-ticket-number)
         folio (ticket/get-next-folio)
         content {:title "Ticket impreso"
                  :content [:div.container-fluid
                            (pay-notice pay total change)
                            [:hr]
+                           (when (and ticketn (< ticketn ticket-number))
+                             (utils/message "Este número de ticket ya ha sido impreso y no se volverá a imprimir. Para visitar un ticket previo e imprimirlo acuda a la sección de tickets." "error"))
                            (printed-ticket prods pay total change ticket-number folio)]
                  :active "Ventas"}]
     (ticket/insert-ticket pay prods)
     (home-layout content)))
 
 (defpartial search-ticket-form []
-  (let [now (time/now)
-        date (str (format "%02d" (time/day now)) "/" (format "%02d" (time/month now)) "/" (format "%02d" (time/year now)))]
-    (form-to {:class "form-horizontal"} [:get "/tickets/buscar"]
+  (let [date (utils/now)]
+    (form-to {:class "form-horizontal"} [:get "/tickets/buscar/"]
       [:legend "Buscar un ticket"]
       [:fieldset
        [:div.control-group
         (label {:class "control-label"} "date" "Buscar por fecha")
         [:div.controls
-         [:input {:type "date" :name "date" :format "dd/mm/yyyy" :value (clojure.string/join "/" (reverse (clojure.string/split date #"/")))}]]]
+         [:input {:type "date" :name "date" :format "yyyy-mm-dd" :value date}]]]
        [:div.control-group
         (label {:class "control-label"} "folio" "Buscar por número de folio")
         [:div.controls
@@ -128,15 +145,14 @@
        (submit-button {:class "btn btn-primary"} "Buscar")])))
 
 (defpartial cut-form []
-  (let [now (time/now)
-        date (str (format "%02d" (time/day now)) "/" (format "%02d" (time/month now)) "/" (format "%02d" (time/year now)))]
-    (form-to {:class "form-horizontal"} [:get "/tickets/corte"]
+  (let [date (utils/now)]
+    (form-to {:class "form-horizontal"} [:get "/tickets/corte/"]
       [:legend "Cortes de caja"]
       [:fieldset
        [:div.control-group
         (label {:class "control-label"} "fecha" "Indicar fecha de corte")
         [:div.controls
-         [:input {:type "date" :name "fecha" :format "dd/mm/yyyy" :value (clojure.string/join "/" (reverse (clojure.string/split date #"/")))}]]]
+         [:input {:type "date" :name "fecha" :format "yyyy-mm-dd" :value date}]]]
        [:div.control-group
         (label {:class "control-label"} "desde" "Opcional: Indique el número del primer ticket")
         [:div.controls
@@ -186,7 +202,7 @@
     [:th {:colspan 2} "Controles"]]
    (map ticket-results-row tickets)])
 
-(defpage "/tickets/buscar" {:keys [date folio]}
+(defpage "/tickets/buscar/" {:keys [date folio]}
   (let [results (if (seq date)
                   (ticket/search-by-date date)
                   (ticket/search-by-folio (try (Long. folio)
@@ -258,7 +274,7 @@
        [:li (format "IVA ==> %14.2f" (double iva))]
        [:li (format "TOTAL ==> %12.2f" (double total))]]]]))
 
-(defpage "/tickets/corte" {:keys [fecha desde hasta]}
+(defpage "/tickets/corte/" {:keys [fecha desde hasta]}
   (let [date fecha
         tickets (cond (and (seq desde) (seq hasta))
                       (ticket/search-by-date-with-limits date desde hasta)
@@ -268,7 +284,7 @@
                       (ticket/search-by-date-with-limits date desde)
                       :else (ticket/search-by-date date))
         cut (when (seq tickets) (cashier-cut tickets))
-        content {:title (str "Corte de caja de la fecha " (ticket/fix-date date))
+        content {:title (str "Corte de caja de la fecha " (utils/fix-date date))
                  :content (if (seq tickets)
                             [:div.container-fluid
                              cut
@@ -302,7 +318,7 @@
      (printed-ticket prods pay total change number folio)]))
 
 (defpage "/tickets/folio/:folio/" {folio :folio}
-  (let [ticket (ticket/get-by-folio (try (Long. folio)
+  (let [ticket (ticket/get-by-folio (try (Long/valueOf folio)
                                          (catch Exception e 0)))
         content {:title (str "Mostrando ticket con folio " folio)
                  :content [:div.container-fluid

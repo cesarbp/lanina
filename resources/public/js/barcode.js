@@ -37,12 +37,10 @@ function get_ticket_number() {
 
 function article_row(article, quantity) {
     var id = article._id;
+    var price = article.precio_venta;
 
     var name = article.nom_art;
-    if ( article.prev_con !== 0 )
-        var price = article.prev_con;
-    else
-        var price = article.prev_sin;
+
     var total = price * parseInt(quantity);
 
     var html = '<tr class="article-row" id=' + id + '><td class="art_name">' +
@@ -302,19 +300,16 @@ function add_unregistered() {
         var quantity = $("#unregistered-quantity").val() || 1;
         var checkbox = $('input[name=gravado]')[0];
         var type;
-        var prev_con;
-        var prev_sin;
+        var precio_venta;
         var nom_art;
         if ( checkbox.checked ) {
             type = "gvdo";
-            prev_con = price;
-            prev_sin = 0;
+            precio_venta = price;
             nom_art = "ARTÍCULO GRAVADO";
         }
         else {
             type = "exto";
-            prev_sin = price;
-            prev_con = 0;
+            precio_venta = price;
             nom_art = "ARTÍCULO EXENTO";
         }
         if ( price ) {
@@ -322,8 +317,7 @@ function add_unregistered() {
             var article = {
                 id: bc,
                 nom_art: nom_art,
-                prev_con: prev_con,
-                prev_sin: prev_sin
+                precio_venta: precio_venta
             };
             $("#articles-table").append(article_row(article, quantity));
             ticket_links(bc, quantity, true);
@@ -380,10 +374,7 @@ function split_url (a) {
             $.ajax({url: '/json/article/id', dataType: 'json', data: {id: denom}, async: false, success: function(article) {
                 if ( article && article._id )
                 {
-                    if ( article.prev_con > 0 || !article.prev_sin )
-                        price = article.prev_con;
-                    else
-                        price = article.prev_sin;
+                    price = article.precio_venta;
                 }
             }});
         else if ( type === 'gvdo' )
@@ -428,7 +419,7 @@ function print_ticket() {
     var pay = $('#pay').val();
     var total = parseFloat($('#modallabel')[0].textContent.replace('Total a pagar: ', ''));
     if (pay && parseFloat(pay) >= total) {
-        $('#print-ticket')[0].href = $('#print-ticket')[0].href + '&pay=' + pay;
+        //$('#print-ticket')[0].href = $('#print-ticket')[0].href + '&pay=' + pay;
         window.location = $('#print-ticket')[0].href;
     }  else if ($('#error-popup').length === 0) {
         $('.modal-header').append(
@@ -540,14 +531,7 @@ function artnames_rows(arts){
     var template = '<tr class="art-name-pos selectable"><td>{bc}</td><td>{name}</td><td>{date}</td><td>{price}</td></tr>';
     var top = '<tr class="art-name-pos unselectable"><th>Código</th><th>Nombre</th><th>Fecha</th><th>Precio</th></tr>';
     return top + arts.map(function(o){
-        var price;
-        var con = o['prev_con'];
-        var sin = o['prev_sin'];
-        if (parseFloat(con) > 0) {
-            price = con;
-        } else {
-            price = sin;
-        }
+        var price = o.precio_venta;
 
         var html = template.replace('{bc}', o['codigo']).replace('{name}', o['nom_art']).replace('{date}', o['date']).replace('{price}', parseFloat(price).toFixed(2).toString());
         return html;
