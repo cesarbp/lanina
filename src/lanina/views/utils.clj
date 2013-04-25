@@ -49,7 +49,8 @@
                      (catch Exception e)))))))
 
 (defn valid-date? [date]
-  (not (nil? (parse-date (fix-date date)))))
+  (when (and (string? date) (seq date))
+    (not (nil? (parse-date (fix-date date))))))
 
 ;;; Date is expected to be in format "yyyy/mm/dd" or "yyyy-mm-dd" or with year and day in reverse order
 (defn days-ago [date]

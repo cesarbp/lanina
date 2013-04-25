@@ -150,25 +150,30 @@
         (str "Precio de venta previo: " v)])]]))
 
 (defpartial modify-article-partial [art type-mod modifiable]
-  (form-to {:class "form-horizontal" :id "modify-article-form" :name "modify-article"}
-           [:post (str "/articulos/modificar/id/" (:_id art) "/")]
-           (hidden-field :type-mod type-mod)
-           [:table.table.table-condensed.table-hover
-            [:tr
-             [:th "Nombre"]
-             [:th "Nuevo valor"]
-             [:th "Ayudas"]]
+  [:div
+   (when-not (empty? (:errors (article/errors-warnings art)))
+     [:div.alert.alert-error
+      [:p "Este artículo contiene errores, se recomienda corregirlos antes de intentar modificar el artículo en este módulo"]
+      (link-to {:class "btn"} (str "/ajustes/errores/" (:_id art) "/") "Corregir errores")])
+   (form-to {:class "form-horizontal" :id "modify-article-form" :name "modify-article"}
+            [:post (str "/articulos/modificar/" (:_id art) "/")]
+            (hidden-field :type-mod type-mod)
+            [:table.table.table-condensed.table-hover
+             [:tr
+              [:th "Nombre"]
+              [:th "Nuevo valor"]
+              [:th "Ayudas"]]
+             [:fieldset
+              (map modify-article-row-partial (article/sort-by-vec (dissoc art :prev) [:codigo :nom_art :iva :pres :gan :costo_unitario :costo_caja :precio_venta]) (repeat modifiable))]]
             [:fieldset
-             (map modify-article-row-partial (article/sort-by-vec (dissoc art :prev) [:codigo :nom_art :iva :pres :gan :costo_unitario :costo_caja :precio_venta]) (repeat modifiable))]]
-           [:fieldset
-            [:div.form-actions
-             (submit-button {:class "btn btn-warning" :name "submit"} "Modificar")
-             (link-to {:class "btn btn-danger"} "/articulos/" "Cancelar")]]))
+             [:div.form-actions
+              (submit-button {:class "btn btn-warning" :name "submit"} "Modificar")
+              (link-to {:class "btn btn-danger"} "/articulos/" "Cancelar")]])])
 
 ;;; TODO
 (defpartial confirm-changes-row [[k old new]]
   [:tr.article-row
-   [:td.prop-name (article/verbose-names k)]
+   [:td.prop-name (article/verbose-names-new k)]
    [:td.orig-value old]
    [:td.new-value new]
    (hidden-field (name k) new)])
@@ -244,18 +249,13 @@
 (defpage [:post "/articulos/modificar/:id/"] {:as pst}
   (let [content {:title "Confirmar Cambios"
                  :active "Artículos"}
-        article (article/get-by-id (:_id pst))
+        article (article/get-by-id (:id pst))
         id (:id pst)
         type-mod (:type-mod pst)
         date (utils/now)]
     (cond
       (= "Modificar" (:submit pst))
-      (let [ks (article/get-keys)
-            common-keys (clojure.set/intersection (set (keys article))
-                                                  (set (keys pst)))
-            usable-orig (map #(vector % (% article)) common-keys)
-            usable-new  (map #(vector % (% pst)) common-keys)
-            changes (article/find-changes article pst)]
+      (let [changes (article/find-changes article (dissoc pst :submit))]
         (if (seq changes)
           (home-layout (assoc content :content
                               [:div.container-fluid (confirm-changes-table id changes type-mod)]))
@@ -263,17 +263,20 @@
                               [:div.container
                                [:p.alert.alert-warning "No hay cambios para realizar"]
                                [:div.form-actions
-                                (link-to {:class "btn btn-success"} "/articulos/" "Regresar")]]))))
+                                (link-to {:class "btn btn-success"}
+                                         (str "/articulos/modificar/" (name type-mod) "/" id "/")
+                                         "Regresar a modificar")
+                                (link-to {:class "btn btn-primary"}
+                                         "/articulos/" "Buscar otro artículo")]]))))
       (= "Confirmar" (:submit pst))
-      (let [modified (article/update-article (dissoc pst :submit))]
+      (let [modified (article/update-article! id (dissoc pst :submit))]
         (if (= :success modified)
           (do (logs/add-logs! (:_id pst) :updated (dissoc pst :submit) date)
               (session/flash-put! :messages '({:type "alert-success" :text "El artículo ha sido modificado"}))
               (resp/redirect "/articulos/"))
-          (do (session/flash-put! :messages (reduce (fn [acc error]
-                                                (conj acc {:type "alert-error" :text error}))
-                                              [] (map first (vals modified))))
-              (resp/redirect (str "/articulos/modificar/" id "/" (name type-mod) "/")))))
+          (do (session/flash-put! :messages (for [[k es] modified e es]
+                                              {:type "alert-error" :text e}))
+              (resp/redirect (str "/articulos/modificar/" (name type-mod) "/" id "/")))))
       :else "Invalid")))
 
 ;;; Search for an article
@@ -297,13 +300,15 @@ function redirect_to_add_codnom() {
        (label {:class "control-label" :id "search-field"} "busqueda" "Buscar por nombre o código")
        [:div.controls
         (text-field {:id "search" :autocomplete "off"} "busqueda")]]
-      [:div.control-group
-       (label {:class "control-label"} "provider-name" "Buscar por nombre de proveedor")
-       [:div.controls
-        (text-field {:id "provider-name" :autocomplete "off"} "provider-name")]]]
+      (when (users/admin?)
+        [:div.control-group
+         (label {:class "control-label"} "provider-name" "Buscar por nombre de proveedor")
+         [:div.controls
+          (text-field {:id "provider-name" :autocomplete "off"} "provider-name")]])]
      [:div.form-actions
-      (submit-button {:class "btn btn-primary" :name "search"} "Consultas, modificaciones y altas parciales")
-      (link-to {:class "btn btn-warning"} "/articulos/agregar/" "Alta total de un artículo")])])
+      (submit-button {:class "btn btn-primary" :name "search"} (if (users/admin?) "Consultas, modificaciones y altas parciales" "Consultas"))
+      (when (users/admin?)
+        (link-to {:class "btn btn-warning"} "/articulos/agregar/" "Alta total de un artículo"))])])
 
 (defpage "/articulos/" []
   (let [content {:title "Búsqueda de Artículos"
@@ -389,7 +394,7 @@ function redirect_to_add_codnom() {
 
 (defpartial search-art-by-providers [prov]
   (let [data (article/get-by-provider prov)]
-    (search-results-table data)))
+    (search-results-table-admin data)))
 
 (defpage "/articulos/buscar/" {:keys [busqueda provider-name submit]}
   (if-let [s (or (seq busqueda) (seq provider-name))]
@@ -585,8 +590,32 @@ function redirect_to_add_codnom() {
                  :content [:div.container (search-add-article-results busqueda)]}]
     (home-layout content)))
 
+(defpartial add-article-row-partial [[k v] modifiable]
+  (letfn [(std-text [k v] (text-field {:class "article-new-value" :autocomplete "off" :id (name k)} k v))
+          (dis-text [k v] (text-field {:class "disabled" :disabled true :placeholder v} k v))]
+    [:tr.article-row
+     [:td.prop-name (article/verbose-names-new k)]
+     [:td.new-value
+      (cond
+       (not (modifiable k)) [:div (dis-text k v) (hidden-field k v)]
+       (= :unidad k) (unit-select v)
+       (= :lin k) (lin-select v)
+       (= :ramo k) (std-text k v)
+       (= :iva k) (iva-select v)
+       :else (std-text k v))]
+     [:td.helper
+      (cond
+       (and (modifiable k) (= :gan k)) (str "Ganancia previa: " v)
+       (and (modifiable k) (= :precio_venta k))
+       [:div
+        [:a.btn {:onclick "return prev_up();"}
+         [:i.icon-chevron-up]]
+        [:a.btn {:onclick "return prev_down();"}
+         [:i.icon-chevron-down]]
+        (str "Precio de venta previo: " v)])]]))
+
 (defpartial add-article-form [article modifiable]
-  (let [verbose article/verbose-names
+  (let [verbose article/verbose-names-new
         date (utils/now)]
     (form-to {:class "form form-horizontal"} [:post "/articulos/nuevo/"]
       [:table.table.table-condensed
@@ -595,8 +624,8 @@ function redirect_to_add_codnom() {
         [:th "Valor"]
         [:th "Ayudas"]]
        [:fieldset
-        (map modify-article-row-partial
-             (article/sort-by-vec (dissoc article :_id :prev) [:codigo :nom_art :pres :iva :gan :ccj_con :cu_con :prev_con :ccj_sin :cu_sin :prev_sin])
+        (map add-article-row-partial
+             (article/sort-by-vec (dissoc article :prev) article/new-art-props-sorted)
              (repeat modifiable))]]
       [:div.form-actions
        (submit-button {:class "btn btn-primary"} "Agregar este artículo")
@@ -608,35 +637,33 @@ function redirect_to_add_codnom() {
         title     "Alta por código y nombre"
         content {:title title
                  :active "Artículos"
-                 :content [:div.container (add-article-form article modifiable)]
+                 :content [:div.container-fluid (add-article-form article modifiable)]
                  :nav-bar true}]
     (main-layout-incl content [:base-css :search-css :jquery :base-js :jquery-ui :verify-js :modify-js])))
 
 (defpage "/articulos/agregar/" []
   (let [modifiable #{:img :unidad :stk :lin :ramo :iva :pres :gan :costo_unitario :costo_caja :precio_venta :ubica :prov :exis :codigo :nom_art :tam}
-        order [:codigo :nom_art :img :pres :iva :gan :costo_unitario :costo_caja :precio_venta :unidad :lin :ramo :prov]
         content {:title "Alta total de un artículo"
                  :active "Artículos"
                  :nav-bar true
-                 :content [:div.container (add-article-form
-                                           (article/sort-by-vec (dissoc (article/map-to-article {}) :prev)
-                                                                order)
-                                                            modifiable)]}]
+                 :content [:div.container-fluid
+                           (add-article-form
+                            (dissoc (article/map-to-article {}) :prev)
+                            modifiable)]}]
     (main-layout-incl content [:base-css :jquery :base-js :verify-js :modify-js])))
 
 (defpage [:post "/articulos/nuevo/"] {:as post}
   (let [to-add (dissoc post :_id :prev)
         date (utils/now)
-        added (article/add-article to-add)]
+        added (article/add-article! to-add)]
     (if (= :success added)
       (let [new-id (:_id (article/get-by-match to-add))]
         (logs/add-logs! (str new-id) :added to-add date)
         (session/flash-put! :messages '({:type "alert-success" :text "El artículo ha sido agregado."}))
         (resp/redirect "/articulos/"))
       (do
-        (session/flash-put! :messages (reduce (fn [acc error]
-                                                (conj acc {:type "alert-error" :text error}))
-                                              [] (map first (vals added))))
+        (session/flash-put! :messages (for [[k es] added e es]
+                                          {:type "alert-error" :text e}))
         (resp/redirect (if (:_id post)
                          (str "/articulos/agregar/codnom/" (:_id post) "/")
                          "/articulos/agregar/"))))))

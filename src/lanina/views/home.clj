@@ -57,7 +57,7 @@
                            (login-form)
                            [:script "$('#password').focus();"]]}]
     (if (users/logged-in?)
-      (resp/redirect "/inicio/")
+      (resp/redirect "/")
       (main-layout content))))
 
 (defpage [:post "/entrar/"] {:as pst}
@@ -65,7 +65,7 @@
         pass (:password pst)]
     (if (users/login! usr pass)
       (do (session/flash-put! :messages (list {:type "alert-success" :text (str "Se ha firmado como " (users/verbose usr) ".")}))
-          (resp/redirect "/inicio/"))
+          (resp/redirect "/"))
       (do (session/flash-put! :messages '({:type "alert-error" :text "Contraseña inválida"}))
           (render "/entrar/")))))
 

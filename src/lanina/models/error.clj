@@ -13,7 +13,7 @@
         (swap! error-count inc)
         (swap! error-arts conj m))
       (when (seq (:warnings m))
-        (swap! error-count inc)
+        (swap! warning-count inc)
         (swap! warning-arts conj m)))
     {:error-count @error-count
      :warning-count @warning-count

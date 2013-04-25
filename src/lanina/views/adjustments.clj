@@ -5,12 +5,14 @@
         [hiccup.element :only [link-to]]
         [lanina.views.home :only [user-select]]
         lanina.utils)
-  (:require [lanina.models.article :as article]
+  (:require [lanina.views.utils :as t]
+            [lanina.models.article :as article]
             [lanina.models.adjustments :as model]
             [lanina.models.error :as error]
             [noir.response :as resp]
             [noir.session :as session]
             [lanina.models.user :as user]
+            [lanina.models.logs :as logs]
             [dbf.core :as dbf]
             [clojure.java.io :as io]
             [clj-commons-exec :as exec]
@@ -176,13 +178,23 @@
         (do (session/flash-put! :messages (list {:type "alert-error" :text "La contraseña no es correcta"}))
                 (resp/redirect "/ajustes/"))))
 
+(defpage [:post "/ajustes/iva/"] {:keys [iva]}
+  (let [splt (clojure.string/split iva #"[,\s]+")
+        mped (map article/to-double splt)
+        status (model/adjust-valid-ivas)]
+    (if (= :success status)
+      (do (session/flash-put! :messages (list {:type "alert-success" :text "El IVA ha sido modificado"}))
+          (resp/redirect "/ajustes/"))
+      (do (session/flash-put! :messages (list {:type "alert-success" :text (str "\"" iva "\" contiene algún número inválido")}))
+          (resp/redirect "/ajustes/")))))
+
 (defpage [:post "/ajustes/imagenes/directorio/"] {:keys [new]}
   (let [status (model/adjust-image-path new)]
     (if (= status :success)
       (do (session/flash-put! :messages (list {:type "alert-success" :text "El directorio de imágenes ha sido modificado"}))
-                (resp/redirect "/ajustes/"))
+          (resp/redirect "/ajustes/"))
       (do (session/flash-put! :messages (list {:type "alert-error" :text "El directorio especificado es inválido o no existe"}))
-                (resp/redirect "/ajustes/")))))
+          (resp/redirect "/ajustes/")))))
 
 (defpage "/ajustes/" []
   (let [errors-warnings (error/find-errors-warnings)
@@ -208,21 +220,23 @@
                  :active "Herramientas"}]
     (home-layout content)))
 
-(defpartial show-wrong-articles [{errors :errors} errors-warnings]
+(defpartial show-wrong-articles [{errors :error-articles}]
   [:ul.nav.nav-tabs.nav-stacked
-   (map (fn [{_id :_id} art]
+   (map (fn [{_id :_id}]
           (let [{:keys [nom_art codigo iva]}
                 (article/get-by-id-only _id [:codigo :nom_art :iva :precio_venta])]
             [:li (link-to (str "/ajustes/errores/" _id "/")
-                          (str "Nombre: " nom_art ", Código: " codigo " iva: \"" iva "\""))])))])
+                          (str "Nombre: " nom_art ", Código: " codigo " iva: \"" iva "\""))]))
+        errors)])
 
-(defpartial show-warnings-articles [{warnings :warnings} errors-warnings]
+(defpartial show-warnings-articles [{warnings :warning-articles}]
   [:ul.nav.nav-tabs.nav-stacked
-   (map (fn [{_id :_id} art]
+   (map (fn [{_id :_id}]
           (let [{:keys [nom_art codigo iva]}
                 (article/get-by-id-only _id [:codigo :nom_art :iva :precio_venta])]
             [:li (link-to (str "/ajustes/advertencias/" _id "/")
-                          (str "Nombre: " nom_art ", Código: " codigo " iva: \"" iva "\""))])))])
+                          (str "Nombre: " nom_art ", Código: " codigo " iva: \"" iva "\""))]))
+        warnings)])
 
 (defpage "/ajustes/errores/" []
   (let [errors-warnings (error/find-errors-warnings)
@@ -242,31 +256,74 @@
                  :active "Herramientas"}]
     (home-layout content)))
 
-(defpartial error-row [k v es]
+;;; Not exactly the same as the views/article partials
+(defpartial iva-select [current]
+  (let [ivas (set (model/get-valid-ivas))
+        fst (when (model/valid-iva? current) current (first ivas))
+        rst (disj ivas fst)
+        lst (cons fst rst)]
+    [:select {:name :iva}
+     (map (fn [v]
+            [:option {:value v} v])
+          lst)]))
+
+(defpartial lin-select [orig]
+  (let [valid (set article/lines)
+        fst (if (valid orig) orig (first article/lines))
+        rst (if (valid orig) (remove #{fst} article/lines) (rest article/lines))
+        lst (cons fst rst)]
+    [:select {:name :lin}
+     (map (fn [v]
+            [:option {:value v} v])
+          lst)]))
+
+(defpartial unit-select [orig]
+  (let [valid (set article/units)
+        fst (if (valid orig) orig (first article/units))
+        rst (if (valid orig) (remove #{fst} article/units) (rest article/units))
+        lst (cons fst rst)]
+    [:select {:name :unidad}
+     (map (fn [v]
+            [:option {:value v} v])
+          lst)]))
+
+(defpartial modifiable-input [k v]
+  (cond
+   (= :unidad k) (unit-select v)
+   (= :lin k) (lin-select v)
+   (= :iva k) (iva-select v)
+   :else  (text-field k)))
+
+(defpartial error-row [k v es modifiable]
   [:tr
    [:td (article/verbose-names-new k)]
    [:td v]
-   [:td (text-field k)]
-   [:td [:ul (for [e es]
-               [:li e])]]])
+   [:td (when modifiable (modifiable-input k v))]
+   [:td [:ul.unstyled (for [e es]
+               [:li [:p.text-error e]])]]])
 
 (defpartial art-error-form [id art errors]
   (form-to {:class "form-horizontal" :id "modify-article-form" :name "modify-article"}
            [:post (str "/ajustes/errores/" id "/confirmar/")]
            [:table.table.table-condensed
-            [:tr
-             [:th "Nombre"]
-             [:th "Valor Previo"]
-             [:th "Valor Nuevo"]
-             [:th "Errores"]]
-            (for [k art :when (seq (k errors))]
-              (error-row k (k art) (k errors)))]))
+            [:thead
+             [:tr
+              [:th "Nombre"]
+              [:th "Valor Previo"]
+              [:th "Valor Nuevo"]
+              [:th "Errores"]]]
+            [:tbody
+             (for [[k es] errors]
+               (error-row k (k art) es (seq es)))]]
+           [:div.form-actions
+            (submit-button {:class "btn btn-primary"} "Modificar")]))
 
 (defpage "/ajustes/errores/:id/" {id :id}
-  (let [art (article/sort-by-vec (article/get-by-id id) article/new-art-props-sorted)
+  (let [art (article/get-by-id id)
         {errors :errors} (article/errors-warnings art)
+        errors-sorted (article/sort-by-vec errors article/new-art-props-sorted)
         content {:title (str "Errores de " (:nom_art art))
-                 :content [:div.container-fluid (art-error-form id art errors)]
+                 :content [:div.container-fluid (art-error-form id art errors-sorted)]
                  :active "Ajustes"
                  :footer [:p "Gracias por visitar."]
                  :nav-bar true}]
@@ -276,24 +333,49 @@
   (form-to {:class "form-horizontal" :id "modify-article-form" :name "modify-article"}
            [:post (str "/ajustes/advertencias/" id "/confirmar/")]
            [:table.table.table-condensed
-            [:tr
-             [:th "Nombre"]
-             [:th "Valor Previo"]
-             [:th "Valor Nuevo"]
-             [:th "Advertencias"]]
-            (for [k art :when (seq (k warnings))]
-              (error-row k (k art) (k warnings)))]))
+            [:thead
+             [:tr
+              [:th "Nombre"]
+              [:th "Valor Previo"]
+              [:th "Valor Nuevo"]
+              [:th "Advertencias"]]]
+            [:tbody
+             (for [[k es] warnings]
+               (error-row k (k art) es (seq es)))]]
+           [:div.form-actions
+            (submit-button {:class "btn btn-primary"} "Modificar")]))
 
 (defpage "/ajustes/advertencias/:id/" {id :id}
-  (let [art (article/sort-by-vec (article/get-by-id id) article/new-art-props-sorted)
-        {warnings :warnings} (article/errors-warnings art)
+  (let [art (article/get-by-id id)
+        {errors :errors warnings :warnings} (article/errors-warnings art)
+        warnings-sorted (article/sort-by-vec warnings  article/new-art-props-sorted)
         content {:title (str "Advertencias de " (:nom_art art))
-                 :content (if (seq art) [:div.container-fluid (art-error-form id art warnings)]
+                 :content (if (seq art)
+                            [:div.container-fluid
+                             (when-not (empty? errors)
+                               [:div.alert.alert-error
+                                [:p "Este artículo tiene errores, se requiere corregirlos antes de corregir las advertencias"]
+                                (link-to {:class "btn"} (str "/ajustes/errores/" id "/") "Ir a corregir errores")])
+                             (art-warning-form id art warnings-sorted)]
                               [:div.container-fluid [:p.error-notice "Este artículo no existe."]])
                  :active "Ajustes"
                  :footer [:p "Gracias por visitar."]
                  :nav-bar true}]
     (home-layout content)))
+
+(defpage [:post "/ajustes/:type/:id/confirmar/"] {:as pst}
+  (let [id (:id pst)
+        type (:type pst)
+        pst (dissoc pst :id :type)
+        resp (article/update-article! id pst)
+        date (t/now)]
+    (if (= :success resp)
+      (do (logs/add-logs! id :updated {} date)
+          (session/flash-put! :messages '({:type "alert-success" :text "El artículo ha sido modificado"}))
+          (resp/redirect (str "/ajustes/" type "/")))
+      (do (session/flash-put! :messages (for [[k es] resp e es]
+                                          {:type "alert-error" :text e}))
+          (resp/redirect (str "/ajustes/" type "/" id "/"))))))
 
 (defpage "/ajustes/reset/" []
   (model/setup!)

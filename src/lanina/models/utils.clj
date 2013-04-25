@@ -25,7 +25,7 @@
 ;;; Extend json
 (defn- write-json-mongodb-objectid [x out escape-unicode?]
   (json/write-json (str x) out escape-unicode?))
- 
+
 (extend org.bson.types.ObjectId json/Write-JSON
   {:write-json write-json-mongodb-objectid})
 
@@ -35,17 +35,17 @@
        (catch IllegalArgumentException e
          false)))
 
-(defn get-updated-map [original new-values-map]
-  "Requires a map (db map) that has a :prev key where it stores previous versions of itself
-The map should have a date field, and a new date should be included in the new values map.
-This does not keep track of when it got updated."
-  (let [old (dissoc original :_id)
-        new-values-vec (reduce into [] new-values-map)]
-    (apply (partial assoc
-                    (update-in original [:prev] (fn add-to-prev [old new]
-                                                  (let [new (dissoc new :prev)]
-                                                    (if (coll? old) (conj old new) [new]))) old))
-           new-values-vec)))
+(defn get-updated-map
+  "Takes an old map and a new version of it and puts the old one inside the :prev of the returned map
+the maps should be article maps"
+  [old new]
+  (let [new (dissoc new :_id :prev)
+        prev-version (dissoc old :_id :prev)
+        prev-prev (:prev old)]
+    (if-not prev-prev
+      new
+      (let [new-prev (conj prev-prev prev-version)]
+        (merge new {:prev new-prev})))))
 
 (defn valid-path? [s]
   (.isDirectory (java.io.File. s)))

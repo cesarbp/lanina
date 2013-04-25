@@ -1,10 +1,9 @@
 (ns lanina.models.article
   (:use
    somnium.congomongo
-   [lanina.views.utils :only [now valid-date? fix-date days-ago]]
+   [lanina.views.utils :only [now valid-date? fix-date days-ago now-with-time]]
    [lanina.models.adjustments :only [valid-iva? get-modify-threshold get-valid-ivas]])
   (:require [lanina.models.utils :as db]
-            [lanina.views.utils :as view-utils]
             [clojure.string :as str]
             [lanina.utils :as utils]))
 
@@ -90,7 +89,7 @@
    :tam])
 
 (def new-art-props-sorted
-  [:nom_art :codigo :pres :gan :iva :costo_unitario :costo_caja :precio_venta :prov :lin :ramo :tam :exis:ubic :img])
+  [:nom_art :codigo :pres :gan :iva :costo_caja :costo_unitario :precio_venta :prov :lin :ramo :tam :exis :ubica :img])
 
 ;;; points to the correct data type on each field to solve some dbf <-> mongo
 ;;; conversion headaches
@@ -201,7 +200,7 @@
   (let [res (atom {})
         mod-map (fn [k v]
                   (swap! res conj {k v}))]
-    (mod-map :img nil)
+    (mod-map :img "")
     (let [d (:fech_ac m)
           d (if (valid-date? d)
               (fix-date d)
@@ -210,8 +209,8 @@
     (mod-map :prev [])
     (mod-map :unidad (when (:unidad m) (clojure.string/upper-case (:unidad m))))
     (mod-map :stk (to-int (:stk m)))
-    (mod-map :lin (when (:unidad m) (clojure.string/upper-case (:lin m))))
-    (mod-map :ramo (when (:unidad m) (clojure.string/upper-case (:ramo m))))
+    (mod-map :lin (when (:lin m) (clojure.string/upper-case (:lin m))))
+    (mod-map :ramo (when (:ramo m) (clojure.string/upper-case (:ramo m))))
     (mod-map :iva (to-double (:iva m)))
     (mod-map :costo_unitario (or (to-double (:costo_unitario m))
                                  (sanitize-price m @res :cu_con :cu_sin)))
@@ -228,6 +227,43 @@
     (mod-map :codigo (:codigo m))
     (mod-map :nom_art (:nom_art m))
     (mod-map :tam (:tam m))
+    @res))
+
+(defn map-to-article-only
+  "Only is a sequence or set of keys, only these keys will be added to the returned map"
+  [m only]
+  (let [to-add (set only)
+        res (atom {})
+        mod-map (fn [k v]
+                  (swap! res conj {k v}))]
+    (when (to-add :img) (mod-map :img ""))
+    (let [d (:fech_ac m)
+          d (if (valid-date? d)
+              (fix-date d)
+              (now))]
+      (when (to-add :date) (mod-map :date (or (:date m) d))))
+    (when (to-add :prev) (mod-map :prev []))
+    (when (to-add :unidad) (mod-map :unidad (when (:unidad m) (clojure.string/upper-case (:unidad m)))))
+    (when (to-add :stk) (mod-map :stk (to-int (:stk m))))
+    (when (to-add :lin) (mod-map :lin (when (:lin m) (clojure.string/upper-case (:lin m)))))
+    (when (to-add :ramo) (mod-map :ramo (when (:ramo m) (clojure.string/upper-case (:ramo m)))))
+    (when (to-add :iva) (mod-map :iva (to-double (:iva m))))
+    (when (to-add :costo_unitario) (mod-map :costo_unitario (or (to-double (:costo_unitario m))
+                                                (sanitize-price m @res :cu_con :cu_sin))))
+    (when (to-add :costo_caja) (mod-map :costo_caja (or (to-double (:costo_caja m))
+                                            (sanitize-price m @res :ccj_con :ccj_sin))))
+    (when (to-add :precio_venta)
+      (mod-map :precio_venta
+               (or (to-double (:precio_venta m))
+                   (sanitize-price m @res :prev_con :prev_sin))))
+    (when (to-add :pres) (mod-map :pres (to-int (:pres m))))
+    (when (to-add :ubica) (mod-map :ubica (:ubica m)))
+    (when (to-add :prov) (mod-map :prov (:prov m)))
+    (when (to-add :gan) (mod-map :gan (to-double (:gan m))))
+    (when (to-add :exis) (mod-map :exis (to-int (:exis m))))
+    (when (to-add :codigo) (mod-map :codigo (:codigo m)))
+    (when (to-add :nom_art) (mod-map :nom_art (:nom_art m)))
+    (when (to-add :tam) (mod-map :tam (:tam m)))
     @res))
 
 (defn fix-maps [ms] (map map-to-article ms))
@@ -361,7 +397,7 @@ csv of the articles"
         add (fn [k v] (swap! to-add conj {k v}))]
     (if-not iva
       article
-      (let [complement-iva (when (== 0 iva) 16.0)
+      (let [complement-iva (if (== 0 iva) 16.0 0.0)
             mult (/ (+ 100.0 complement-iva) 100)
             ccj-extra (when (number? (:costo_caja article)) (* mult (:costo_caja article)))
             cu-extra (when (number? (:costo_unitario article)) (* mult (:costo_unitario article)))
@@ -375,7 +411,8 @@ csv of the articles"
   "Get an article by its barcode"
   [bc]
   (when (valid-barcode? bc)
-    (fetch-one article-coll :where {:codigo bc} :only [:_id :codigo :nom_art :iva :precio_venta :costo_caja :iva])))
+    (id-to-str
+     (fetch-one article-coll :where {:codigo bc} :only [:_id :codigo :nom_art :iva :precio_venta :costo_caja :iva]))))
 
 (defn get-by-search
   "Search for an article name"
@@ -390,76 +427,9 @@ csv of the articles"
 (defn update-error [error-map k error-val]
   (update-in error-map [k] (fn [old new] (if (seq old) (conj old new) [new])) error-val))
 
-;;; Validate a new article
-;;; Deprecated
-(defn validate-article [art-map]
-  (let [empty-errors (reduce (fn [errors [k v]]
-                               (cond (and (some #{:codigo :nom_art} [k])
-                                          (not (seq v)))
-                                     (update-error errors k (str "El campo \"" (k verbose-names) "\" no puede estar vacío"))
-                                     :else errors))
-                             {} art-map)]
-    (reduce (fn [errors [k v]]
-              (cond (and (= :codigo k) (not= "0" v) (seq (fetch-one article-coll :where {:codigo v})))
-                    (update-error errors :codigo "Este código ya existe")
-                    (and (= :nom_art k) (seq (fetch-one article-coll :where {:nom_art v})))
-                    (update-error errors :nom_art "Este nombre ya existe")
-                    (and (some #{:ccj_con :prev_con :ccj_sin :prev_sin} [k])
-                         (or (number? v) (seq v))
-                         (not ((utils/coerce-to Double) v)))
-                    (update-error errors k (str "El \"" (k verbose-names) "\" tiene que ser numérico"))
-                    :else errors))
-            empty-errors
-            art-map)))
-
-;;; Adding an article
-(defn add-article [art-map]
-  (let [errors (validate-article art-map)]
-    (if (seq errors)
-      errors
-      (do (insert! article-coll (first (coerce-to-useful-types [art-map])))
-          :success))))
-
-;;; Sorting an article
-(defn sort-by-vec [art v]
-  (let [v (reverse v)
-        vals (map (fn [k] [k (art k)])
-                  v)]
-    (into (seq (eval `(dissoc ~art ~@v))) vals)))
-
-(defn get-different-fields [old new]
-  (reduce (fn [acc [k v]]
-            (when-not (= v (k old))
-                      (into acc {k v})))
-          {}
-          new))
-
-;;; Updating an article
-(defn update-article [new]
-  (let [old (fetch-one article-coll :where {:_id (object-id (:_id new))})
-        errors (validate-article (get-different-fields old new))
-        date (view-utils/now-with-time)
-        updated (db/get-updated-map old
-                                    (into (first (coerce-to-useful-types (list (dissoc new :_id :prev))))
-                                          {:date date}))]
-    (if (seq errors)
-      errors
-      (do (println (seq old) "\n" (seq updated))
-          (update! article-coll old updated)
-          :success))))
-
-(defn find-changes [old new]
-  (let [ks (keys new)
-        new (map-to-article new)
-        equal? (fn [x y]
-                 (if (and (number? x) (number? y))
-                   (== x y)
-                   (= x y)))]
-    (for [k ks :when (not (equal? (k old) (k new)))]
-      [k (k old) (k new)])))
-
 ;;; Find errors
-(defn errors-warnings [article]
+(defn errors-warnings
+  [article]
   (let [m article
         res (atom {:errors {}
                    :warnings {}
@@ -470,13 +440,23 @@ csv of the articles"
         add-warning (fn [k msg]
                       (swap! res update-in [:warnings k]
                              (fn [prev] (if prev (conj prev msg) [msg]))))
-        thresh (get-modify-threshold)]
+        thresh (get-modify-threshold)
+        id (:_id m)]
+    (if-let [n (get-by-name (:nom_art m))]
+      (when-not (and id (= id (:_id n)))
+        (add-error :nom_art "Este nombre de artículo ya existe")))
+    (if-let [n (get-by-barcode (:codigo m))]
+      (when-not (and id (= id (:_id n)))
+        (add-error :codigo "Este código de barras ya existe")))
     (when-not (> thresh (days-ago (:date m)))
       (add-error :date "Lleva demasiado tiempo sin una modificación"))
     (when-not (:img m) (add-warning :img "No contiene imagen"))
     (when-not (valid-date? (:date m)) (add-error :date "La fecha de última modificación es inválida"))
-    (when-not (and (is-int? (:stk m))
-                   (<= 0 (:stk m)))
+    (when-not (:stk m)
+      (add-warning :stk "No tiene stock"))
+    (when (and (:stk m)
+               (not (is-int? (:stk m)))
+               (not (<= 0 (:stk m))))
       (add-error :stk "Stock inválido"))
     (when-not ((set lines) (:lin m)) (add-error :lin "Línea inválida"))
     (when-not (:ramo m) (add-warning :ramo "No tiene ramo"))
@@ -510,7 +490,9 @@ csv of the articles"
       (add-warning :precio_venta "El precio de venta no coincide con los valores de ganancia y costo unitario"))
     (when-not (and (string? (:ubica m)) (seq (:ubica m)))
       (add-warning :ubica "No tiene ubicación"))
-    (when-not (is-int? (:exis m))
+    (when-not (:exis m)
+      (add-warning :exis "No tiene en existencia"))
+    (when (and (:exis m) (not (is-int? (:exis m))))
       (add-error :exis "En existencia inválido"))
     (when-not (and (string? (:codigo m)) (seq (:codigo m)))
       (add-error :codigo "No tiene código de barras"))
@@ -522,3 +504,47 @@ csv of the articles"
       (do (swap! res conj {:_id (:_id m)})
           @res)
       nil)))
+
+;;; Adding an article
+(defn add-article!
+  "art-map is possibly the post received by the server, it should have no fields other
+than those belonging to the article"
+  [art-map]
+  (let [art (map-to-article art-map)
+        {errors :errors} (errors-warnings art)]
+    (if-not (empty? errors)
+      errors
+      (do (insert! article-coll art)
+          :success))))
+
+;;; Sorting an article
+(defn sort-by-vec [art v]
+  (let [v (reverse v)
+        vals (map (fn [k] [k (art k)])
+                  v)]
+    (into (seq (eval `(dissoc ~art ~@v))) vals)))
+
+(defn find-changes [old new]
+  (let [ks (keys new)
+        new (map-to-article-only new ks)
+        equal? (fn [x y]
+                 (if (and (number? x) (number? y))
+                   (== x y)
+                   (= x y)))]
+    (for [k ks :when (not (equal? (k old) (k new)))]
+      [k (k old) (k new)])))
+
+(defn update-article!
+  "Takes the post but it should have no keys other than the fields of the article to be updated"
+  [id pst]
+  (let [old (fetch-one article-coll :where {:_id (object-id id)})
+        fixed (map-to-article-only pst (keys pst))
+        date-modified (now-with-time)
+        fixed (merge fixed {:date date-modified})
+        new (merge old fixed)
+        {errors :errors} (errors-warnings new)
+        to-add (db/get-updated-map old new)]
+    (if-not (empty? errors)
+      errors
+      (do (update! article-coll old to-add)
+          :success))))

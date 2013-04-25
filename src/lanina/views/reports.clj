@@ -120,4 +120,4 @@
       :active "Reportes"
       :content content
       :nav-bar true}
-     [:base-css :jquery :tablesorter-js])))
+     [:base-css :jquery :base-js :tablesorter-js])))

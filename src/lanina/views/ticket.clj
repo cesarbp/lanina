@@ -10,7 +10,8 @@
             [lanina.views.utils    :as utils]
             [clj-time.core         :as time]
             [noir.response         :as resp]
-            [noir.session          :as session]))
+            [noir.session          :as session]
+            [lanina.models.user    :as users]))
 
 (defpartial ticket-row [prod]
   [:tr
@@ -169,7 +170,7 @@
   (let [content {:title "Tickets y cortes de caja"
                  :content [:div.container-fluid
                            (search-ticket-form)
-                           (cut-form)]
+                           (when (users/admin?) (cut-form))]
                  :nav-bar true
                  :active "Tickets"}]
     (home-layout content)))

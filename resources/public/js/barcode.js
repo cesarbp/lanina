@@ -155,23 +155,24 @@ function add_article_row(denom, n) {
     var new_quantity;
     var article;
 
-    $.ajax({url: '/json/article/id', dataType: 'json', data: {id: denom}, async: false, success: function(art) {
-        if ( art && art._id )
-            article = art;
-        else
-            $.ajax({url: '/json/article', dataType: 'json', data: {barcode: denom}, async: false, success: function(art1) {
-                if ( art1 && art1._id )
-                    article = art1;
-                else
-                    $.ajax({url: '/json/article-name', dataType: 'json', data: {name: denom}, async: false, success: function(art2) {
-                        if ( art2 && art2._id )
-                            article = art2;
-                        else
-                            alert("Artículo no encontrado.");
-                    }});
+    if ( denom.length > 0 )
+        $.ajax({url: '/json/article/id', dataType: 'json', data: {id: denom}, async: false, success: function(art) {
+            if ( art && art._id )
+                article = art;
+            else
+                $.ajax({url: '/json/article', dataType: 'json', data: {barcode: denom}, async: false, success: function(art1) {
+                    if ( art1 && art1._id )
+                        article = art1;
+                    else
+                        $.ajax({url: '/json/article-name', dataType: 'json', data: {name: denom}, async: false, success: function(art2) {
+                            if ( art2 && art2._id )
+                                article = art2;
+                            else
+                                alert("Artículo no encontrado.");
+                        }});
 
-            }});
-    }});
+                }});
+        }});
 
     if ( !article )
         return false;
@@ -666,6 +667,14 @@ $(document).ready(function(){
     });
     $('#barcode-field').tooltip({
         title: 'Código de barras'
+    });
+    $('#barcode-field').keydown(function(event) {
+        if ( event.ctrlKey || event.altKey )
+        {
+            console.log("oops");
+            event.preventDefault();
+        }
+
     });
     $('#unregistered-quantity').tooltip('show');
     $('#unregistered-price').tooltip('show');

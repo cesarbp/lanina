@@ -11,7 +11,7 @@
    :subnav-js     (include-js "/js/subnav.js")
    :custom-css    (include-css "/css/custom.css")
    :base-css      (include-css "/css/bootstrap.min.css")
-   :base-js       (include-js "/js/bootstrap.js")
+   :base-js       (include-js "/js/bootstrap.min.js")
    :base-resp-css (include-css "/css/bootstrap-responsive.css")
    :search-css    (include-css "/css/search.css")
    :less          (include-js "/js/less.js")

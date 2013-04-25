@@ -9,7 +9,7 @@
             [lanina.models.user :as user :only [setup!]]
             [lanina.models.logs :as logs :only [setup!]]))
 
-(defpage "/setup/initialize/" []
+(defn initialize!  []
   (do
     (article/setup!)
     (adjustments/setup!)
