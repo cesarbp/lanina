@@ -77,7 +77,7 @@
        [:button.btn.btn-primary {:style "position:relative;top:5px;" :onclick "return add_unregistered()"} "Agregar"]]]]]])
 
 (defpartial item-list []
-  [:table {:id "articles-table" :class "table table-condensed"}
+  [:table {:id "articles-table" :class "table table-condensed table-hover"}
    [:tr
     [:th#name-header "Artículo"]
     [:th#quantity-header "Cantidad"]
@@ -153,7 +153,7 @@
   (form-to {:class "form-horizontal" :id "modify-article-form" :name "modify-article"}
            [:post (str "/articulos/modificar/id/" (:_id art) "/")]
            (hidden-field :type-mod type-mod)
-           [:table.table.table-condensed
+           [:table.table.table-condensed.table-hover
             [:tr
              [:th "Nombre"]
              [:th "Nuevo valor"]
@@ -177,7 +177,7 @@
   [:div.article-dialog
    (form-to {:class "form-horizontal" :id "modify-article-form" :name "modify-article"} [:post (str "/articulos/modificar/" id "/")]
             (hidden-field :type-mod type-mod)
-            [:table {:class "table table-condensed"}
+            [:table.table.table-condensed.table-hover
              [:tr.table-header
               [:th "Nombre"]
               [:th "Valor Actual"]
@@ -273,7 +273,7 @@
           (do (session/flash-put! :messages (reduce (fn [acc error]
                                                 (conj acc {:type "alert-error" :text error}))
                                               [] (map first (vals modified))))
-              (resp/redirect (str "/articulos/id/" id "/modificar/" (name type-mod) "/")))))
+              (resp/redirect (str "/articulos/modificar/" id "/" (name type-mod) "/")))))
       :else "Invalid")))
 
 ;;; Search for an article
@@ -313,14 +313,42 @@ function redirect_to_add_codnom() {
                  :nav-bar true}]
     (main-layout-incl content [:base-css :search-css :jquery :base-js :jquery-ui :trie-js :search-js])))
 
-(defpartial search-results-row [result]
+(defpartial search-results-row-employee [result]
   (when (seq result)
-    (let [{:keys [_id codigo nom_art precio_venta costo_caja iva]} result]
+    (let [{:keys [_id codigo nom_art precio_venta costo_caja]} result]
       [:tr.result
        [:td.codigo codigo]
-       [:td.nom_art (link-to {:class "search-result-link"} (str "/articulos/id/" _id "/") nom_art)]
-       [:td.prev_con  (if (number? costo_caja) (format "%.2f" (double costo_caja)) costo_caja)]
-       [:td.prev_sin (if (number? precio_venta) (format "%.2f" (double precio_venta)) precio_venta)]
+       [:td.nom_art (link-to {:class "search-result-link"} (str "/articulos/ventas/" _id "/") nom_art)]
+       [:td.prev_con (if (number? costo_caja) (utils/format-decimal costo_caja) costo_caja)]
+       [:td.prev_sin (if (number? precio_venta) (utils/format-decimal precio_venta) precio_venta)]
+       [:td.consultar (link-to {:class "btn btn-primary"} (str "/articulos/ventas/" _id "/") "Ventas")]])))
+
+(defpartial search-results-table-employee [results]
+  (if (seq results)
+    [:div.container-fluid
+     [:table.table.table-condensed.table-hover
+      [:thead
+       [:tr
+        [:th#barcode-header "Código"]
+        [:th#name-header "Artículo"]
+        [:th#p-with-header "Precio de venta"]
+        [:th "Consultas"]]]
+      [:tbody
+       (if (map? results)
+         (search-results-row-employee results)
+         (map search-results-row-employee results))]]
+     [:div.form-actions
+      (link-to {:class "btn btn-success"} "/articulos/" "Regresar a buscar otro artículo")]]
+     [:p {:class "alert alert-error"} "No se encontraron resultados"]))
+
+(defpartial search-results-row-admin [result]
+  (when (seq result)
+    (let [{:keys [_id codigo nom_art precio_venta costo_caja]} result]
+      [:tr.result
+       [:td.codigo codigo]
+       [:td.nom_art (link-to {:class "search-result-link"} (str "/articulos/global/" _id "/") nom_art)]
+       [:td.prev_con (if (number? costo_caja) (utils/format-decimal costo_caja) costo_caja)]
+       [:td.prev_sin (if (number? precio_venta) (utils/format-decimal precio_venta))]
        [:td.consultar (link-to {:class "btn btn-primary"} (str "/articulos/global/" _id "/") "Global")]
        [:td.consultar (link-to {:class "btn btn-primary"} (str "/articulos/ventas/" _id "/") "Ventas")]
        [:td.consultar (link-to {:class "btn btn-primary"} (str "/articulos/proveedor/" _id "/") "Proveedor")]
@@ -331,10 +359,10 @@ function redirect_to_add_codnom() {
        [:td.eliminar (link-to {:class "btn btn-warning"}  (str "/articulos/agregar/codnom/" _id "/") "Alta por código y nombre")]
        [:td.eliminar (link-to {:class "btn btn-danger"}  (str "/articulos/eliminar/" _id "/") "Eliminar")]])))
 
-(defpartial search-results-table [results]
+(defpartial search-results-table-admin [results]
   (if (seq results)
     [:div.container
-     [:table {:class "table table-condensed"}
+     [:table.table.table-condensed.table-hover
       [:tr
        [:th#barcode-header "Código"]
        [:th#name-header "Artículo"]
@@ -345,8 +373,8 @@ function redirect_to_add_codnom() {
        [:th "Altas"]
        [:th "Bajas"]]
       (if (map? results)
-        (search-results-row results)
-        (map search-results-row results))]
+        (search-results-row-admin results)
+        (map search-results-row-admin results))]
      [:div.form-actions
       (link-to {:class "btn btn-success"} "/articulos/" "Regresar a buscar otro artículo")]]
     [:p {:class "alert alert-error"} "No se encontraron resultados"]))
@@ -355,7 +383,9 @@ function redirect_to_add_codnom() {
 (defpartial search-article-results [query]
   (let [data (or (article/get-by-barcode query)
                  (article/get-by-search query))]
-    (search-results-table data)))
+    (if (users/admin?)
+      (search-results-table-admin data)
+      (search-results-table-employee data))))
 
 (defpartial search-art-by-providers [prov]
   (let [data (article/get-by-provider prov)]
@@ -484,7 +514,7 @@ function redirect_to_add_codnom() {
         article (article/add-fields article)
         art-no-prevs (dissoc article :prev)
         art-sorted (article/sort-by-vec art-no-prevs
-                                        [:codigo :nom_art :pres :iva :gan :precio_venta :prev_extra :tam])
+                                        [:codigo :nom_art :img :pres :iva :gan :precio_venta :prev_extra :tam])
         content {:title "Consulta para ventas"
                  :active "Artículos"
                  :content [:div.container-fluid (show-article-tables art-sorted)

@@ -72,6 +72,24 @@
 (defn year-range [n]
   (date-range t/years n))
 
+(defn start-of [denom date]
+  (if-let [d (parse-date date)]
+    (let [year (t/year d)
+          month (t/month d)
+          day (t/day d)]
+      (cond (= :day denom) (format "%d-%02d-%02d" year month day)
+            (= :month denom) (format "%d-%02d-%02d" year month 1)
+            (= :year denom) (format "%d-%02d-%02d" year 1 1)))))
+
+(defn start-of-day []
+  (start-of :day (now)))
+
+(defn start-of-month []
+  (start-of :month (now)))
+
+(defn start-of-year []
+  (start-of :year (now)))
+
 (defn url-encode
   [s]
   (let [unreserved #"[^A-Za-z0-9_~.+-]+"

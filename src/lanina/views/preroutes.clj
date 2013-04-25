@@ -21,13 +21,19 @@
            (deny-and-home))
 (pre-route "/respaldos/*" []
            (deny-and-home))
-(pre-route "/articulos/id/:id/modificar/*" []
+(pre-route "/articulos/modificar/*" []
            (deny-and-home))
-(pre-route "/articulos/id/:id/eliminar/*" []
+(pre-route "/articulos/eliminar/*" []
+           (deny-and-home))
+(pre-route "/articulos/global/*" []
+           (deny-and-home))
+(pre-route "/articulos/proveedor/*" []
            (deny-and-home))
 (pre-route "/articulos/agregar/*" []
            (deny-and-home))
 (pre-route "/listas/compras/*" []
+           (deny-and-home))
+(pre-route "/reportes/*" []
            (deny-and-home))
 
 (pre-route "/articulos/*" []

@@ -7,7 +7,7 @@
 
 (def ticket-coll :tickets)
 
-(def individual-article-props [:art_id :quantity :nom_art :precio_venta :codigo])
+(def individual-article-props [:art_id :quantity :nom_art :precio_venta :iva :codigo])
 (def ticket-props [:ticket-number :folio :date :time :articles :pay])
 
 (defn get-next-ticket-number []
@@ -15,10 +15,12 @@
         n (:ticket-number
            (first
             (fetch ticket-coll :where {:date date} :only [:ticket-number] :sort {:ticket-number -1})))]
-    (if n n 1)))
+    (if n (inc n) 1)))
 
 (defn get-next-folio []
-  (:folio (first (fetch ticket-coll :only [:folio] :sort {:folio -1}))))
+  (if-let [f (:folio (first (fetch ticket-coll :only [:folio] :sort {:folio -1})))]
+    (inc f)
+    1))
 
 (defn setup! []
   (when (collection-exists? ticket-coll)
@@ -28,8 +30,8 @@
 (defn fix-articles
   [articles]
   (for [a articles]
-    {:art_id (:_id a) :quantity (:quantity a) :nom_art (:nom_art a) :precio_venta (:precio_venta a)
-     :codigo (:codigo a)}))
+    {:art_id (:_id a) :quantity (:quantity a) :nom_art (:nom_art a) :iva (:iva a)
+     :precio_venta (:precio_venta a) :codigo (:codigo a) :total (* (:precio_venta a) (:quantity a))}))
 
 (defn insert-ticket [pay articles]
   (let [date (t/now)
@@ -37,7 +39,7 @@
         number (get-next-ticket-number)
         folio (get-next-folio)]
     (insert! ticket-coll
-             {:ticket-number number :date date :folio folio :articles (fix-articles articles) :pay pay})))
+             {:ticket-number number :time time :date date :folio folio :articles (fix-articles articles) :pay pay})))
 
 (defn search-by-date [date]
   (when (t/valid-date? date)
@@ -51,9 +53,9 @@
 
 (defn search-by-date-range
   ([from] (when (t/valid-date? from)
-            (fetch ticket-coll :where {:date {:$gte from}})))
+            (fetch ticket-coll :where {:date {:$gte from}} :sort {:$natural 1})))
   ([from to] (when (and (t/valid-date? from) (t/valid-date? to))
-               (fetch ticket-coll :where {:date {:$gte from :$lte to}}))))
+               (fetch ticket-coll :where {:date {:$gte from :$lte to}} :sort {:$natural 1}))))
 
 (defn search-by-date-with-limits
   ([date from]

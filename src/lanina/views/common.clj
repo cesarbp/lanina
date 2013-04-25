@@ -28,12 +28,12 @@
    :modify-js     (include-js "/js/modify.js")
    :art-res-js    (include-js "/js/article-results.js")
    :list-js       (include-js "/js/list.js")
+   :tablesorter-js (include-js "/js/jquery.tablesorter.min.js")
    })
 
 ;;; Links on the nav
 (def nav-links-admin
-  [["Inicio" "/inicio/"]
-   ["Ventas"    "/ventas/"]
+  [["Ventas"    "/ventas/"]
    ["Artículos" "/articulos/"]
    ["Tickets"   "/tickets/"]
    ["Reportes" "/reportes/"]
@@ -51,7 +51,6 @@
   [["Ventas"    "/ventas/"]
    ["Artículos" "/articulos/"]
    ["Tickets"   "/tickets/"]
-   ["Inicio"    "/inicio/"]
    ["Salir"     "/salir/"]])
 
 (defpartial head [incls title]

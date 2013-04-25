@@ -10,7 +10,9 @@
 
 (defpage "/" []
   (if (users/logged-in?)
-    (resp/redirect "/inicio/")
+    (if (users/admin?)
+      (resp/redirect "/reportes/")
+      (resp/redirect "/ventas/"))
     (resp/redirect "/entrar/")))
 
 (defpartial user-select []
@@ -114,4 +116,3 @@
                  :content [:div.container (home-content (or lgs-usable {}))]
                  :active "Inicio"}]
     (home-layout content)))
-

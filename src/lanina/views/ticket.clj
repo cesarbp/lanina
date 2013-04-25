@@ -110,22 +110,23 @@
                                      "exto")
                               price (:precio_venta article)
                               total (if (number? price) (* price times) 0.0)
-                              art {:type type :quantity times :_id bc :codigo (:codigo article) :nom_art name :precio_unitario price :total total}]
-                          (into acc [art])))
+                              art {:type type :iva (:iva article) :quantity times :_id bc :codigo (:codigo article) :nom_art name :precio_venta price :total total}]
+                          (conj acc art)))
                       [] pairs)
         total (reduce + (map :total prods))
         change (if pay (- pay total) 0)
-        ticket-number (ticket/get-next-ticket-number)
+        next-ticket-number (ticket/get-next-ticket-number)
         folio (ticket/get-next-folio)
         content {:title "Ticket impreso"
                  :content [:div.container-fluid
                            (pay-notice pay total change)
                            [:hr]
-                           (when (and ticketn (< ticketn ticket-number))
+                           (when (and ticketn (< ticketn (ticket/get-next-ticket-number)))
                              (utils/message "Este número de ticket ya ha sido impreso y no se volverá a imprimir. Para visitar un ticket previo e imprimirlo acuda a la sección de tickets." "error"))
-                           (printed-ticket prods pay total change ticket-number folio)]
+                           (printed-ticket prods pay total change ticketn folio)]
                  :active "Ventas"}]
-    (ticket/insert-ticket pay prods)
+    (when (and ticketn (>= ticketn (ticket/get-next-ticket-number)))
+      (ticket/insert-ticket pay prods))
     (home-layout content)))
 
 (defpartial search-ticket-form []
@@ -136,7 +137,7 @@
        [:div.control-group
         (label {:class "control-label"} "date" "Buscar por fecha")
         [:div.controls
-         [:input {:type "date" :name "date" :format "yyyy-mm-dd" :value date}]]]
+         [:input {:type "date" :name "date" :value date}]]]
        [:div.control-group
         (label {:class "control-label"} "folio" "Buscar por número de folio")
         [:div.controls
@@ -152,7 +153,7 @@
        [:div.control-group
         (label {:class "control-label"} "fecha" "Indicar fecha de corte")
         [:div.controls
-         [:input {:type "date" :name "fecha" :format "yyyy-mm-dd" :value date}]]]
+         [:input {:type "date" :name "fecha" :value date}]]]
        [:div.control-group
         (label {:class "control-label"} "desde" "Opcional: Indique el número del primer ticket")
         [:div.controls

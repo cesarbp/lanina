@@ -495,6 +495,7 @@ csv of the articles"
       (add-error :costo_caja "El costo por caja es inválido"))
     (when (and (is-number? (:costo_unitario m))
                (is-number? (:costo_caja m))
+               (is-number? (:pres m))
                (not (== (:costo_caja m) (* (:pres m) (:costo_unitario m)))))
       (add-warning :costo_caja "El costo de caja no coincide con los valores de presentación y costo unitario"))
     (when-not (and (is-number? (:precio_venta m))
