@@ -53,9 +53,9 @@
 
 (defn search-by-date-range
   ([from] (when (t/valid-date? from)
-            (fetch ticket-coll :where {:date {:$gte from}} :sort {:$natural 1})))
+            (fetch ticket-coll :where {:date {:$gte from}} :sort {:$date 1 :time 1})))
   ([from to] (when (and (t/valid-date? from) (t/valid-date? to))
-               (fetch ticket-coll :where {:date {:$gte from :$lte to}} :sort {:$natural 1}))))
+               (fetch ticket-coll :where {:date {:$gte from :$lte to}} :sort {:$date 1 :time 1}))))
 
 (defn search-by-date-with-limits
   ([date from]

@@ -11,8 +11,8 @@
 
 (defn initialize!  []
   (do
-    (article/setup!)
     (adjustments/setup!)
+    (article/setup!)
     (backup/setup!)
     (ticket/setup!)
     (user/setup! "password" "empleado")

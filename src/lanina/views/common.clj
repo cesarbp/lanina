@@ -34,23 +34,29 @@
 ;;; Links on the nav
 (def nav-links-admin
   [["Ventas"    "/ventas/"]
+   ["Caja"      "/caja/"]
    ["Artículos" "/articulos/"]
    ["Tickets"   "/tickets/"]
-   ["Reportes" "/reportes/"]
+   ["Catálogos" "/catalogos/"]
+   {:title "Reportes"
+    :links
+    [["De ventas"  "/reportes/"]
+     ["De compras" "/reportes/compras/"]]}
    {:title "Listas"
     :links
-    [["Para empleados"   "/listas/"]
-     ["Para compras" "/listas/compras/"]]}
+    [["Para empleados" "/listas/"]
+     ["Para compras"   "/listas/compras/"]]}
    {:title "Herramientas"
     :links
-    [["Ajustes de la BD" "/ajustes/"]
+    [["Ajustes de la BD"  "/ajustes/"]
      ["Respaldos de la BD" "/respaldos/"]]}
-   ["Salir"     "/salir/"]])
+   ["Salir" "/salir/"]])
 
 (def nav-links-empl
   [["Ventas"    "/ventas/"]
    ["Artículos" "/articulos/"]
    ["Tickets"   "/tickets/"]
+   ["Catálogos" "/catalogos/"]
    ["Salir"     "/salir/"]])
 
 (defpartial head [incls title]

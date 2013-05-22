@@ -13,7 +13,7 @@
   (create-collection! globals-coll)
   (insert! globals-coll {:iva [0.0 16.0]})
   (insert! globals-coll {:modify-threshold 6 :unit "months"})
-  (insert! globals-coll {:image-path "/img/"})
+  (insert! globals-coll {:image-path "img/"})
   (insert! globals-coll {:collections [:articles :tickets :settings :article-logs :users]})
   (insert! globals-coll {:utc-offset -5 :valid [-5 -6]})
   (insert! globals-coll {:name "backups"
@@ -76,7 +76,7 @@
   (clojure.string/replace path #"^/" ""))
 
 (defn full-image-path [path]
-  (str resources-root (remove-first-slash-path path)))
+  (str (get-image-path) (remove-first-slash-path path)))
 
 (defn adjust-image-path [new-path]
   (when (db/valid-path? (full-image-path new-path))

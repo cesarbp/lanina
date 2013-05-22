@@ -420,7 +420,7 @@ function print_ticket() {
     var pay = $('#pay').val();
     var total = parseFloat($('#modallabel')[0].textContent.replace('Total a pagar: ', ''));
     if (pay && parseFloat(pay) >= total) {
-        //$('#print-ticket')[0].href = $('#print-ticket')[0].href + '&pay=' + pay;
+        $('#print-ticket')[0].href = $('#print-ticket')[0].href + '&pay=' + pay;
         window.location = $('#print-ticket')[0].href;
     }  else if ($('#error-popup').length === 0) {
         $('.modal-header').append(
@@ -434,10 +434,12 @@ function print_ticket() {
 
 function pay_listeners() {
     $('#pay').keypress(function(e) {
-        code= (e.keyCode ? e.keyCode : e.which);
+        code = (e.keyCode ? e.keyCode : e.which);
         if (code === 13) {
             print_ticket();
+            return false;
         }
+        return true;
     });
     $('#pay').blur(function() {
         var pay = $('#pay').val();
@@ -446,7 +448,7 @@ function pay_listeners() {
             $('.modal-footer').removeClass('error');
             $('#print-ticket').attr('disabled', false);
             $('#print-ticket').click(function(){return true;});
-            $('#print-ticket')[0].href = $('#print-ticket')[0].href + '&pay=' + pay;
+            //$('#print-ticket')[0].href = $('#print-ticket')[0].href + '&pay=' + pay;
             if ($('#error-popup').length > 0) {
                 $('#error-popup').alert('close');
             }
@@ -504,6 +506,14 @@ function draw_modal () {
         $("#pay").focus();
     });
     $('#pay').focus();
+
+    $('#pay').keyup(function(e){
+        if ( e.keyCode === 13 )
+        {
+            print_ticket();
+            return false;
+        }
+    });
     $('#print-ticket').click(function(){return false;});
     pay_listeners();
     return false;

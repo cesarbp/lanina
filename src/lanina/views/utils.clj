@@ -37,8 +37,14 @@
   (let [time (t/to-time-zone (t/now) (t/time-zone-for-offset (get-current-utc)))]
     (format "%02d:%02d:%02d" (t/hour time) (t/minute time) (t/sec time))))
 
-(defn fix-date [date]
-  (clojure.string/replace date #"/" "-"))
+(defn fix-date
+  "Assumes year has 4 digits. Returns date in dd-mm-yyyy format"
+  [date]
+  (let [noslash (clojure.string/replace date #"/" "-")
+        splt (clojure.string/split noslash #"-")]
+    (if (not= 4 (count (first splt)))
+      (clojure.string/join "-" (reverse splt))
+      noslash)))
 
 (defn parse-date [date]
   (try (tf/parse (tf/formatters :date-hour-minute-second) date)

@@ -5,7 +5,8 @@
    [lanina.models.adjustments :only [valid-iva? get-modify-threshold get-valid-ivas]])
   (:require [lanina.models.utils :as db]
             [clojure.string :as str]
-            [lanina.utils :as utils]))
+            [lanina.utils :as utils]
+            [clojure-csv.core :as csv]))
 
 (def article-coll :articles)
 (def unmodifiable-props #{})
@@ -296,19 +297,19 @@
        ms))
 
 ;;; fill the db
-(def db-file "src/lanina/models/db-csv/tienda.csv")
+;(def db-file "install/tienda.csv")
+(def db-file "resources/db/TIENDA.csv")
 
 (defn csv-to-maps
   "Takes a csv file and creates a map for each row of column: column-value"
   [f]
-  (let [ls (str/split (slurp f) #"\n")
+  (let [ls (csv/parse-csv (slurp f))
         cs (first ls)
-        rs (rest (rest ls))
-        colls (map (comp keyword #(.toLowerCase %)) (str/split cs #","))
-        regs (map #(str/split % #",") rs)]
+        rs (rest ls)
+        colls (map (comp keyword #(.toLowerCase %)) cs)]
     (map (fn [r]
            (zipmap colls r))
-         regs)))
+         rs)))
 
 (defn fill-article-coll!
   "Appends the maps to the article collection"
@@ -318,7 +319,10 @@
     (create-collection! article-coll)
     (println (str "Created collection " article-coll)))
   (doseq [m ms]
-    (insert! article-coll m)))
+    (try
+      (insert! article-coll m)
+      (catch Exception e
+        (println (str "Error at " m))))))
 
 (defn setup!
   "Dangerous! drops articles collection if exists and creates a new one with the

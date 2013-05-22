@@ -8,3 +8,4 @@ pom.xml
 /dump/
 *.dbf
 /test/
+/resources/db/

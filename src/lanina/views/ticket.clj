@@ -36,13 +36,13 @@
   [:div.container-fluid
    [:div.alert.alert-error
     [:h1 "Cambio: "
-     (format "%.2f" (double change))]]
+     (utils/format-decimal change)]]
    [:div.alert.alert-info
     [:h2 "Total: "
-     (format "%.2f" (double total))]]
+     (utils/format-decimal total)]]
    [:div.alert.alert-info
     [:h2 "Pagó: "
-     (format "%.2f" (double pay))]]])
+     (utils/format-decimal pay)]]])
 
 (defn get-article [denom]
   (letfn [(is-gvdo [d] (= "gvdo" (clojure.string/lower-case (apply str (take 4 (name d))))))
