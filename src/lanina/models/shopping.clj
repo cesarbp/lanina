@@ -1,6 +1,6 @@
 (ns lanina.models.shopping
   (:use somnium.congomongo
-        [lanina.views.utils :only [now valid-date? fix-date]]
+        [lanina.views.utils :only [now now-hour valid-date? fix-date]]
         [lanina.utils :only [coerce-to]])
   (:require [lanina.models.utils :as db]
             [clojure.java.io :as io]
@@ -10,7 +10,7 @@
 
 (def purchases-coll :purchases)
 
-(def props #{:date :total :arts})
+(def props #{:date :total :arts :time})
 (def art-props #{:bimporte :biva :bpre :bu :blin :bcant :bcodi :bprov :bcj :barti :bramo})
 (def props-ordered [:date :bcodi :barti :bpre :iva :bcj :bu :bcant :bimporte :blin :bramo :bprov])
 (def verbose
@@ -70,7 +70,22 @@
         total (reduce + (map :bimporte ms))]
     (insert! purchases-coll {:total total :date date :arts ms})))
 
-(def db-file "resources/db/COMPRAS.csv")
+(defn fix-articles
+  [arts]
+  (for [{:keys [iva quantity codigo nom_art costo_caja costo_unitario total
+                pres lin prov ramo]} arts]
+    {:bimporte total :biva iva :bpre pres :bu costo_unitario :blin lin :bcodi codigo
+     :bprov prov :bcj costo_caja :barti nom_art :bramo ramo}))
+
+(defn insert-purchase!
+  [prods date time]
+  (let [arts (fix-articles prods)
+        total (reduce + (map :bimporte arts))
+        m {:date date :time time :arts arts :total total}]
+    (insert! purchases-coll m)
+    :success))
+
+(def db-file "install/COMPRAS.csv")
 
 (defn setup!
   []

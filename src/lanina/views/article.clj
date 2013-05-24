@@ -16,7 +16,7 @@
 
 ;;; Used by js to get the article in an ajax way
 (defpage "/json/article" {:keys [barcode]}
-  (let [response (article/get-article barcode)]
+  (let [response (article/get-by-barcode barcode)]
     (if (not= "null" response)
       (resp/json response)
       (resp/json {}))))

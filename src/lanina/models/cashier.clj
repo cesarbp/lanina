@@ -19,8 +19,9 @@
 (defn get-todays-latest
   []
   (first
-   (fetch cashier-coll :where {:date (now)
-                               :sort {:time -1}})))
+   (fetch cashier-coll
+          :where {:date (now)}
+          :sort {:time -1})))
 
 (defn cashier-is-open?
   []
@@ -39,7 +40,8 @@
   (when-not (cashier-is-open?)
     (let [m (new-cashier-map "open" amt)]
       (when (and (number? amt) (<= 0 amt))
-        (insert! cashier-coll m)))))
+        (insert! cashier-coll m)
+        :success))))
 
 (defn close-cashier
   []
@@ -59,14 +61,14 @@
   (when (and (cashier-is-open?)
              (number? amt)
              (pos? amt))
-    (let [m (get-todays-open)
+    (let [m (get-todays-latest)
           new-m (assoc m :cash (+ (:cash m) amt))]
       (update! cashier-coll m new-m)
       :success)))
 
 (defn withdraw-money
   [amt]
-  (let [m (get-todays-open)]
+  (let [m (get-todays-latest)]
     (when (and (cashier-is-open?)
                (number? amt)
                (pos? amt)

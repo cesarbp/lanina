@@ -32,6 +32,7 @@
   [k]
   (class (k (fetch-one article-coll))))
 
+;;; Deprecated - I think :)
 (defn coerce-to-useful-type
   [[k v]]
   (let [cl (get-type-of k)]
@@ -298,7 +299,7 @@
 
 ;;; fill the db
 ;(def db-file "install/tienda.csv")
-(def db-file "resources/db/TIENDA.csv")
+(def db-file "install/TIENDA.csv")
 
 (defn csv-to-maps
   "Takes a csv file and creates a map for each row of column: column-value"
@@ -363,8 +364,9 @@ csv of the articles"
      (fetch-one article-coll :where {:_id (object-id id)}))))
 
 (defn get-by-id-date [id date]
-  (first (filter #(= date (:date %))
-                 (:prev (get-by-id id)))))
+  (id-to-str
+   (first (filter #(= date (:date %))
+                  (:prev (get-by-id id))))))
 
 (defn get-by-id-nostr [id]
   (when (db/valid-id? id)
@@ -380,7 +382,7 @@ csv of the articles"
 
 (defn get-by-name [name]
   (id-to-str
-   (fetch-one article-coll :where {:nom_art name} :only [:nom_art :codigo :precio_venta])))
+   (fetch-one article-coll :where {:nom_art name} :only [:nom_art :codigo :precio_venta :costo_caja])))
 
 (defn get-by-provider [prov]
   (map id-to-str

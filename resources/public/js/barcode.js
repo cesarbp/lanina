@@ -31,10 +31,6 @@ function readFile(url) {
     return html;
 }
 
-function get_ticket_number() {
-    return $("#ticketn").html();
-}
-
 function article_row(article, quantity) {
     var id = article._id;
     var price = article.precio_venta;
@@ -75,6 +71,11 @@ function update_total() {
     }, 200);
 }
 
+function get_ticket_number() {
+    return parseInt($("#ticketn").html());
+}
+
+// actually bd id not barcode
 function ticket_links(barcode, quantity, increase) {
     var ticket_link = $("#ticket");
     var bill_link = $("#bill");
@@ -96,12 +97,14 @@ function ticket_links(barcode, quantity, increase) {
             $("#ticket")[0].href = ticket_link_href + "&" + req_html;
             $("#bill")[0].href = bill_link_href + "&" + req_html;
         }
-    } else {
+    }
+    else
+    {
         var ticketn = get_ticket_number();
-        var ticket_html = '<a id="ticket" on-click="draw_modal();" class="btn btn-primary" href="/tickets/nuevo/?ticketn=' +
-                ticketn + '&' + req_html + '">F9 - Generar Ticket</a>';
-        var bill_html = '<a id="bill" on-click="draw_modal();" class="btn btn-success" href="/facturas/nuevo/?ticketn=' +
-                ticketn + '&' + req_html + '">F10 - Generar Factura</a>';
+        var ticket_html = '<a id="ticket" on-click="draw_modal();" class="btn btn-primary" href="/tickets/nuevo/?ticketn=' + ticketn +
+                '&' + req_html + '">F9 - Generar Ticket</a>';
+        var bill_html = '<a id="bill" on-click="draw_modal();" class="btn btn-success" href="/facturas/nuevo/?ticketn=' + ticketn +
+                '&' + req_html + '">F10 - Generar Factura</a>';
         var form_html = '<div id="gen-tickets" class="form-actions">' + ticket_html + bill_html + '</div>';
         $("#main").append(form_html);
         $('#ticket').click(function() {
@@ -433,6 +436,7 @@ function print_ticket() {
 }
 
 function pay_listeners() {
+    /*
     $('#pay').keypress(function(e) {
         code = (e.keyCode ? e.keyCode : e.which);
         if (code === 13) {
@@ -441,6 +445,7 @@ function pay_listeners() {
         }
         return true;
     });
+     */
     $('#pay').blur(function() {
         var pay = $('#pay').val();
         var total = parseFloat($('#modallabel')[0].textContent.replace('Total a pagar: ', ''));
@@ -680,10 +685,7 @@ $(document).ready(function(){
     });
     $('#barcode-field').keydown(function(event) {
         if ( event.ctrlKey || event.altKey )
-        {
-            console.log("oops");
             event.preventDefault();
-        }
 
     });
     $('#unregistered-quantity').tooltip('show');

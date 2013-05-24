@@ -58,7 +58,7 @@
             nil
             (rest ls))))
 
-(def db-path "resources/db/LAMINAS.csv")
+(def db-path "install/LAMINAS.csv")
 
 (defn setup!
   []

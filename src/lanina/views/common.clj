@@ -54,6 +54,7 @@
 
 (def nav-links-empl
   [["Ventas"    "/ventas/"]
+   ["Caja"      "/caja/"]
    ["Artículos" "/articulos/"]
    ["Tickets"   "/tickets/"]
    ["Catálogos" "/catalogos/"]

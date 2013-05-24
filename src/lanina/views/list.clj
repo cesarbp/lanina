@@ -2,12 +2,17 @@
   (:use noir.core
         hiccup.form
         lanina.views.common
-        [hiccup.element :only [link-to]])
+        [hiccup.element :only [link-to]]
+        [lanina.views.utils :only [now now-hour]])
   (:require [lanina.models.logs     :as logs]
             [lanina.models.article  :as article]
             [lanina.models.employee :as employee]
             [clj-time.core          :as time]
-            [noir.session           :as session]))
+            [noir.session           :as session]
+            [lanina.models.shopping :as shop]
+            [noir.response         :as resp]
+            [lanina.models.adjustments :as settings]
+            [lanina.models.printing :as printing]))
 
 (defpartial art-row [art]
   [:tr
@@ -139,7 +144,7 @@
    [:tr
     [:th#name-header "Artículo"]
     [:th#quantity-header "Cantidad"]
-    [:th#price-header "Precio"]
+    [:th#price-header "Costo caja"]
     [:th#total-header "Total"]
     [:th "Aumentar/Disminuir"]
     [:th "Quitar"]]])
@@ -160,60 +165,41 @@
     (main-layout-incl content [:base-css :search-css :switch-css :jquery :jquery-ui :base-js :shortcut :scroll-js :list-js :custom-css :subnav-js :switch-js])))
 
 (defn get-article [denom]
-  (letfn [(is-bc [d] (every? (set (map str (range 10)))
-                             (rest (clojure.string/split (name d) #""))))
-          (is-gvdo [d] (= "gvdo" (clojure.string/lower-case (apply str (take 4 (name d))))))
-          (is-exto [d] (= "exto" (clojure.string/lower-case (apply str (take 4 (name d))))))]
-    (cond (is-bc denom) (article/get-by-barcode denom)
-          (is-gvdo denom) {:codigo "0" :nom_art "ARTÍCULO GRAVADO"
-                           :prev_con (Double/parseDouble (clojure.string/replace (clojure.string/replace denom #"gvdo\d+_" "")
-                                                                                 #"_" "."))}
-          (is-exto denom) {:codigo "0" :nom_art "ARTÍCULO EXENTO"
-                           :prev_sin (Double/parseDouble (clojure.string/replace (clojure.string/replace denom #"exto\d+_" "")
-                                                                                 #"_" "."))}
-          :else (article/get-by-name (clojure.string/replace denom #"_" " ")))))
+  (article/get-by-id denom))
 
-(defpartial printed-ticket [prods total]
-  (let [now (time/now)
-        date (str (time/day now) "/" (time/month now) "/" (time/year now))
-        t (str (format "%02d" (time/hour now)) ":"
-               (format "%02d" (time/minute now)) ":" (format "%02d" (time/sec now)))]
-    [:pre.prettyprint.linenums {:style "max-width:250px;"}
-     [:ol.linenums {:style "list-style-type:none;"}
-      [:p 
-       [:li {:style "text-align:center;"} "\"L A N I Ñ A\""]
-       [:li {:style "text-align:center;"} "R.F.C: ROHE510827-8T7"]
-       [:li {:style "text-align:center;"} "GUERRERO No. 45 METEPEC MEX."]
-       [:li {:style "text-align:center;"} (str date " " t)]]
-      (map (fn [art] [:p
-                      [:li (:nom_art art)]
-                      [:li {:style "text-align:right;"}
-                       (str (:quantity art) " x "
-                            (format "%.2f" (double (:precio_unitario art))) " = "
-                            (format "%.2f" (double (:total art))))]])
-           prods)
-      [:br]
-      [:p
-       [:li {:style "text-align:right;"}
-        (format "SUMA ==> $ %8.2f" (double total))]]]]))
+(defn sanitize-ticket [items]
+  (reduce (fn [acc [id quant]]
+            (try (Integer/valueOf quant)
+                 (conj acc [id (Integer/valueOf quant)])
+                 (catch Exception e
+                   acc)))
+          []
+          items))
+
+(defn fetch-prods
+  [pairs]
+  (reduce (fn [acc [bc times]]
+            (let [article (get-article (name bc))
+                  name (:nom_art article)
+                  type (if (settings/valid-iva? (:iva article))
+                         (if (< 0 (:iva article))
+                           "gvdo"
+                           "exto")
+                         "exto")
+                  price (:costo_caja article)
+                  total (if (number? price) (* price times) 0.0)
+                  art {:type type :iva (:iva article) :quantity times :_id bc :codigo (:codigo article)
+                       :nom_art name :costo_caja price :costo_unitario (:costo_unitario article)
+                       :total total :pres (:pres article) :lin (:lin article) :prov (:prov article)
+                       :ramo (:ramo article)}]
+              (conj acc art)))
+          [] pairs))
 
 (defpage "/listas/compras/nuevo/" {:as items}
-  (let [items (dissoc items :pay)
-        pairs (zipmap (keys items) (map #(Integer/parseInt %) (vals items)))
-        prods (reduce (fn [acc [bc times]]
-                        (let [article (get-article (name bc))
-                              name (:nom_art article)
-                              type (if (and (:prev_con article) (> (:prev_con article) 0.0))
-                                      :gvdo :exto)
-                              price (if (and (:prev_con article) (> (:prev_con article) 0.0))
-                                      (:prev_con article) (:prev_sin article))
-                              total (* price times)
-                              art {:type type :quantity times :nom_art name :precio_unitario price :total total :codigo bc :cantidad times}]
-                          (into acc [art])))
-                      [] pairs)
-        total (reduce + (map :total prods))
-        content {:title "Lista impresa de compras"
-                 :content [:div.container-fluid
-                           (printed-ticket prods total)]
-                 :active "Listas"}]
-    (home-layout content)))
+  (let [pairs (sanitize-ticket items)
+        prods (fetch-prods pairs)
+        date (now)
+        time (now-hour)]
+    (shop/insert-purchase! prods date time)
+    (printing/print-purchase prods)
+    (resp/redirect "/listas/compras/")))

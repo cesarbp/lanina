@@ -33,7 +33,7 @@
   {:keys [tipo]}
   (let [tipo (if (seq tipo) tipo "lamina")
         content {:title "Catálogos"
-                 :content (show-catalog tipo)
+                 :content [:div.container-fluid (show-catalog tipo)]
                  :nav-bar true
                  :active "Catálogos"}]
     (home-layout content)))
