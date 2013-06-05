@@ -8,26 +8,26 @@
 ;;; Head includes here
 (def includes
   {
-   :subnav-js     (include-js "/js/subnav.js")
-   :custom-css    (include-css "/css/custom.css")
-   :base-css      (include-css "/css/bootstrap.min.css")
-   :base-js       (include-js "/js/bootstrap.min.js")
-   :base-resp-css (include-css "/css/bootstrap-responsive.css")
-   :search-css    (include-css "/css/search.css")
-   :less          (include-js "/js/less.js")
-   :jquery        (include-js "/js/jquery.js")
-   :barcode-js    (include-js "/js/barcode.js")
-   :trie-js       (include-js "/js/trie.js")
-   :search-js     (include-js "/js/search.js")
-   :jquery-ui     (include-js "/js/jquery-ui.js")
-   :scroll-js     (include-js "/js/scroll-to.js")
-   :shortcut      (include-js "/js/shortcut.js")
-   :switch-js     (include-js "/js/switch.js")
-   :switch-css    (include-css "/css/switch.css")
-   :verify-js     (include-js "/js/verify.js")
-   :modify-js     (include-js "/js/modify.js")
-   :art-res-js    (include-js "/js/article-results.js")
-   :list-js       (include-js "/js/list.js")
+   :subnav-js      (include-js "/js/subnav.js")
+   :custom-css     (include-css "/css/custom.css")
+   :base-css       (include-css "/css/bootstrap.min.css")
+   :base-js        (include-js "/js/bootstrap.min.js")
+   :base-resp-css  (include-css "/css/bootstrap-responsive.css")
+   :search-css     (include-css "/css/search.css")
+   :less           (include-js "/js/less.js")
+   :jquery         (include-js "/js/jquery.js")
+   :barcode-js     (include-js "/js/barcode.js")
+   :trie-js        (include-js "/js/trie.js")
+   :search-js      (include-js "/js/search.js")
+   :jquery-ui      (include-js "/js/jquery-ui.js")
+   :scroll-js      (include-js "/js/scroll-to.js")
+   :shortcut       (include-js "/js/shortcut.js")
+   :switch-js      (include-js "/js/switch.js")
+   :switch-css     (include-css "/css/switch.css")
+   :verify-js      (include-js "/js/verify.js")
+   :modify-js      (include-js "/js/modify.js")
+   :art-res-js     (include-js "/js/article-results.js")
+   :list-js        (include-js "/js/list.js")
    :tablesorter-js (include-js "/js/jquery.tablesorter.min.js")
    })
 
@@ -63,11 +63,11 @@
 (defpartial head [incls title]
   [:head
    [:meta {:charset "UTF-8"}]
-   [:title (if (seq title) (str title " | Lonja Mercantil La Niña")
-               "Lonja Mercantil La Niña")]
+   [:title (if (seq title) (str title " | La Niña")
+               "La Niña")]
    (map #(get includes %) incls)])
 
-(defpartial nav-bar [active]
+(defpartial nav-bar [active title]
   (let [links (if (users/admin?) nav-links-admin nav-links-empl)]
     [:div.navbar
      [:div.navbar-inner
@@ -76,7 +76,9 @@
         [:span.icon-bar]
         [:span.icon-bar]
         [:span.icon-bar]]
-       (link-to {:class "brand"} "/" "Lonja Mercantil La Niña")
+       [:a {:class "brand"} (if (seq title)
+                              (str "La Niña | " title)
+                              "La Niña")]
        [:ul.nav
         (map (fn [nav-item]
                (if (vector? nav-item)
@@ -99,7 +101,7 @@
       [:span.icon-bar]
       [:span.icon-bar]
       [:span.icon-bar]]
-     (link-to {:class "brand"} "/inicio/" "Lonja Mercantil La Niña")]]])
+     [:a {:class "brand"} "La Niña"]]]])
 
 (defpartial disp-message [msg]
   [:div {:class (str "alert " (:type msg))} (:text msg)])
@@ -109,13 +111,12 @@
   (html5 {:lang "es-MX"}
    (head includes (get content :title ""))
    [:body {:style "background-image: url(\"/img/cream_dust.png\")"}
-    (if (:nav-bar content) (nav-bar (:active content)) (nav-bar-no-links))
+    (if (:nav-bar content)
+      (nav-bar (:active content) (get content :title ""))
+      (nav-bar-no-links))
     (when (session/flash-get :messages)
       [:div.container-fluid
       (map disp-message (session/flash-get :messages))])
-    [:div.page-header
-     [:div.container-fluid
-      [:h1 (get content :title "Sitio de administración")]]]
     (:content content)
     [:div.footer
      [:div.container-fluid

@@ -6,18 +6,16 @@
   (:require [noir.server :as server]
             [clj-commons-exec :as exec]
             [lanina.models.utils :as db]
-            [lanina.models.db-backup :as db-backup]))
+            [lanina.models.db-backup :as db-backup]
+            [zip.core :refer [compress-files]]
+            [clojure.java.io :as io]
+            [lanina.utils :refer [delete-file-recursively]]))
 
 (server/load-views-ns 'lanina.views)
 
-(def mongo-dir "MongoDB/bin/")
+(def mongo-path "MongoDB/")
 
-(defn backup-db
-  []
-  (when (db-backup/need-backup?)
-    (try @(exec/sh [(str mongo-dir "mongodump" "--db" "lanina" "--out" (str "respaldos/" (now)))])
-         (db-backup/update-backup!)
-         (catch Exception e))))
+;;; TODO - zipping doesn't work properly
 
 (defn -main [& m]
   (let [mode (keyword (or (first m) :dev))
@@ -27,10 +25,14 @@
     (when-not (and (collection-exists? :articles) (< 0 (count (fetch :articles))))
       (println "Inicializando base de datos.")
       (initialize!))
-    (when (and (collection-exists? :articles)
-               (collection-exists? :purchases)
-               (collection-exists? :db-backups)
-               (collection-exists? :settings))
-      (backup-db))
+    (when (and (collection-exists? db-backup/db-backup-coll)
+               (db-backup/need-backup?))
+      (try @(exec/sh [(str mongo-path "bin/mongodump.exe") "--db" "lanina" "--out"
+                      (str "respaldos/" (now))])
+           (println "Respaldo hecho")
+           (db-backup/update-backup!)
+           (println "Respaldo actualizado")
+           (catch Exception e
+             (println "Respaldo fallido" e))))
     (server/start port {:mode mode
                         :ns 'lanina})))

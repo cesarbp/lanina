@@ -1,5 +1,6 @@
 // FIXME - Invalid html ids
 var art_names;
+var audio;
 function toArray(obj) {
     var array = [];
     // iterate backwards ensuring that length is an UInt32
@@ -31,6 +32,39 @@ function readFile(url) {
     return html;
 }
 
+function blink(id) {
+    var n = 0;
+    var colors = ["white", "black"];
+    var changeColor = function() {
+        $(id).css('color', colors[n]);
+        n = n + 1;
+        n = n % 2;
+    };
+    return setInterval(changeColor, 250);
+}
+
+function removeAlert() {
+    var id = "#alert";
+    if ( $(id).length > 0 )
+        $(id).remove();
+    return 0;
+}
+
+function playAlert() {
+    audio.load();
+    audio.play();
+    return 0;
+}
+
+function addAlert(text) {
+    var id = "#alert";
+    removeAlert();
+    var alertHtml = '<li id="alert" style="position:relative;left:10px;"><h3>' + text + '<h3></li>';
+    $("#subnav").append(alertHtml);
+    playAlert();
+    return blink(id);
+}
+
 function article_row(article, quantity) {
     var id = article._id;
     var price = article.precio_venta;
@@ -59,15 +93,29 @@ function calculate_total() {
     var totals = articles.map(function (r) {
         return parseFloat(r.children[3].innerHTML);
     });
+    var quants = articles.map(function (r) {
+        return parseInt(r.children[1].innerHTML);
+    });
 
     var total = totals.reduce(function (a,b) {return a + b;});
-    return total;
+    var quant = quants.reduce(function (a,b) {return a + b;});
+    return [total, quant];
 }
 
 function update_total() {
     setTimeout(function() {
-        var total = calculate_total().toFixed(2);
-        $("#total").text('Total: ' + total.toString());
+        var total = calculate_total();
+        if ( total[0] )
+        {
+            $("#total").text('Total: ' + total[0].toFixed(2).toString());
+            $("#number").text('#arts: ' + total[1]);
+        }
+        else
+        {
+            $("#total").text('Total: 0.00');
+            $("#number").text('#arts: 0');
+        }
+
     }, 200);
 }
 
@@ -151,12 +199,51 @@ function remove_article_row(barcode) {
         update_total();
     }
 }
-// So damn ugly
+
+function parseUnregistered(s) {
+    console.log(s);
+    var type = s.substring(0, 4);
+    if ( type != "exto" && type != "gvdo" )
+        return false;
+    var re = new RegExp(type + "\\d+");
+    var newS = s.replace(re, "");
+    var nom_art;
+    var matches;
+    var price;
+    if ( '-' == newS.substring(0, 1) )
+    {
+        re = /-([A-Za-z0-9-]+)_(\d+_*\d*)/;
+        matches = re.exec(newS);
+        nom_art = matches[1].replace(/-/g, " ");
+        price = matches[2].replace(/_/, ".");
+        price = parseFloat(price);
+    }
+    else
+    {
+        console.log(newS);
+        re = /_(\d+_*\d*)/;
+        matches = re.exec(newS);
+        nom_art = type == "exto" ? "ARTÍCULO EXENTO" : "ARTÍCULO GRAVADO";
+        price = matches[1].replace(/_/, ".");
+        price = parseFloat(price);
+    }
+
+    var article = {
+        _id : s,
+        nom_art : nom_art,
+        precio_venta : price
+    };
+
+    return article;
+}
+
 function add_article_row(denom, n) {
     var quantity;
     var price;
     var new_quantity;
     var article;
+
+    removeAlert();
 
     if ( denom.length > 0 )
         $.ajax({url: '/json/article/id', dataType: 'json', data: {id: denom}, async: false, success: function(art) {
@@ -171,7 +258,17 @@ function add_article_row(denom, n) {
                             if ( art2 && art2._id )
                                 article = art2;
                             else
-                                alert("Artículo no encontrado.");
+                            {
+                                var unr = parseUnregistered(denom);
+                                if ( unr == false )
+                                {
+                                    addAlert("No encontrado:" + denom);
+                                    $("#barcode-field").val("");
+                                }
+                                else
+                                    article = unr;
+                            }
+
                         }});
 
                 }});
@@ -201,7 +298,8 @@ function add_article_row(denom, n) {
     }
     else
     {
-        $("#articles-table").append(article_row(article, n));
+        $(article_row(article, n)).prependTo("table > tbody");
+        //$("#articles-table").append(article_row(article, n));
         ticket_links(id, n, true);
     }
     $("#barcode-field").val("");
@@ -243,6 +341,7 @@ function article_listener (field, e) {
         add_article_row(name, quantity);
         return false;
     }
+    return true;
 }
 
 function quantity_listener (field, e) {
@@ -271,6 +370,7 @@ function quantity_listener (field, e) {
         }
         return false;
     }
+    return true;
 }
 
 // Type can be "exto" or "gvdo"
@@ -303,30 +403,38 @@ function add_unregistered() {
         var price = parseFloat($("#unregistered-price").val());
         var quantity = $("#unregistered-quantity").val() || 1;
         var checkbox = $('input[name=gravado]')[0];
+        var name = $('#unregistered-name').val().toUpperCase();
         var type;
         var precio_venta;
         var nom_art;
+
         if ( checkbox.checked ) {
             type = "gvdo";
             precio_venta = price;
-            nom_art = "ARTÍCULO GRAVADO";
+            nom_art = name == "" ? "ARTÍCULO GRAVADO" : name;
         }
         else {
             type = "exto";
             precio_venta = price;
-            nom_art = "ARTÍCULO EXENTO";
+            nom_art = name == "" ? "ARTÍCULO EXENTO" : name;
         }
         if ( price ) {
-            var bc = next_unregistered(type) + '_' + float_to_str(price);
+            var bc;
+            if ( name == "" )
+                bc = next_unregistered(type) + '_' + float_to_str(price);
+            else
+                bc = next_unregistered(type) + '-' + name.replace(/\s+/g, "-") +
+                     '_' + float_to_str(price);
             var article = {
-                id: bc,
+                _id: bc,
                 nom_art: nom_art,
                 precio_venta: precio_venta
             };
-            $("#articles-table").append(article_row(article, quantity));
+            $(article_row(article, quantity)).prependTo("table > tbody");
             ticket_links(bc, quantity, true);
             $("#unregistered-price").val("");
             $("#unregistered-quantity").val("");
+            $("#unregistered-name").val("");
             setTimeout(function() {
                 update_total();
             }, 200);
@@ -341,6 +449,7 @@ function unregistered_listener(field, e) {
         add_unregistered();
         return false;
     }
+    return true;
 }
 
 var res_url = "/json/article/starts_with";
@@ -353,7 +462,7 @@ var json = function (first_letter) {
         });
     });
     return res;
-}
+};
 
 // Generate the print ticket/bill modal
 
@@ -381,10 +490,11 @@ function split_url (a) {
                     price = article.precio_venta;
                 }
             }});
-        else if ( type === 'gvdo' )
-            price = parseFloat(denom.replace(/gvdo\d+_/, '').replace(/_/, '.'));
         else
-            price = parseFloat(denom.replace(/exto\d+_/, '').replace(/_/, '.'));
+        {
+            art = parseUnregistered(denom);
+            price = art.precio_venta;
+        }
         return price;
     };
     var denom, quant, type, price, name, bc;
@@ -402,14 +512,11 @@ function split_url (a) {
                 if (article && article._id)
                     name = article.nom_art;
             }});
-        else if ( type === 'gvdo' )
+        else
         {
+            var article = parseUnregistered(denom);
             bc = '0';
-            name = 'Artículo Gravado';
-        }
-        else {
-            bc = '0';
-            name = 'Artículo Exento';
+            name = article.nom_art;
         }
 
         res.push([bc, name, quant, price, quant * price]);
@@ -518,6 +625,7 @@ function draw_modal () {
             print_ticket();
             return false;
         }
+        return true;
     });
     $('#print-ticket').click(function(){return false;});
     pay_listeners();
@@ -555,7 +663,10 @@ function artnames_rows(arts){
 }
 
 function artname_table_selects() {
-    var i = -1;
+    var i = 0;
+    $('tr.selectable:eq(0)').addClass('row_selected');
+    var name = $('tr.selectable:eq(0)').children()[1].textContent;
+    $('#art-name-input').val(name);
     $(document).keydown(function(e) {
         if (e.keyCode === 40 && $('#art-name-modal').length > 0) {
             i = (i + 1 >= $('tr.selectable').length) ? $('tr.selectable').length - 1 : i + 1;
@@ -582,7 +693,7 @@ function artname_table_selects() {
             add_article_row(name, quantity);
             remove_artname_modal();
         }
-    })
+    });
 }
 
 function add_artname() {
@@ -607,7 +718,7 @@ function artname_input_listener(){
             var code = e.keyCode;
             if (code === 27) {
                 remove_artname_modal();
-            } else if ($('#art-name-input').val().length === 4 && art_names) {
+            } else if ($('#art-name-input').val().length === 5 && art_names) {
                 var first_three = $('#art-name-input').val();
                 var html =
                     artnames_rows(art_names.filter(function(o){
@@ -643,14 +754,16 @@ $(document).ready(function(){
     shortcut.add("F10", function() {
         $("#quantity-field").focus();
     });
-    shortcut.add("F6", function() {});
     shortcut.add("F2", function() {});
     shortcut.add("F1", function() {});
     shortcut.add("F7", function() {
-        $("#unregistered-price").focus();
+        $("#unregistered-name").focus();
     });
     shortcut.add("F5", function() {
         $("#unregistered-quantity").focus();
+    });
+    shortcut.add("F6", function() {
+        $("#unregistered-price").focus();
     });
     shortcut.add("F8", function() {
         $('[data-toggle="switch"]').switchbtn('toggle');
@@ -698,4 +811,8 @@ $(document).ready(function(){
         $('#quantity-field').tooltip('hide');
         $('#barcode-field').tooltip('hide');
     }, 5000);
+
+    audio = document.createElement('audio');
+    audio.setAttribute('src', '/sound/beep.mp3');
+
 });

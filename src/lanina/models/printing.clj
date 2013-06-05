@@ -133,8 +133,11 @@
 (defn print-method-1
   "Sends to LPT1"
   [s]
-  (with-open [out (PrintWriter. (FileWriter. "lpt1"))]
-    (.print out s)))
+  (try
+    (with-open [out (PrintWriter. (FileWriter. "lpt1"))]
+      (.print out s))
+    (catch Exception e
+      (println "Impresora no encontrada."))))
 
 (defn print-method-2
   "Uses JtextArea. Prompts for printer."
@@ -173,7 +176,7 @@ and a file to read from"
           2 print-method-2
           3 print-method-3
           4 print-method-4)]
-    ;(future (print-fn s))
+    (future (print-fn s))
     (future (println s))))
 
 (defn print-ticket

@@ -49,16 +49,20 @@
 ;;; Sales interface
 (defpartial barcode-form []
   (form-to {:id "barcode-form" :class "form-inline"} [:get ""]
-    [:div.subnav
-     [:ul.nav.nav-pills
-      [:li [:h2#total "Total: 0.00"]]
-      [:li
-       (text-field {:class "input-small" :style "position:relative;top:14px;text-align:right;width:40px;" :id "quantity-field" :onkeypress "return quantity_listener(this, event)" :autocomplete "off" :placeholder "F10"} "quantity")]
-      [:li
-       (text-field {:class "input-small" :style "position:relative;top:14px;left:2px;text-align:right" :id "barcode-field" :onkeypress "return barcode_listener(this, event)" :autocomplete "off" :placeholder "F3 - Código"} "barcode")]
-      [:li
-       [:a [:p {:style "position:relative;top:7px;"} "F4 - Agregar por nombre de artículo"]]]
-      ]]))
+    [:div.navbar.navbar-inverse
+     [:div.navbar-inner
+      [:div.container-fluid
+       [:ul#subnav.nav
+        [:li [:h3#total {:style "color:white;"} "Total: 0.00"]]
+        [:li.divider-vertical]
+        [:li [:h3#number {:style "color:white;"} "#arts: 0"]]
+        [:li.divider-vertical]
+        [:li
+         (text-field {:class "input-small" :style "position:relative;top:14px;text-align:right;width:40px;" :id "quantity-field" :onkeypress "return quantity_listener(this, event)" :autocomplete "off" :placeholder "F10 #"} "quantity")]
+        [:li
+         (text-field {:class "input-small" :style "position:relative;top:14px;left:2px;text-align:right" :id "barcode-field" :onkeypress "return barcode_listener(this, event)" :autocomplete "off" :placeholder "F3 - Código"} "barcode")]
+        [:li
+         [:a {:style "color:white;position:relative;top:8px;"} "F4 - por nombre"]]]]]]))
 
 (defpartial add-unregistered-form []
   [:div#free-articles.navbar.navbar-fixed-bottom
@@ -67,24 +71,28 @@
      [:ul.nav
       [:li [:a "Artículos libres"]]
       [:li
-       (form-to {:id "unregistered-form" :class "form-inline"} [:get ""]
-         (text-field {:class "input-small" :style "position:relative;top:10px;text-align:right;width:40px;" :id "unregistered-quantity" :onkeypress "return unregistered_listener(this,event)" :autocomplete "off" :placeholder "F5"} "unregistered-quantity" "")
-         (text-field {:class "input-small" :style "position:relative;top:10px;left:4px;text-align:right" :id "unregistered-price" :onkeypress "return unregistered_listener(this, event)" :autocomplete "off" :placeholder "F7 - Precio"} "unregistered-price")
-         )]
+       (text-field {:class "input-small" :style "position:relative;top:10px;text-align:right;width:40px;" :id "unregistered-quantity" :onkeypress "return unregistered_listener(this, event)" :autocomplete "off" :placeholder "F5 #"} "unregistered-quantity" "")]
       [:li
-       [:a [:div.switch.switch-danger {:data-toggle "switch" :data-checkbox "gravado" :data-on "GVDO" :data-off "EXTO"}]]]
+       (text-field {:class "input-small" :style "position:relative;top:10px;left:4px;text-align:right" :id "unregistered-price" :onkeypress "return unregistered_listener(this, event)" :autocomplete "off" :placeholder "F6 - Precio"} "unregistered-price")]
       [:li
-       [:button.btn.btn-primary {:style "position:relative;top:5px;" :onclick "return add_unregistered()"} "Agregar"]]]]]])
+       (text-field {:class "input-small" :style "position:relative;top:10px;left:4px;text-align:right" :id "unregistered-name" :onkeypress "return unregistered_listener(this, event)" :autocomplete "off" :placeholder "F7 - Nombre"} "unregistered-price")]
+      [:li
+       [:a [:span {:style "position:relative;bottom:8px;"} "F8"] [:div.switch.switch-danger {:data-toggle "switch" :data-checkbox "gravado" :data-on "GVDO" :data-off "EXTO"}]]]
+      [:li
+       [:button.btn.btn-primary {:style "position:relative;top:5px;" :onclick "return add_unregistered()"} "Agregar"]]
+]]]])
 
 (defpartial item-list []
   [:table {:id "articles-table" :class "table table-condensed table-hover"}
-   [:tr
-    [:th#name-header "Artículo"]
-    [:th#quantity-header "Cantidad"]
-    [:th#price-header "Precio"]
-    [:th#total-header "Total"]
-    [:th "Aumentar/Disminuir"]
-    [:th "Quitar"]]])
+   [:thead
+    [:tr
+     [:th#name-header "Artículo"]
+     [:th#quantity-header "Cantidad"]
+     [:th#price-header "Precio"]
+     [:th#total-header "Total"]
+     [:th "Aumentar/Disminuir"]
+     [:th "Quitar"]]]
+   [:tbody]])
 
 (pre-route "/ventas/" []
   (when-not (users/logged-in?)
@@ -92,12 +100,12 @@
     (resp/redirect "/entrar/")))
 
 (defpage "/ventas/" []
-  (let [content {:title (str "Ventas, número de ticket: " "<span id=\"ticketn\">"  (ticket/get-next-ticket-number) "</span>")
+  (let [content {:title (str "Ventas, Ticket: <span id=\"ticketn\">"  (ticket/get-next-ticket-number) "</span> Folio: " (ticket/get-next-folio))
                  :content [:div#main.container-fluid (barcode-form) (item-list) (add-unregistered-form)]
                  :footer [:p "Gracias por su compra."]
                  :nav-bar true
                  :active "Ventas"}]
-    (main-layout-incl content [:base-css :search-css :switch-css :jquery :jquery-ui :base-js :shortcut :scroll-js :barcode-js :custom-css :subnav-js :switch-js])))
+    (main-layout-incl content [:base-css :search-css :switch-css :jquery :jquery-ui :base-js :shortcut :scroll-js :barcode-js :custom-css :switch-js])))
 
 ;;; Modify/Add an article
 (defpartial iva-select [current]

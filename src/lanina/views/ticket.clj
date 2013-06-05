@@ -2,7 +2,7 @@
   (:use noir.core
         hiccup.form
         lanina.views.common
-        [hiccup.element :only [link-to]]
+        [hiccup.element :only [link-to javascript-tag]]
         [lanina.utils :only [coerce-to]]
         [lanina.views.utils :only [now now-hour fix-date]])
   (:require [lanina.models.ticket  :as ticket]
@@ -46,16 +46,25 @@
     [:h2 "Pagó: "
      (utils/format-decimal pay)]]])
 
+(defn parse-unregistered [s]
+  (let [s (name s)
+        type (->> s (take 4) (apply str) clojure.string/lower-case)
+        s (clojure.string/replace s (re-pattern (str type #"\d+")) "")
+        nom_art (if (= \- (first s))
+                  (clojure.string/replace (->> s (drop 1) (take-while #(not= \_ %)) (apply str))
+                                          #"\-" " ")
+                  (if (= type "exto") "ARTÍCULO EXENTO" "ARTÍCULO GRAVADO"))
+        s (->> s (drop-while #(not= \_ %)) rest (apply str))
+        price ((coerce-to Double 0.0) (clojure.string/replace s #"_" "."))]
+    {:_id s :codigo "0" :nom_art nom_art :iva (if (= "exto" type) 0.0 16.0) :precio_venta price}))
+
 (defn get-article [denom]
-  (letfn [(is-gvdo [d] (= "gvdo" (clojure.string/lower-case (apply str (take 4 (name d))))))
-          (is-exto [d] (= "exto" (clojure.string/lower-case (apply str (take 4 (name d))))))]
-    (cond (is-gvdo denom) {:_id denom :codigo "0" :nom_art "ARTÍCULO GRAVADO"
-                           :iva 16.0 :precio_venta ((coerce-to Double 0.0) (clojure.string/replace (clojure.string/replace denom #"gvdo\d+_" "")
-                                                                                 #"_" "."))}
-          (is-exto denom) {:_id denom :codigo "0" :nom_art "ARTÍCULO EXENTO"
-                           :iva 0 :precio_venta ((coerce-to Double 0.0) (clojure.string/replace (clojure.string/replace denom #"exto\d+_" "")
-                                                                                 #"_" "."))}
-          :else (article/get-by-id denom))))
+  (letfn [(is-unregistered [d] (let [type (->> d name (take 4) (apply str) clojure.string/lower-case)]
+                                 (or (= "gvdo" type)
+                                     (= "exto" type))))]
+    (if (is-unregistered denom)
+      (parse-unregistered denom)
+      (article/get-by-id denom))))
 
 (defpartial printed-ticket [prods pay total change ticket-number folio date time]
   [:pre.prettyprint.linenums {:style "max-width:250px;"}
@@ -97,18 +106,45 @@
 (defn fetch-prods
   [pairs]
   (reduce (fn [acc [bc times]]
-                        (let [article (get-article (name bc))
-                              name (:nom_art article)
-                              type (if (settings/valid-iva? (:iva article))
-                                     (if (< 0 (:iva article))
-                                       "gvdo"
-                                       "exto")
-                                     "exto")
-                              price (:precio_venta article)
-                              total (if (number? price) (* price times) 0.0)
-                              art {:type type :iva (:iva article) :quantity times :_id bc :codigo (:codigo article) :nom_art name :precio_venta price :total total}]
-                          (conj acc art)))
-                      [] pairs))
+            (let [article (get-article (name bc))
+                  name (:nom_art article)
+                  type (if (settings/valid-iva? (:iva article))
+                         (if (< 0 (:iva article))
+                           "gvdo"
+                           "exto")
+                         "exto")
+                  price (:precio_venta article)
+                  total (if (number? price) (* price times) 0.0)
+                  art {:type type :iva (:iva article) :quantity times :_id bc :codigo (:codigo article) :nom_art name :precio_venta price :total total}]
+              (conj acc art)))
+          [] pairs))
+
+(def new-ticket-js
+  (javascript-tag
+   "function blink(id) {
+    var n = 0;
+    var colors = [\"white\", \"black\"];
+    var changeColor = function() {
+        $(id).css('color', colors[n]);
+        n = n + 1;
+        n = n % 2;
+    };
+    return setInterval(changeColor, 250);
+}
+
+$(document).ready(function() {
+    blink(\"#enter-notice\");
+    $('body').keyup(function(e) {
+    var code = (e.keyCode ? e.keyCode : e.which);
+    if ( code == 13 )
+      window.location = \"/ventas/\"
+    });
+  });"))
+
+(defpartial enter-notice
+  []
+  [:div.alert.alert-info
+   [:h2#enter-notice "Presione enter para continuar"]])
 
 (defpage "/tickets/nuevo/" {:as items}
   (let [ticketn (ticket/get-next-ticket-number)
@@ -125,8 +161,14 @@
             insertion (delay
                        (ticket/insert-ticket ticketn pay prods date))]
         (when (= :success @insertion)
-          (printing/print-ticket prods pay total change ticketn folio date))))
-    (resp/redirect "/ventas/")))
+          (printing/print-ticket prods pay total change ticketn folio date))
+        (let [content {:content [:div.container-fluid
+                                 (pay-notice pay total change)
+                                 (enter-notice)
+                                 new-ticket-js]
+                       :nav-bar true
+                       :title "Ticket pagado"}]
+          (main-layout-incl content [:base-css :jquery]))))))
 
 (defpartial search-ticket-form []
   (let [date (utils/now)]
@@ -331,3 +373,17 @@
                  :nav-bar true
                  :active "Tickets"}]
     (home-layout content)))
+
+(defpage "/tickets/folio/:folio/imprimir" {folio :folio}
+  (let [ticket (ticket/get-by-folio ((coerce-to Long 0) folio))
+        prods (:articles ticket)
+        total (reduce + (map :total prods))
+        pay (:pay ticket)
+        change (- pay total)
+        {ticket-number :ticket-number folio :folio date :date} ticket]
+    (if (seq ticket)
+      (do
+        (printing/print-ticket prods pay total change ticket-number folio date)
+        (utils/flash-message "El ticket ha sido impreso" "info"))
+      (utils/flash-message "Folio inválido"))
+    (resp/redirect (str "/tickets/folio/" folio "/"))))

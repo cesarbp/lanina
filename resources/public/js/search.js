@@ -28,7 +28,12 @@ $(document).ready(function(){
         jn = results.map(function(o) {
             return o['nom_art'];
         });
-    })
+    });
+    $('#search').keydown(function(event) {
+        if ( event.ctrlKey || event.altKey )
+            event.preventDefault();
+
+    });
     var trie = {};
     var search_box_id = "#search";
     $('#search').focus();

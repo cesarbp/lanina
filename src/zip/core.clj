@@ -6,6 +6,8 @@
             ZipFile ZipInputStream]
            [java.io ByteArrayInputStream ByteArrayOutputStream]))
 
+;;; This shit doesnt work!!
+
 (import-static java.util.zip.ZipOutputStream DEFLATED STORED)
 
 (defrecord Archive [resource entries comment]
