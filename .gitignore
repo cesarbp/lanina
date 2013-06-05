@@ -9,3 +9,5 @@ pom.xml
 *.dbf
 /test/
 /resources/db/
+/respaldos/
+/target/
