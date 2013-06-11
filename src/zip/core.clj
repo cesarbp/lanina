@@ -6,7 +6,6 @@
             ZipFile ZipInputStream]
            [java.io ByteArrayInputStream ByteArrayOutputStream]))
 
-;;; This shit doesnt work!!
 
 (import-static java.util.zip.ZipOutputStream DEFLATED STORED)
 
@@ -38,7 +37,8 @@
       (when comment
         (.setComment e comment))
       (.putNextEntry zout e)
-      (io/copy @inputstream zout))
+      (with-open [in @inputstream]
+        (io/copy in zout)))
     (try (.close zout)
          (catch ZipException err
            (.close out)
@@ -95,7 +95,8 @@
     (io/make-parents f)
     (if directory?
       (.mkdirs f)
-      (io/copy @inputstream f))))
+      (with-open [in @inputstream]
+        (io/copy in f)))))
 
 (defmulti extract-files
   (fn [from to] (type from)))

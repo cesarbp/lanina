@@ -4,7 +4,7 @@
 ;;; Main functions: parse-dbf, write-to-dbf!
 
 (ns dbf.core
-  (:import [com.linuxense.javadbf DBFReader DBFWriter DBFField]
+  (:import ;[com.linuxense.javadbf DBFReader DBFWriter DBFField]
            [java.io FileOutputStream FileInputStream])
   (:require [clojure.java.io :as io]
             [clj-time.core :as t]
@@ -13,7 +13,7 @@
             [lanina.models.article :as article])
   (:use [somnium.congomongo :only [fetch collection-exists? create-collection! insert!]]
         lanina.utils))
-
+(comment
 ;;; Reader (Parser)
 (defn get-all-fields [dbf-reader]
   (let [count (.getFieldCount dbf-reader)]
@@ -23,7 +23,7 @@
   (let [cleaned                         ; Convert dates to strings and no whitespace at the end of fields
         (map (fn [v]
                (cond
-                (= java.util.Date (type v))                 
+                (= java.util.Date (type v))
                 (let [d (tc/from-date v)]
                   (str (t/year d) "/" (t/month d) "/" (t/day d)))
                 (string? v)
@@ -130,3 +130,5 @@ exist, this can generate duplicate documents if not careful"
     (when (seq data)
       (doseq [doc data]
         (insert! coll-name doc)))))
+
+)

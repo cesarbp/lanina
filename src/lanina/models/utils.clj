@@ -18,7 +18,6 @@
           config (split-mongo-url mongo-url)]
       (println "Initializing mongo @ " mongo-url)
       (mongo! :db (:db config) :host (:host config) :port (Integer. (:port config)))
-      (authenticate (:user config) (:pass config))
       (when-not (collection-exists? :users)
           (create-collection! :users)))))
 

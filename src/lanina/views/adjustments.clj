@@ -13,10 +13,8 @@
             [noir.session :as session]
             [lanina.models.user :as user]
             [lanina.models.logs :as logs]
-            [dbf.core :as dbf]
+            ;[dbf.core :as dbf]
             [clojure.java.io :as io]
-            [clj-commons-exec :as exec]
-            [zip.core :as z]
             [clojure.string :as s]))
 
 ;;; changing IVA
@@ -381,75 +379,11 @@
   (model/setup!)
   "done!")
 
-(defpartial coll-select [collection-names]
-  [:select {:name :coll}
-   (map (fn [name]
-          [:option {:value (keyword name)} name])
-        collection-names)])
 
-(defpartial backup-db-form [collection-names]
-  (form-to {:class "form form-horizontal"} [:post "/db/backup/"]
-           [:legend "Respaldar una colección de la base de datos"]
-           [:p.alert "Los archivos se guardarán dentro de dump/nombre_de_coleccion/nombre_de_coleccion.bson dentro de los directorios primario, secundario y opcionalmente el directorio especificado abajo."]
-           [:div.control-group
-            (label {:class "control-label"} :dir "Opcional: Tercer directorio de respaldo (default /home/ubuntu/www/lanina/)")
-            [:div.controls
-             (text-field :dir)]]
-           [:div.control-group
-            (label {:class "control-label"} :zip "Respaldar toda la base de datos en formato zip.")
-            (check-box :zip true)]
-           [:div.control-group
-            (label {:class "control-label"} :coll "Nombre de la colección")
-            [:div.controls
-             (coll-select collection-names)]]
-           [:div.form-actions
-            (submit-button {:class "btn btn-primary"} "Respaldar")]))
-
-(defpartial use-db-backup-form []
-  (form-to {:class "form form-horizontal"} [:post "/db/import/"]
-           [:legend "Restaurar una colección a partir de un respaldo o un archivo zip"]
-           [:p.alert "Indicar el directorio donde se encuentra el respaldo o indicar la ubicación completa del archivo zip. Ejemplos: C:/respaldos/, C:/respaldos/lanina.zip"]
-           [:div.control-group
-            (label {:class "control-label"} :dir "Opcional: Directorio donde se encuentra el respaldo. Si no se especifica se busca el zip dump/lanina.zip en el directorio de respaldo primario.")
-            [:div.controls
-             (text-field :dir)]]
-           [:div.form-actions
-            (submit-button {:class "btn btn-primary"} "Restaurar")]))
-
-(defpartial import-dbf-form [collection-names]
-  (form-to {:class "form form-horizontal"} [:post "/db/import/dbf/"]
-           [:legend "Importar un archivo dbf a una colección del sistema"]
-           [:p.alert "Indicar la ubicación completa del archivo dbf, esto agrega los registros del dbf a la colección escogida y la crea si no existe."]
-           [:div.control-group
-            (label {:class "control-label"} :coll "Nombre de la colección a ser modificada")
-            [:div.controls
-             (coll-select collection-names)]]
-           [:div.control-group
-            (label {:class "control-label"} :path "Dirección completa del archivo dbf")
-            [:div.controls
-             (text-field :path)]]
-           [:div.form-actions
-            (submit-button {:class "btn btn-primary"} "Importar DBF")]))
-
-(defpartial export-db-form [collection-names]
-  (form-to {:class "form form-horizontal"} [:post "/db/export/"]
-           [:legend "Descargar una colección a disco en otro formato"]
-           [:div.control-group
-            (label {:class "control-label"} :coll "Nombre de la colección")
-            [:div.controls
-             (coll-select collection-names)]]
-           [:div.control-group
-            (label {:class "control-label"} :format "Formato de archivo")
-            [:div.controls
-             [:select {:name :format}
-              [:option {:value :dbf} "DBF"]
-              [:option {:value :csv} "CSV"]]]]
-           [:div.form-actions
-            (submit-button {:class "btn btn-primary"} "Descargar")]))
-
+;;; No longer used
 (defpage [:post "/db/export/"] {:keys [coll format]}
   (let [fname (str (name coll) "." format)]
-    (dbf/mongo-coll-to-dbf! coll fname)
+    ;(dbf/mongo-coll-to-dbf! coll fname)
     (resp/set-headers {"Content-Description" "File Transfer"
                        "Content-type" "application/octet-stream"
                        "Content-Disposition" (str "attachment; filename=" fname)
@@ -466,86 +400,11 @@
         (session/flash-put! :messages (list {:type "alert-success" :text (str "Se completó exitosamente la operación. El sistema dijo: " msg)}))
         (session/flash-put! :messages (list {:type "alert-error" :text (str " La operación no se completó. Mensaje de error: " error)}))))))
 
-(defn restore-from-zip [zip-path]
-  (if-not (re-seq #".zip$" zip-path)
-    (throw (java.lang.IllegalArgumentException. "Invalid zip file path"))
-    (do
-      (z/extract-files zip-path (str (.getParent (io/file zip-path)) "/tempdir/"))
-      (list @(exec/sh ["mongorestore" (str (.getParent (io/file zip-path)) "/tempdir/lanina/")])))))
 
-(defpage [:post "/db/import/"] {:keys [dir]}
-  (let [dir (if (seq dir) dir (str (io/file (:primary (model/get-backup-settings)) "dump" "lanina.zip")))
-        results  (if (re-find #".zip$" dir)
-                   (restore-from-zip dir)
-                   (list @(exec/sh ["mongorestore" dir])))]
-    (system-messages results)
-    (when (re-find #".zip$" dir)
-      (delete-file-recursively (str (.getParent (io/file dir)) "/tempdir")))
-    (resp/redirect "/respaldos/")))
-
+;;; No longer used
 (defpage [:post "/db/import/dbf/"] {:keys [coll path]}
-  (try (dbf/dbf-to-mongo! coll path)
+  (try ;(dbf/dbf-to-mongo! coll path)
        (session/flash-put! :messages (list {:type "alert-success" :text (str "Se agregaron exitosamente los registros a la colección " (name coll))}))
        (catch Exception e
          (session/flash-put! :messages (list {:type "alert-error" :text (str "No se pudieron agregar los registros, verifique la dirección del archivo")}))))
   (resp/redirect "/respaldos/"))
-
-(defn backup-multiple-colls-seq
-  "Creates a lazy-seq of commands to backup each coll in coll-names
-on each of the directories.
-dorun or do something similar to the seq to actually back them up."
-  [[primary secondary dir] coll-names]
-  (for [d [primary secondary dir] c coll-names :when (seq d)]
-    (try @(exec/sh ["mongodump" "--collection" (name c) "--db" "lanina"] {:dir d})
-         (catch java.io.IOException e
-           {:exit 1
-            :error (str e)}))))
-
-(defn fix-target-fname [target]
-  (if (re-find #".zip\s*$" target)
-    (s/trim target)
-    (str (s/trim target) ".zip")))
-
-(defn zip-backup-dir [dir]
-  (z/compress-files [dir] (str (.getParent (io/file dir)) "/lanina.zip"))
-  (when (re-seq #"/dump/" dir)
-    (delete-file-recursively dir)))
-
-(defpage [:post "/db/backup/"] {:keys [dir coll zip]}
-  (let [{:keys [primary secondary]} (model/get-backup-settings)
-        results (if (= "true" zip)
-                  (do (dorun (backup-multiple-colls-seq [primary secondary dir]
-                                                        (model/get-collection-names)))
-                      (doseq [d [primary secondary dir] :when (seq d)]
-                        (zip-backup-dir (str (io/file d "dump" "lanina"))))
-                      (list {:exit 0
-                             :out "Archivos zip creados exitosamente."}))
-                  (map (fn [d]
-                         (if (seq d)
-                           (try
-                             @(exec/sh ["mongodump" "--collection" (name coll) "--db" "lanina"] {:dir d})
-                             (catch java.io.IOException e
-                               {:exit 1
-                                :error (str e)}))
-                           @(exec/sh ["mongodump" "--collection" (name coll) "--db" "lanina"])))
-                       [primary secondary dir]))]
-    (system-messages results)
-    (resp/redirect "/respaldos/")))
-
-(defpage [:post "/ajustes/respaldos/"] {:keys [amount unit start primary secondary]}
-  (let [amount ((coerce-to Integer 12) amount)
-        m {:amount amount :unit unit :primary primary :secondary secondary :start start}]
-    (model/adjust-backup-settings m)
-    (session/flash-put! :messages (list {:type "alert-success" :text (str "Se modificaron exitosamente las condiciones de respaldo")}))
-    (resp/redirect "/ajustes/")))
-
-(defpage "/respaldos/" []
-  (let [content {:content [:div.container-fluid
-                           (backup-db-form (model/get-collection-names))
-                           (use-db-backup-form)
-                           (export-db-form (model/get-collection-names))
-                           (import-dbf-form (model/get-collection-names))]
-                 :title "Respaldos de la base de datos"
-                 :active "Herramientas"
-                 :nav-bar true}]
-    (home-layout content)))
