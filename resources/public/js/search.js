@@ -20,7 +20,7 @@ var json2 = function () {
         $('#provider-name').typeahead();
         $('#provider-name').data('typeahead').source = results;
     });
-}
+};
 
 $(document).ready(function(){
     json2();

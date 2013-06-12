@@ -13,7 +13,7 @@
             [:div.controls
              (text-field :type)]]
            [:div.control-group
-            (label {:class "control-label" :colsize "Tamaño de columna"})
+            (label {:class "control-label"} :colsize "Tamaño de columna")
             [:div.controls
              (text-field :colsize)]]
            [:div.form-actions
@@ -23,7 +23,8 @@
   (let [content {:nav-bar true
                  :title "Ajuste de Impresiones"
                  :content (modify-stuff-form)
-                 :active "Ajustes"}]))
+                 :active "Ajustes"}]
+    (home-layout content)))
 
 (defpage [:post "/impresiones/modificar/"] {:keys [type colsize]}
   (cond (seq type)

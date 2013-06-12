@@ -135,8 +135,9 @@ already exists it fails."
               (zip-and-delete! out date)
               (println "Respaldo hecho")
               (when (= backups-dir target-dir)
-                ;(update-backup!)
+                (update-backup!)
                 (println "Respaldo actualizado"))
               (backup-response :resp :success)
               (catch Exception e
+                (println "Respaldo fallido:" e)
                 (backup-response :resp :error :error-message (str "Respaldo fallido: " e))))))))

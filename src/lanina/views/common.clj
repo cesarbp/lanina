@@ -37,11 +37,14 @@
    ["Caja"      "/caja/"]
    ["Artículos" "/articulos/"]
    ["Tickets"   "/tickets/"]
-   ["Catálogos" "/catalogos/"]
    {:title "Reportes"
     :links
     [["De ventas"  "/reportes/"]
      ["De compras" "/reportes/compras/"]]}
+   {:title "Extras"
+    :links
+    [["Catálogos" "/catalogos/"]
+     ["Créditos" "/credito/"]]}
    {:title "Listas"
     :links
     [["Para empleados" "/listas/"]
@@ -49,7 +52,7 @@
    {:title "Herramientas"
     :links
     [["Ajustes de la BD"  "/ajustes/"]
-     ["Respaldos de la BD" "/respaldos/"]]}
+     ["Respaldos" "/respaldos/"]]}
    ["Salir" "/salir/"]])
 
 (def nav-links-empl
@@ -78,7 +81,7 @@
         [:span.icon-bar]]
        [:a {:class "brand"} (if (seq title)
                               (str "La Niña | " title)
-                              "La Niña")]
+                              "Lonja Mercantil La Niña")]
        [:ul.nav
         (map (fn [nav-item]
                (if (vector? nav-item)

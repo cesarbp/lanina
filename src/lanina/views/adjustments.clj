@@ -366,11 +366,14 @@
         type (:type pst)
         pst (dissoc pst :id :type)
         resp (article/update-article! id pst)
-        date (t/now)]
+        date (t/now)
+        {:keys [nom_art]} (article/get-by-id id)
+        search-q (t/url-encode nom_art)
+        redirect-url (str "/articulos/buscar/?busqueda=" search-q)]
     (if (= :success resp)
       (do (logs/add-logs! id :updated {} date)
           (session/flash-put! :messages '({:type "alert-success" :text "El artículo ha sido modificado"}))
-          (resp/redirect (str "/ajustes/" type "/")))
+          (resp/redirect redirect-url))
       (do (session/flash-put! :messages (for [[k es] resp e es]
                                           {:type "alert-error" :text e}))
           (resp/redirect (str "/ajustes/" type "/" id "/"))))))
@@ -378,7 +381,6 @@
 (defpage "/ajustes/reset/" []
   (model/setup!)
   "done!")
-
 
 ;;; No longer used
 (defpage [:post "/db/export/"] {:keys [coll format]}

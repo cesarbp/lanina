@@ -352,7 +352,7 @@ csv of the articles"
   (map id-to-str (fetch article-coll)))
 
 (defn get-all-only [only]
-  (map id-to-str (fetch article-coll :only only)))
+  (map id-to-str (fetch article-coll :only only :sort {:nom_art 1})))
 
 (defn get-articles-regex [regex]
   (map id-to-str
@@ -364,9 +364,8 @@ csv of the articles"
      (fetch-one article-coll :where {:_id (object-id id)}))))
 
 (defn get-by-id-date [id date]
-  (id-to-str
-   (first (filter #(= date (:date %))
-                  (:prev (get-by-id id))))))
+  (first (filter #(= date (:date %))
+                 (:prev (get-by-id id)))))
 
 (defn get-by-id-nostr [id]
   (when (db/valid-id? id)
@@ -434,6 +433,7 @@ csv of the articles"
   (update-in error-map [k] (fn [old new] (if (seq old) (conj old new) [new])) error-val))
 
 ;;; Find errors
+;;; TODO - fix the threshold stuff
 (defn errors-warnings
   [article]
   (let [m article
@@ -454,8 +454,8 @@ csv of the articles"
     (if-let [n (get-by-barcode (:codigo m))]
       (when-not (and id (= id (:_id n)))
         (add-error :codigo "Este código de barras ya existe")))
-    (when-not (> thresh (days-ago (:date m)))
-      (add-error :date "Lleva demasiado tiempo sin una modificación"))
+    ;; (when-not (> thresh (days-ago (:date m)))
+    ;;   (add-error :date "Lleva demasiado tiempo sin una modificación"))
     (when-not (:img m) (add-warning :img "No contiene imagen"))
     (when-not (valid-date? (:date m)) (add-error :date "La fecha de última modificación es inválida"))
     (when-not (:stk m)

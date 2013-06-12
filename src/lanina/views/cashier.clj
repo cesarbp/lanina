@@ -16,7 +16,7 @@
     [:div.container-fluid
      [:div.alert.alert-info
       "La caja está " [:strong (if opn "abierta" "cerrada")]
-      (when adm [:div " Dinero en la caja: " [:strong (format-decimal (cashier/get-current-cash))]])]
+      (when (and opn adm) [:div " Dinero en la caja: " [:strong (format-decimal (cashier/get-current-cash))]])]
      (if opn
        (form-to {:class "form-horizontal"} [:post "/caja/modificar/"]
                 [:div.control-group
