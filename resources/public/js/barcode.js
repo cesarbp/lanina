@@ -435,10 +435,10 @@ function add_unregistered() {
             $("#unregistered-price").val("");
             $("#unregistered-quantity").val("");
             $("#unregistered-name").val("");
+            $("#barcode-field").focus();
             setTimeout(function() {
                 update_total();
             }, 200);
-
         }
     }
 }
@@ -533,12 +533,18 @@ function print_ticket() {
         $('#print-ticket')[0].href = $('#print-ticket')[0].href + '&pay=' + pay;
         window.location = $('#print-ticket')[0].href;
     }  else if ($('#error-popup').length === 0) {
+        var pp = parseFloat(pay);
+        if ( !pp )
+            pp = 0;
+        var diff = total - pp;
+        diff = diff.toFixed(2).toString();
         $('.modal-header').append(
             '<div id="error-popup" class="alert alert-block alert-error">' +
                 '<button type="button" class="close" data-dismiss="alert">×</button>' +
-                '<h1>No hay cantidad o cantidad insuficiente</h1></div>');
+                '<h3>Falta:' + diff + '</h3></div>');
         $('#error-popup').alert();
-        $('.modal-footer').addClass('error');
+        $('#pay').val(total.toString());
+        //$('.modal-footer').addClass('error');
     }
 }
 

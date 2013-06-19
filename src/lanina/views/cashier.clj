@@ -52,9 +52,9 @@
 (defpage [:post "/caja/modificar/"] {:keys [add withdraw submit close open amt]}
   (let [resp
         (cond submit (cond (and (seq add) (is-number? add))
-                           (cashier/add-money ((coerce-to Double) add))
+                           (cashier/add-money! ((coerce-to Double) add))
                            (and (seq withdraw) (is-number? withdraw))
-                           (cashier/withdraw-money ((coerce-to Double) withdraw)))
+                           (cashier/withdraw-money! ((coerce-to Double) withdraw)))
               close (cashier/close-cashier)
               open (when (and (seq amt)) (is-number? amt)
                          (cashier/open-cashier ((coerce-to Double) amt))))]

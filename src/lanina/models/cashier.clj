@@ -56,7 +56,7 @@
   (when (cashier-is-open?)
     (:cash (get-todays-latest))))
 
-(defn add-money
+(defn add-money!
   [amt]
   (when (and (cashier-is-open?)
              (number? amt)
@@ -66,7 +66,7 @@
       (update! cashier-coll m new-m)
       :success)))
 
-(defn withdraw-money
+(defn withdraw-money!
   [amt]
   (let [m (get-todays-latest)]
     (when (and (cashier-is-open?)

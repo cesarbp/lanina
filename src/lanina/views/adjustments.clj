@@ -300,9 +300,10 @@
    [:td [:ul.unstyled (for [e es]
                [:li [:p.text-error e]])]]])
 
-(defpartial art-error-form [id art errors]
+(defpartial art-error-form [id art errors next]
   (form-to {:class "form-horizontal" :id "modify-article-form" :name "modify-article"}
            [:post (str "/ajustes/errores/" id "/confirmar/")]
+           (hidden-field :next next)
            [:table.table.table-condensed
             [:thead
              [:tr
@@ -314,14 +315,21 @@
              (for [[k es] errors]
                (error-row k (k art) es (seq es)))]]
            [:div.form-actions
-            (submit-button {:class "btn btn-primary"} "Modificar")]))
+            (if (every? (complement second) errors)
+              (link-to {:class "btn btn-primary"} "/articulos/corregir/" "Regresar")
+              (list
+               (submit-button {:class "btn btn-primary"} "Modificar")
+               (link-to {:class "btn btn-danger"} "/articulos/corregir/" "Cancelar y regresar")))]))
 
-(defpage "/ajustes/errores/:id/" {id :id}
+(defpage "/ajustes/errores/:id/" {:keys [id next]}
   (let [art (article/get-by-id id)
         {errors :errors} (article/errors-warnings art)
         errors-sorted (article/sort-by-vec errors article/new-art-props-sorted)
         content {:title (str "Errores de " (:nom_art art))
-                 :content [:div.container-fluid (art-error-form id art errors-sorted)]
+                 :content [:div.container-fluid
+                           (when (every? (complement second) errors-sorted)
+                             [:p.alert.alert-info "El artículo no tiene errores"])
+                           (art-error-form id art errors-sorted next)]
                  :active "Ajustes"
                  :footer [:p "Gracias por visitar."]
                  :nav-bar true}]
@@ -363,17 +371,20 @@
 
 (defpage [:post "/ajustes/:type/:id/confirmar/"] {:as pst}
   (let [id (:id pst)
+        nxt (:next pst)
         type (:type pst)
         pst (dissoc pst :id :type)
         resp (article/update-article! id pst)
         date (t/now)
         {:keys [nom_art]} (article/get-by-id id)
         search-q (t/url-encode nom_art)
-        redirect-url (str "/articulos/buscar/?busqueda=" search-q)]
+        redirect-url "/articulos/corregir/"]
     (if (= :success resp)
       (do (logs/add-logs! id :updated {} date)
           (session/flash-put! :messages '({:type "alert-success" :text "El artículo ha sido modificado"}))
-          (resp/redirect redirect-url))
+          (resp/redirect (if (seq nxt)
+                           nxt
+                           redirect-url)))
       (do (session/flash-put! :messages (for [[k es] resp e es]
                                           {:type "alert-error" :text e}))
           (resp/redirect (str "/ajustes/" type "/" id "/"))))))

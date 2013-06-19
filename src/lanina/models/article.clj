@@ -393,17 +393,15 @@ csv of the articles"
   (keys (fetch-one article-coll)))
 
 (defn valid-barcode? [s]
-  (and (>= 13 (count s))
-       (every? (comp is-int? str) s)))
+  (every? (comp is-int? str) s))
 
 (defn add-fields [article]
   (let [iva (when (valid-iva? (:iva article)) (:iva article))
         to-add (atom {})
-        add (fn [k v] (swap! to-add conj {k v}))]
+        add (fn [k v] (swap! to-add conj [k v]))]
     (if-not iva
       article
-      (let [complement-iva (if (== 0 iva) 16.0 0.0)
-            mult (/ (+ 100.0 complement-iva) 100)
+      (let [mult (if (== 0 iva) 1.16 (/ 1.0 1.16))
             ccj-extra (when (number? (:costo_caja article)) (* mult (:costo_caja article)))
             cu-extra (when (number? (:costo_unitario article)) (* mult (:costo_unitario article)))
             prev-extra (when (number? (:precio_venta article)) (* mult (:precio_venta article)))]
@@ -415,9 +413,8 @@ csv of the articles"
 (defn get-by-barcode
   "Get an article by its barcode"
   [bc]
-  (when (valid-barcode? bc)
-    (id-to-str
-     (fetch-one article-coll :where {:codigo bc} :only [:_id :codigo :nom_art :iva :precio_venta :costo_caja :iva]))))
+  (id-to-str
+   (fetch-one article-coll :where {:codigo bc} :only [:_id :codigo :nom_art :iva :precio_venta :costo_caja :iva])))
 
 (defn get-by-search
   "Search for an article name"

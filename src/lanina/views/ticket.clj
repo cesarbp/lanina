@@ -13,7 +13,8 @@
             [noir.response         :as resp]
             [noir.session          :as session]
             [lanina.models.user    :as users]
-            [lanina.models.printing :as printing]))
+            [lanina.models.printing :as printing]
+            [lanina.models.cashier :refer [cashier-is-open? add-money!]]))
 
 (defpartial ticket-row [prod]
   [:tr
@@ -37,7 +38,7 @@
 (defpartial pay-notice [pay total change]
   [:div.container-fluid
    [:div.alert.alert-error
-    [:h1 "Cambio: "
+    [:h1#change "Cambio: "
      (utils/format-decimal change)]]
    [:div.alert.alert-info
     [:h2 "Total: "
@@ -133,7 +134,7 @@
 }
 
 $(document).ready(function() {
-    blink(\"#enter-notice\");
+    blink(\"#change\");
     $('body').keyup(function(e) {
     var code = (e.keyCode ? e.keyCode : e.which);
     if ( code == 13 )
@@ -161,7 +162,9 @@ $(document).ready(function() {
             insertion (delay
                        (ticket/insert-ticket ticketn pay prods date))]
         (when (= :success @insertion)
-          (printing/print-ticket prods pay total change ticketn folio date))
+          (printing/print-ticket prods pay total change ticketn folio date)
+          (when (cashier-is-open?)
+            (add-money! total)))
         (let [content {:content [:div.container-fluid
                                  (pay-notice pay total change)
                                  (enter-notice)

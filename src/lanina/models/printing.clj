@@ -143,7 +143,7 @@
   "Uses JtextArea. Prompts for printer."
   [s]
   (let [ta (JTextArea. s)]
-    (.setFont ta (Font. "Times New Roman" Font/PLAIN 10))
+    (.setFont ta (Font. Font/MONOSPACED Font/PLAIN 10))
     (.print ta)))
 
 (defn print-method-3

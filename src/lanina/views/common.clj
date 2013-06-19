@@ -3,7 +3,8 @@
         [hiccup.page :only [include-css include-js html5]]
         [hiccup.element :only [link-to image]])
   (:require [noir.session :as session]
-            [lanina.models.user :as users]))
+            [lanina.models.user :as users]
+            [lanina.models.cashier :refer [cashier-is-open?]]))
 
 ;;; Head includes here
 (def includes
@@ -32,10 +33,29 @@
    })
 
 ;;; Links on the nav
+;;; nav-header
 (def nav-links-admin
   [["Ventas"    "/ventas/"]
    ["Caja"      "/caja/"]
-   ["Artículos" "/articulos/"]
+   {:title "Artículos"
+    :links
+    [[:header "Altas"]
+     ["Altas Totales" "/articulos/agregar/"]
+     ["Código y Nombre" "/articulos/agregar/codnom/"]
+     [:header "Consultas"]
+     ["Globales" "/articulos/global/"]
+     ["Ventas" "/articulos/ventas/"]
+     ["Proveedor" "/articulos/proveedor/"]
+     [:header "Modificaciones"]
+     ["Precios" "/articulos/modificar/precios/"]
+     ["Sólo código" "/articulos/modificar/codigo/"]
+     ["Sólo nombre" "/articulos/modificar/nombre/"]
+     ["Total" "/articulos/modificar/total/"]
+     [:header "Eliminar"]
+     ["Eliminar" "/articulos/eliminar/"]
+     [:header "Otros"]
+     ["Buscar por proveedor" "/articulos/buscar/proveedor/"]
+     ["Corregir errores" "/articulos/corregir/"]]}
    ["Tickets"   "/tickets/"]
    {:title "Reportes"
     :links
@@ -58,15 +78,22 @@
 (def nav-links-empl
   [["Ventas"    "/ventas/"]
    ["Caja"      "/caja/"]
-   ["Artículos" "/articulos/"]
+   ["Artículos" "/articulos/ventas/"]
    ["Tickets"   "/tickets/"]
    ["Catálogos" "/catalogos/"]
    ["Salir"     "/salir/"]])
 
+(defn fix-title
+  [title]
+  (->>
+   title
+   (take-while #(not= \< %))
+   (apply str)))
+
 (defpartial head [incls title]
   [:head
    [:meta {:charset "UTF-8"}]
-   [:title (if (seq title) (str title " | La Niña")
+   [:title (if (seq title) (str (fix-title title) " | La Niña")
                "La Niña")]
    (map #(get includes %) incls)])
 
@@ -87,12 +114,21 @@
                (if (vector? nav-item)
                  (let [[title lnk] nav-item]
                    [:li {:class (if (= title active) "active" "")}
-                    (link-to lnk title)])
+                    (if (= "Caja" title)
+                      [:a {:href "/caja/"}
+                       "Caja "
+                       (if (cashier-is-open?)
+                         [:i.icon-ok]
+                         [:i.icon-remove])]
+                      (link-to lnk title))])
                  [:li {:class (str "dropdown" (if (= (:title nav-item) active) " active" ""))}
                   (link-to {:class "dropdown-toggle" :data-toggle "dropdown"} "#" (str (:title nav-item) "<b class=\"caret\"></b>"))
                   [:ul.dropdown-menu
                    (map (fn [[title lnk]]
-                          [:li (link-to lnk title)])
+                          [:li {:class (when (= :header title) "nav-header")}
+                           (if (= :header title)
+                             lnk
+                             (link-to lnk title))])
                         (:links nav-item))]]))
              links)]]]]))
 

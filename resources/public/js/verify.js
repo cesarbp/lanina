@@ -82,7 +82,7 @@ $(document).ready(function() {
         jn = results.map(function(o) {
             return o['nom_art'];
         });
-    })
+    });
     $('#nom_art').attr('autocomplete', 'off');
     var bc_id = "#codigo-control";
     var na_id = "#nom_art-control";

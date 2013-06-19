@@ -12,7 +12,8 @@
             [noir.response          :as resp]
             [lanina.models.logs     :as logs]
             [lanina.models.ticket   :as ticket]
-            [lanina.models.adjustments :as globals]))
+            [lanina.models.adjustments :as globals]
+            [lanina.models.cashier :refer [cashier-is-open?]]))
 
 ;;; Used by js to get the article in an ajax way
 (defpage "/json/article" {:keys [barcode]}
@@ -100,17 +101,26 @@
     (resp/redirect "/entrar/")))
 
 (defpage "/ventas/" []
-  (let [content {:title (str "Ventas, Ticket: <span id=\"ticketn\">"  (ticket/get-next-ticket-number) "</span> Folio: " (ticket/get-next-folio))
-                 :content [:div#main.container-fluid (barcode-form) (item-list) (add-unregistered-form)]
-                 :footer [:p "Gracias por su compra."]
-                 :nav-bar true
-                 :active "Ventas"}]
-    (main-layout-incl content [:base-css :search-css :switch-css :jquery :jquery-ui :base-js :shortcut :scroll-js :barcode-js :custom-css :switch-js])))
+  (if (cashier-is-open?)
+    (let [content {:title (str "Ventas, Ticket: <span id=\"ticketn\">"  (ticket/get-next-ticket-number) "</span> Folio: " (ticket/get-next-folio))
+                   :content [:div#main.container-fluid (barcode-form) (item-list) (add-unregistered-form)]
+                   :footer [:p "Gracias por su compra."]
+                   :nav-bar true
+                   :active "Ventas"}]
+      (main-layout-incl content [:base-css :search-css :switch-css :jquery :jquery-ui :base-js :shortcut :scroll-js :barcode-js :custom-css :switch-js]))
+    (let [content {:title "Ventas"
+                   :content [:div.container-fluid
+                             [:div.alert.alert-error
+                              [:h2 "La caja no está abierta"]
+                              (link-to {:class "btn"} "/caja/" "Ir a la caja")]]
+                   :nav-bar true
+                   :active "Ventas"}]
+      (home-layout content))))
 
 ;;; Modify/Add an article
 (defpartial iva-select [current]
   (let [ivas (set (globals/get-valid-ivas))
-        fst (when (globals/valid-iva? current) current (first ivas))
+        fst (if (globals/valid-iva? current) current (first ivas))
         rst (disj ivas fst)
         lst (cons fst rst)]
     [:select {:name :iva}
@@ -160,11 +170,19 @@
 (defpartial modify-article-partial [art type-mod modifiable]
   [:div
    (when-not (empty? (:errors (article/errors-warnings art)))
-     [:div.alert.alert-error
-      [:p "Este artículo contiene errores, se recomienda corregirlos antes de intentar modificar el artículo en este módulo"]
-      (link-to {:class "btn"} (str "/ajustes/errores/" (:_id art) "/") "Corregir errores")])
+     (let [next-url (str "/articulos/modificar/"
+                         (case type-mod
+                           :total "total/"
+                           :precios "precios/"
+                           :codigo "codigo/"
+                           :nombre "nombre/")
+                         (:_id art)
+                         "/")]
+       [:div.alert.alert-error
+        [:p "Este artículo contiene errores, se recomienda corregirlos antes de intentar modificar el artículo en este módulo"]
+        (link-to {:class "btn"} (str "/ajustes/errores/" (:_id art) "/?next=" next-url) "Corregir errores")]))
    (form-to {:class "form-horizontal" :id "modify-article-form" :name "modify-article"}
-            [:post (str "/articulos/modificar/" (:_id art) "/")]
+            [:post (str "/articulos/modificando/" (:_id art) "/")]
             (hidden-field :type-mod type-mod)
             [:table.table.table-condensed.table-hover
              [:tr
@@ -188,7 +206,7 @@
 
 (defpartial confirm-changes-table [id changes type-mod]
   [:div.article-dialog
-   (form-to {:class "form-horizontal" :id "modify-article-form" :name "modify-article"} [:post (str "/articulos/modificar/" id "/")]
+   (form-to {:class "form-horizontal" :id "modify-article-form" :name "modify-article"} [:post (str "/articulos/modificando/" id "/")]
             (hidden-field :type-mod type-mod)
             [:table.table.table-condensed.table-hover
              [:tr.table-header
@@ -198,22 +216,30 @@
              (map confirm-changes-row changes)]
             [:fieldset
              [:div.form-actions
-              (submit-button {:class "btn btn-success" :name "submit"} "Confirmar")
+              (submit-button {:class "btn btn-success" :name "submit" :value "Confirmar"} "Confirmar")
               (link-to {:class "btn btn-danger"} "/articulos/" "Cancelar")]])])
+
+(def submit-on-enter-js
+  (javascript-tag
+   "$('body').keypress(function(event) {
+  var kc = event.keyCode || event.which;
+  if ( kc == 13 )
+    $('input[type=submit]').click();
+});"))
 
 (defpage "/articulos/modificar/total/:_id/" {id :_id}
   (if (valid-id? id)
     (let [article (article/get-by-id id)
           content {:title "Modificando Artículo"
                    :content [:div.container-fluid
-                             [:div.subnav [:ul.nav.nav-pills [:li [:a [:h2 (:nom_art article)]]]]]
                              (if (seq article)
                                (modify-article-partial article :total
                                                        #{:img :unidad :stk :lin :ramo :iva :pres :gan
                                                          :costo_unitario :costo_caja :precio_venta
                                                          :ubica :prov :exis :codigo :nom_art :tam})
                                [:p.error-notice "No existe tal artículo"])
-                             [:script "$('#codigo').focus();"]]
+                             [:script "$('#codigo').focus();"]
+                             submit-on-enter-js]
                    :active "Artículos"
                    :nav-bar true}]
       (main-layout-incl content [:jquery :base-css :base-js :custom-css :subnav-js :modify-js]))))
@@ -228,7 +254,8 @@
                            (if (seq article)
                              (modify-article-partial article :precios modifiable)
                              [:p.error-notice "No existe tal artículo"])
-                           [:script "$('#pres').focus();"]]}]
+                           [:script "$('#pres').focus();"]
+                           submit-on-enter-js]}]
     (main-layout-incl content [:base-css :jquery :base-js :verify-js :modify-js])))
 
 (defpage "/articulos/modificar/codigo/:id/" {id :id}
@@ -251,78 +278,76 @@
                  :nav-bar true
                  :active "Artículos"
                  :content [:div.container (modify-article-partial article :nombre modifiable)
-                           [:script "$('#nom_art').focus();"]]}]
+                           [:script "$('#nom_art').focus();"]
+                           submit-on-enter-js]}]
     (main-layout-incl content [:base-css :jquery :base-js])))
 
-(defpage [:post "/articulos/modificar/:id/"] {:as pst}
+(defpage [:post "/articulos/modificando/:id/"] {:as pst}
   (let [content {:title "Confirmar Cambios"
                  :active "Artículos"}
         article (article/get-by-id (:id pst))
         id (:id pst)
         type-mod (:type-mod pst)
-        date (utils/now)]
+        date (utils/now)
+        redirect-url (str "/articulos/modificar/" (case (keyword type-mod)
+                                                    :precios "precios/"
+                                                    :codigo "codigo/"
+                                                    :nombre "nombre/"
+                                                    :total "total/"))]
+
     (cond
       (= "Modificar" (:submit pst))
       (let [changes (article/find-changes article (dissoc pst :submit))]
         (if (seq changes)
           (home-layout (assoc content :content
-                              [:div.container-fluid (confirm-changes-table id changes type-mod)]))
+                              [:div.container-fluid (confirm-changes-table id changes type-mod)
+                               submit-on-enter-js]))
           (home-layout (assoc content :content
                               [:div.container
                                [:p.alert.alert-warning "No hay cambios para realizar"]
                                [:div.form-actions
-                                (link-to {:class "btn btn-success"}
-                                         (str "/articulos/modificar/" (name type-mod) "/" id "/")
-                                         "Regresar a modificar")
-                                (link-to {:class "btn btn-primary"}
-                                         "/articulos/" "Buscar otro artículo")]]))))
+                                (link-to {:class "btn btn-success"
+                                          :id "return"}
+                                         redirect-url
+                                         "Regresar")]
+                               (javascript-tag
+                                "$('body').keypress(function(event) {
+  var kc = event.keyCode || event.which;
+  if ( kc == 13 )
+    window.location = $('#return').attr('href');
+});")]))))
       (= "Confirmar" (:submit pst))
       (let [modified (article/update-article! id (dissoc pst :submit))]
         (if (= :success modified)
           (do (logs/add-logs! (:_id pst) :updated (dissoc pst :submit) date)
               (session/flash-put! :messages '({:type "alert-success" :text "El artículo ha sido modificado"}))
-              (resp/redirect "/articulos/"))
+              (resp/redirect redirect-url))
           (do (session/flash-put! :messages (for [[k es] modified e es]
                                               {:type "alert-error" :text e}))
               (resp/redirect (str "/articulos/modificar/" (name type-mod) "/" id "/")))))
       :else "Invalid")))
 
 ;;; Search for an article
-(defpartial search-article-form-js []
+(defpartial search-article-provider-js []
   [:script
-   "
-function redirect_to_add_codnom() {
-    var search = $('#search').val();
-    if (search.length > 0) {
-        var url = '/articulos/agregar/codnom/?busqueda=' + search;
-        window.location = url;
-    }
-    return false;
-}"])
+   ";$('#provider-name').focus();"])
 
-(defpartial search-article-form []
+(defpartial search-article-provider-form []
   [:div.dialog
    (form-to {:class "form-horizontal" :id "search-form" :name "search-article"} [:get "/articulos/buscar/"]
      [:fieldset
-      [:div.control-group
-       (label {:class "control-label" :id "search-field"} "busqueda" "Buscar por nombre o código")
-       [:div.controls
-        (text-field {:id "search" :autocomplete "off"} "busqueda")]]
       (when (users/admin?)
         [:div.control-group
          (label {:class "control-label"} "provider-name" "Buscar por nombre de proveedor")
          [:div.controls
           (text-field {:id "provider-name" :autocomplete "off"} "provider-name")]])]
      [:div.form-actions
-      (submit-button {:class "btn btn-primary" :name "search"} (if (users/admin?) "Consultas, modificaciones y altas parciales" "Consultas"))
-      (when (users/admin?)
-        (link-to {:class "btn btn-warning"} "/articulos/agregar/" "Alta total de un artículo"))])])
+      (submit-button {:class "btn btn-primary" :name "search"} (if (users/admin?) "Consultas, modificaciones y altas parciales" "Consultas"))])])
 
-(defpage "/articulos/" []
-  (let [content {:title "Búsqueda de Artículos"
-                 :content [:div.container (search-article-form-js) (search-article-form)]
+(defpage "/articulos/buscar/proveedor/" []
+  (let [content {:title "Búsqueda de artículos por proveedor"
+                 :content [:div.container (search-article-provider-form) (search-article-provider-js)]
                  :active "Artículos"
-                 :footer [:p "Gracias por visitar."]
                  :nav-bar true}]
     (main-layout-incl content [:base-css :search-css :jquery :base-js :jquery-ui :trie-js :search-js])))
 
@@ -336,6 +361,7 @@ function redirect_to_add_codnom() {
        [:td.prev_sin (if (number? precio_venta) (utils/format-decimal precio_venta) precio_venta)]
        [:td.consultar (link-to {:class "btn btn-primary"} (str "/articulos/ventas/" _id "/") "Ventas")]])))
 
+;;; No longer used
 (defpartial search-results-table-employee [results]
   (if (seq results)
     [:div.container-fluid
@@ -354,6 +380,7 @@ function redirect_to_add_codnom() {
       (link-to {:class "btn btn-success"} "/articulos/" "Regresar a buscar otro artículo")]]
      [:p {:class "alert alert-error"} "No se encontraron resultados"]))
 
+;;; No longer used
 (defpartial search-results-row-admin [result]
   (when (seq result)
     (let [{:keys [_id codigo nom_art precio_venta costo_caja]} result]
@@ -392,7 +419,183 @@ function redirect_to_add_codnom() {
       (link-to {:class "btn btn-success"} "/articulos/" "Regresar a buscar otro artículo")]]
     [:p {:class "alert alert-error"} "No se encontraron resultados"]))
 
-;;; Needs clean data
+(defpartial article-instant-search-form
+  [url]
+  (form-to {:class "form form-horizontal"} [:post url]
+           [:div.control-group
+            (label {:class "control-label"}
+                   :search "Buscar por código o nombre")
+            [:div.controls
+             (text-field {:id "search" :autocomplete "off"} :search)]]
+           [:div.form-actions
+            (submit-button {:class "btn btn-primary"} "Buscar")]))
+
+(defpage "/articulos/global/" []
+  (let [url "/articulos/global/"
+        content {:content (article-instant-search-form url)
+                 :title "Agregar por código nombre"
+                 :active "Artículos"
+                 :nav-bar true}]
+    (main-layout-incl content [:base-css :search-css :jquery :base-js :search-js])))
+(defpage "/articulos/ventas/" []
+  (let [url "/articulos/ventas/"
+        content {:content (article-instant-search-form url)
+                 :title "Agregar por código nombre"
+                 :active "Artículos"
+                 :nav-bar true}]
+    (main-layout-incl content [:base-css :search-css :jquery :base-js :search-js])))
+(defpage "/articulos/proveedor/" []
+  (let [url "/articulos/proveedor/"
+        content {:content (article-instant-search-form url)
+                 :title "Agregar por código nombre"
+                 :active "Artículos"
+                 :nav-bar true}]
+    (main-layout-incl content [:base-css :search-css :jquery :base-js :search-js])))
+(defpage "/articulos/agregar/codnom/" []
+  (let [url "/articulos/agregar/codnom/"
+        content {:content (article-instant-search-form url)
+                 :title "Agregar por código nombre"
+                 :active "Artículos"
+                 :nav-bar true}]
+    (main-layout-incl content [:base-css :search-css :jquery :base-js :search-js])))
+(defpage "/articulos/modificar/precios/" []
+  (let [url "/articulos/modificar/precios/"
+        content {:content (article-instant-search-form url)
+                 :title "Modificando precios"
+                 :active "Artículos"
+                 :nav-bar true}]
+    (main-layout-incl content [:base-css :search-css :jquery :base-js :search-js])))
+(defpage "/articulos/modificar/codigo/" []
+  (let [url "/articulos/modificar/codigo/"
+        content {:content (article-instant-search-form url)
+                 :title "Modificando código"
+                 :active "Artículos"
+                 :nav-bar true}]
+    (main-layout-incl content [:base-css :search-css :jquery :base-js :search-js])))
+(defpage "/articulos/modificar/nombre/" []
+  (let [url "/articulos/modificar/nombre/"
+        content {:content (article-instant-search-form url)
+                 :title "Modificando nombre"
+                 :active "Artículos"
+                 :nav-bar true}]
+    (main-layout-incl content [:base-css :search-css :jquery :base-js :search-js])))
+(defpage "/articulos/modificar/total/" []
+  (let [url "/articulos/modificar/total/"
+        content {:content (article-instant-search-form url)
+                 :title "Modificando artículo"
+                 :active "Artículos"
+                 :nav-bar true}]
+    (main-layout-incl content [:base-css :search-css :jquery :base-js :search-js])))
+(defpage "/articulos/eliminar/" []
+  (let [url "/articulos/eliminar/"
+        content {:content (article-instant-search-form url)
+                 :title "Eliminando artículos"
+                 :active "Artículos"
+                 :nav-bar true}]
+    (main-layout-incl content [:base-css :search-css :jquery :base-js :search-js])))
+(defpage "/articulos/corregir/" []
+  (let [url "/articulos/corregir/"
+        content {:content (article-instant-search-form url)
+                 :title "Corrigiendo errores"
+                 :active "Artículos"
+                 :nav-bar true}]
+    (main-layout-incl content [:base-css :search-css :jquery :base-js :search-js])))
+
+(defn search-article-result
+  [q url]
+  (let [art (if (article/valid-barcode? q)
+              (article/get-by-barcode q)
+              (article/get-by-name q))
+        id (str (:_id art))
+        url (if (= \/ (last url))
+              url
+              (str url "/"))]
+    (when (seq id)
+      (str url id "/"))))
+
+;;; POSTS
+(defpage [:post "/articulos/global/"] {:keys [search]}
+  (let [url "/articulos/global/"
+        r (when (seq search) (search-article-result search url))]
+    (if r
+      (resp/redirect r)
+      (do
+        (utils/flash-message "No se ha encontrado este artículo" "error")
+        (resp/redirect url)))))
+(defpage [:post "/articulos/ventas/"] {:keys [search]}
+  (let [url "/articulos/ventas/"
+        r (when (seq search) (search-article-result search url))]
+    (if r
+      (resp/redirect r)
+      (do
+        (utils/flash-message "No se ha encontrado este artículo" "error")
+        (resp/redirect url)))))
+(defpage [:post "/articulos/proveedor/"] {:keys [search]}
+  (let [url "/articulos/proveedor/"
+        r (when (seq search) (search-article-result search url))]
+    (if r
+      (resp/redirect r)
+      (do
+        (utils/flash-message "No se ha encontrado este artículo" "error")
+        (resp/redirect url)))))
+(defpage [:post "/articulos/agregar/codnom/"] {:keys [search]}
+  (let [url "/articulos/agregar/codnom/"
+        r (when (seq search) (search-article-result search url))]
+    (if r
+      (resp/redirect r)
+      (do
+        (utils/flash-message "No se ha encontrado este artículo" "error")
+        (resp/redirect url)))))
+(defpage [:post "/articulos/modificar/precios/"] {:keys [search]}
+  (let [url "/articulos/modificar/precios/"
+        r (when (seq search) (search-article-result search url))]
+    (if r
+      (resp/redirect r)
+      (do
+        (utils/flash-message "No se ha encontrado este artículo" "error")
+        (resp/redirect url)))))
+(defpage [:post "/articulos/modificar/codigo/"] {:keys [search]}
+  (let [url "/articulos/modificar/codigo/"
+        r (when (seq search) (search-article-result search url))]
+    (if r
+      (resp/redirect r)
+      (do
+        (utils/flash-message "No se ha encontrado este artículo" "error")
+        (resp/redirect url)))))
+(defpage [:post "/articulos/modificar/nombre/"] {:keys [search]}
+  (let [url "/articulos/modificar/nombre/"
+        r (when (seq search) (search-article-result search url))]
+    (if r
+      (resp/redirect r)
+      (do
+        (utils/flash-message "No se ha encontrado este artículo" "error")
+        (resp/redirect url)))))
+(defpage [:post "/articulos/modificar/total/"] {:keys [search]}
+  (let [url "/articulos/modificar/total/"
+        r (when (seq search) (search-article-result search url))]
+    (if r
+      (resp/redirect r)
+      (do
+        (utils/flash-message "No se ha encontrado este artículo" "error")
+        (resp/redirect url)))))
+(defpage [:post "/articulos/eliminar/"] {:keys [search]}
+  (let [url "/articulos/eliminar/"
+        r (when (seq search) (search-article-result search url))]
+    (if r
+      (resp/redirect r)
+      (do
+        (utils/flash-message "No se ha encontrado este artículo" "error")
+        (resp/redirect url)))))
+(defpage [:post "/articulos/corregir/"] {:keys [search]}
+  (let [url "/ajustes/errores/"
+        r (when (seq search) (search-article-result search url))]
+    (if r
+      (resp/redirect r)
+      (do
+        (utils/flash-message "No se ha encontrado este artículo" "error")
+        (resp/redirect "/articulos/corregir/")))))
+
+;;; No longer used
 (defpartial search-article-results [query]
   (let [data (or (article/get-by-barcode query)
                  (article/get-by-search query))]
@@ -420,19 +623,15 @@ function redirect_to_add_codnom() {
 (defpartial show-article-delete [article]
   (form-to {:class "form form-horizontal"} [:post (str "/articulos/eliminar/" (:_id article) "/")]
     [:fieldset
-     [:div.control-group
-      (label {:class "control-label"} :codigo "Código de barras")
-      [:div.controls
-       (text-field {:class "disabled" :disabled true
-                    :placeholder (:codigo article)} :codigo (:codigo article))]]
-     [:div.control-group
-      (label {:class "control-label"} :nom_art "Nombre")
-      [:div.controls
-       (text-field {:class "disabled" :disabled true
-                    :placeholder (:nom_art article)} :nom_art (:nom_art article))]]]
+     (for [k article/new-art-props-sorted]
+       [:div.control-group
+        (label {:class "control-label"} k (article/verbose-names-new k))
+        [:div.controls
+         (text-field {:class "disabled" :disabled true
+                      :placeholder (k article)} k (k article))]])]
     [:div.form-actions
      (submit-button {:class "btn btn-danger"} "Borrar artículo")
-     (link-to {:class "btn btn-success"} "/articulos/" "Cancelar")]))
+     (link-to {:class "btn btn-success"} "/articulos/eliminar/" "Cancelar")]))
 
 (defpage "/articulos/eliminar/:id/" {id :id}
   (let [article (article/get-by-id id)
@@ -441,11 +640,11 @@ function redirect_to_add_codnom() {
                             [:div.container
                              [:h2 "¿Está seguro de que quiere borrar el siguiente artículo?"]
                              (show-article-delete article)
-                             [:script "$('input[type=\"submit\"]').focus();"]]
+                             submit-on-enter-js]
                             [:div.container
                              [:p.alert.alert-error "No existe un artículo con dicha id"]
                              [:div.form-actions
-                              (link-to {:class "btn btn-success"} "/articulos/" "Regresar")]])
+                              (link-to {:class "btn btn-success"} "/articulos/eliminar/" "Regresar")]])
                  :nav-bar true
                  :active "Artículos"}]
     (main-layout-incl content [:base-css :jquery :base-js])))
@@ -456,7 +655,7 @@ function redirect_to_add_codnom() {
     (article/delete-article (:id post))
     (logs/add-logs! (:id post) :deleted {} date)
     (session/flash-put! :messages [{:type "alert-success" :text (str "El artículo " art-name " ha sido borrado.")}])
-    (resp/redirect "/articulos/")))
+    (resp/redirect "/articulos/eliminar/")))
 
 ;;; View an article
 ;;; FIXME - for some weird reason this has 2 empty inputs ccj_sin and prev_sin
@@ -476,8 +675,8 @@ function redirect_to_add_codnom() {
   (let [verbose article/verbose-names-new
         art-split (partition-all (/ (count verbose) 3) article)
         double? (fn [v] (= java.lang.Double (class v)))
-        iva (if (and (number? (:iva article)) (< 0 (:iva article)))
-              true false)
+        iva (if (and (number? (:iva article)) (== 0 (:iva article)))
+              false true)
         row (fn [[k v]]
               [:tr {:id (name k)}
                [:td (if (or (= :cu_extra k) (= :ccj_extra k) (= :prev_extra k))
@@ -515,7 +714,8 @@ function redirect_to_add_codnom() {
                            (show-different-versions-form article (str "/articulos/global/" id "/"))
                            (show-article-tables art-no-prevs)
                            [:div.form-actions (link-to {:class "btn btn-success"}
-                                                       (str "/articulos/") "Regresar a buscar artículos")]
+                                                       "/articulos/global/"
+                                                       "Regresar a buscar artículos")]
                            (highlight-js :precio_venta)]}]
     (main-layout-incl content [:base-css :jquery :base-js])))
 
@@ -533,7 +733,8 @@ function redirect_to_add_codnom() {
                  :content [:div.container-fluid (show-article-tables art-sorted)
                            (show-different-versions-form article (str "/articulos/ventas/" id "/"))
                            [:div.form-actions (link-to {:class "btn btn-success"}
-                                                       (str "/articulos/" ) "Regresar a buscar artículos")]
+                                                       "/articulos/ventas/"
+                                                       "Regresar a buscar artículos")]
                            (highlight-js :precio_venta)]}]
     (home-layout content)))
 
@@ -546,14 +747,15 @@ function redirect_to_add_codnom() {
         art-no-prevs (dissoc article :prev)
         art-sorted (article/sort-by-vec art-no-prevs
                                         [:codigo :nom_art :pres :prov :iva :costo_unitario :costo_caja :cu_extra :ccj_extra :date])
-        content {:title "Consulta para ventas"
+        content {:title "Consulta para proveedor"
                  :active "Artículos"
                  :content [:div.container-fluid
                            (show-different-versions-form article (str "/articulos/proveedor/" id "/"))
                            (show-article-tables art-sorted)
 
                            [:div.form-actions (link-to {:class "btn btn-success"}
-                                                       "/articulos/"  "Regresar a buscar artículos")]
+                                                       "/articulos/proveedor/"
+                                                       "Regresar a buscar artículos")]
                            (highlight-js :costo_caja)]}]
     (home-layout content)))
 
@@ -588,15 +790,8 @@ function redirect_to_add_codnom() {
 ;;; Needs clean data
 (defpartial search-add-article-results [query]
   (let [data (or (article/get-by-barcode query)
-            (article/get-by-search query))]
+                 (article/get-by-search query))]
     (search-add-results-table data)))
-
-(defpage "/articulos/agregar/codnom/" {:keys [busqueda]}
-  (let [title "Resultados para agregar un artículo"
-        content {:title "Resultados de la búsqueda"
-                 :active "Artículos"
-                 :content [:div.container (search-add-article-results busqueda)]}]
-    (home-layout content)))
 
 (defpartial add-article-row-partial [[k v] modifiable]
   (letfn [(std-text [k v] (text-field {:class "article-new-value" :autocomplete "off" :id (name k)} k v))
@@ -637,7 +832,11 @@ function redirect_to_add_codnom() {
              (repeat modifiable))]]
       [:div.form-actions
        (submit-button {:class "btn btn-primary"} "Agregar este artículo")
-       (link-to {:class "btn btn-danger"} "/articulos/" "Cancelar y regresar")])))
+       (link-to {:class "btn btn-danger"} "/" "Cancelar y regresar")])))
+
+(def focus-on-first-input-js
+  (javascript-tag
+   "$('form:first *:input[type!=hidden]:first').focus();"))
 
 (defpage "/articulos/agregar/codnom/:id/" {id :id}
   (let [article (article/get-by-id id)
@@ -645,7 +844,8 @@ function redirect_to_add_codnom() {
         title     "Alta por código y nombre"
         content {:title title
                  :active "Artículos"
-                 :content [:div.container-fluid (add-article-form article modifiable)]
+                 :content [:div.container-fluid (add-article-form article modifiable)
+                           focus-on-first-input-js]
                  :nav-bar true}]
     (main-layout-incl content [:base-css :search-css :jquery :base-js :jquery-ui :verify-js :modify-js])))
 
