@@ -10,7 +10,7 @@
 (def ticket-coll :tickets)
 
 (def individual-article-props [:art_id :quantity :nom_art :precio_venta :iva :codigo])
-(def ticket-props [:ticket-number :folio :date :time :articles :pay])
+(def ticket-props [:ticket-number :folio :date :time :articles :pay :total])
 
 (defn get-next-ticket-number []
   (if-let [tn (-> (fetch ticket-coll :where {:date (t/now)}
@@ -31,14 +31,14 @@
     {:art_id (:_id a) :quantity (:quantity a) :nom_art (:nom_art a) :iva (:iva a)
      :precio_venta (:precio_venta a) :codigo (:codigo a) :total (* (:precio_venta a) (:quantity a))}))
 
-(defn insert-ticket [ticketn pay articles date]
+(defn insert-ticket [ticketn total pay articles date]
   (let [number (get-next-ticket-number)
         folio (get-next-folio)
         time (t/now-hour)]
     ;; Why ?
     (when (= ticketn number)
       (do (insert! ticket-coll
-                   {:ticket-number number :time time :date date :folio folio :articles (fix-articles articles) :pay pay})
+                   {:ticket-number number :total total :time time :date date :folio folio :articles (fix-articles articles) :pay pay})
           :success))))
 
 (defn search-by-date [date]
@@ -92,13 +92,14 @@
         codigo (if (seq art) (:codigo art) "0")]
     {:art_id art-id :quantity quantity :nom_art nom_art :precio_venta precio
      :iva iva :codigo codigo :ticket-number ticketn :folio folio :date date :time time
-     :pay pago}))
+     :pay pago :total total}))
 
 (defn compress-rows
   "Same ticketn folio date time pay on all the rows"
   [rs]
-  (let [{:keys [ticket-number folio date time pay]} (first rs)]
+  (let [{:keys [ticket-number folio date time pay total]} (first rs)]
     {:ticket-number ticket-number :folio folio :date date :time time :pay pay
+     :total (reduce + (map :total rs))
      :articles (mapv (fn [r] (dissoc r :ticket-number :folio :date :time :pay))
                      rs)}))
 

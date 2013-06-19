@@ -98,8 +98,8 @@
         (seq desde)
         [:range (model/gen-report-data desde)]
         (and (seq n) (seq tipo))
-        (if-let [n (article/to-int n)]
-          (if-let [range (cond (= "dia" tipo) (t/day-range n)
+        (when-let [n (article/to-int n)]
+          (when-let [range (cond (= "dia" tipo) (t/day-range n)
                                (= "mes" tipo) (t/month-range n)
                                (= "ano" tipo) (t/year-range n))]
             [:range (model/gen-report-data (first range) (second range))]))

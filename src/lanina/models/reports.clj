@@ -20,7 +20,7 @@
         (doseq [t tickets a (:articles t)]
           (add-row [(:date t) (:time t) (:nom_art a) (:codigo a) (:iva a) (:precio_venta a)
                     (:quantity a) (:total a)])
-          (inc-total (:total a))
+          (inc-total (:total t))
           (swap! count-individual inc)
           (swap! count + (:quantity a))
           (if (== 0 (:iva a))

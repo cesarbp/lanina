@@ -160,7 +160,7 @@ $(document).ready(function() {
             folio (ticket/get-next-folio)
             date (utils/now)
             insertion (delay
-                       (ticket/insert-ticket ticketn pay prods date))]
+                       (ticket/insert-ticket ticketn total pay prods date))]
         (when (= :success @insertion)
           (printing/print-ticket prods pay total change ticketn folio date)
           (when (cashier-is-open?)
@@ -331,7 +331,7 @@ $(document).ready(function() {
                       (ticket/search-by-date-with-limits fecha desde)
                       :else (ticket/search-by-date fecha))
         cut-map (get-cut tickets)
-        {:keys [tickets-n exto gvdo iva total date time]} cut-map
+        {:keys [number exto gvdo iva total date time]} cut-map
         cut (when (seq tickets) (cashier-cut cut-map))
         content {:title (str "Corte de caja de la fecha " fecha)
                  :content (if (seq tickets)
@@ -345,7 +345,7 @@ $(document).ready(function() {
                  :active "Tickets"}]
     (if (or (seq tickets) (seq fecha))
       (do
-        (printing/print-cashier-cut tickets-n exto gvdo iva total date time)
+        (printing/print-cashier-cut number exto gvdo iva total date time)
         (home-layout content))
       (do (session/flash-put! :messages '({:type "alert-error" :text "Necesita indicar una fecha de corte"}))
           (resp/redirect "/tickets/")))))
