@@ -33,7 +33,7 @@ function calc_gan() {
     var prev = get_precio_venta();
     var cu = get_costo_unitario();
 
-    if ( prev !== NaN && cu !== NaN && cu !== 0 )
+    if ( prev && cu && cu !== 0 )
     {
         var gan = 100 * ((prev / cu) - 1);
         $('#gan').val(gan.toFixed(2).toString());
@@ -44,7 +44,7 @@ function calc_prev() {
     var cu = get_costo_unitario();
     var gan = get_ganancia();
 
-    if ( gan !== NaN && cu !== NaN )
+    if ( gan && cu )
     {
         var prev = gan * cu;
         $('#precio_venta').val(prev.toFixed(2).toString());
@@ -54,10 +54,11 @@ function calc_prev() {
 function calc_cu() {
     var ccj = get_costo_caja();
     var pres = get_presentacion();
-    if ( ccj !== NaN && pres !== NaN && pres !== 0 )
+    if ( ccj && pres && pres !== 0 )
     {
         var cu = ccj / pres;
         $('#costo_unitario').val(cu.toFixed(2).toString());
+        $('input[type=hidden][name=costo_unitario]').val(cu.toFixed(2).toString());
     }
 }
 
@@ -69,7 +70,7 @@ function prev_up() {
     var prev = get_precio_venta();
     var cu = get_costo_unitario();
 
-    if ( prev != NaN && cu != NaN)
+    if ( prev && cu )
     {
         var ceiled = Math.ceil(prev * 10);
         if (ceiled === prev * 10)
@@ -84,14 +85,14 @@ function prev_up() {
 
         calc_gan();
     }
-
+    $('#precio_venta').focus();
 }
 
 function prev_down() {
     var prev = get_precio_venta();
     var cu = get_costo_unitario();
 
-    if ( prev !== NaN && cu !== NaN)
+    if ( prev && cu )
     {
         var floored = Math.floor(prev * 10);
         if (floored === prev * 10)
@@ -106,15 +107,19 @@ function prev_down() {
 
         calc_gan();
     }
+    $('#precio_venta').focus();
 }
 
 
 $(document).ready(function () {
-    $('input').keyup(function(e){
-
-        $('#' + this.id).val($('#' + this.id).val().toUpperCase());
+    $('#precio_venta').keyup(function (e) {
+        var kc = e.keyCode || e.which;
+        if ( kc == 38 )
+            prev_up();
+        else if ( kc == 40 )
+            prev_down();
+        return false;
     });
-
     $('#costo_caja').blur(function() {
         calc_cu();
         calc_prev();
@@ -126,10 +131,12 @@ $(document).ready(function () {
     $('#gan').blur(function() {
         calc_prev();
     });
-    $('#costo_unitario').blur(function() {
-        calc_prev();
-    });
     $('#precio_venta').blur(function() {
         calc_gan();
     });
+    $('#precio_venta').on('select focus', function() {
+        $('#precio_venta')[0].setSelectionRange(0,0);
+        console.log('foo');
+    });
+
 });

@@ -142,19 +142,21 @@
              [:option {:value orig} orig]]]
     (reduce (fn [acc unit] (into acc [[:option {:value unit} unit]])) fst remaining)))
 
+;;; TODO - find a better way to use the prev stuff
 ;;; modifiable must be a set of keys
-(defpartial modify-article-row-partial [[k v] modifiable]
-  (letfn [(std-text [k v] (text-field {:class "article-new-value" :autocomplete "off" :id (name k)} k v))
+(defpartial modify-article-row-partial [[k v] modifiable & [prev]]
+  (letfn [(std-text [k v] (text-field {:class "article-new-value" :autocomplete "off" :id (name k)}
+                                      k
+                                      (or (k prev) v)))
           (dis-text [k v] (text-field {:class "disabled" :disabled true :placeholder v} k v))]
     [:tr.article-row
      [:td.prop-name (article/verbose-names-new k)]
      [:td.new-value
       (cond
        (not (modifiable k)) (dis-text k v)
-       (= :unidad k) (unit-select v)
-       (= :lin k) (lin-select v)
-       (= :ramo k) (std-text k v)
-       (= :iva k) (iva-select v)
+       (= :unidad k) (unit-select (or (k prev) v))
+       (= :lin k) (lin-select (or (k prev) v))
+       (= :iva k) (iva-select (or (k prev) v))
        :else (std-text k v))]
      [:td.helper
       (cond
@@ -167,7 +169,7 @@
          [:i.icon-chevron-down]]
         (str "Precio de venta previo: " v)])]]))
 
-(defpartial modify-article-partial [art type-mod modifiable]
+(defpartial modify-article-partial [art type-mod modifiable & [prev]]
   [:div
    (when-not (empty? (:errors (article/errors-warnings art)))
      (let [next-url (str "/articulos/modificar/"
@@ -190,7 +192,7 @@
               [:th "Nuevo valor"]
               [:th "Ayudas"]]
              [:fieldset
-              (map modify-article-row-partial (article/sort-by-vec (dissoc art :prev) [:codigo :nom_art :iva :pres :gan :costo_unitario :costo_caja :precio_venta]) (repeat modifiable))]]
+              (map modify-article-row-partial (article/sort-by-vec (dissoc art :prev) [:codigo :nom_art :iva :pres :gan :costo_unitario :costo_caja :precio_venta]) (repeat modifiable) (repeat prev))]]
             [:fieldset
              [:div.form-actions
               (submit-button {:class "btn btn-warning" :name "submit"} "Modificar")
@@ -227,7 +229,7 @@
     $('input[type=submit]').click();
 });"))
 
-(defpage "/articulos/modificar/total/:_id/" {id :_id}
+(defpage "/articulos/modificar/total/:id/" {id :id :as prev}
   (if (valid-id? id)
     (let [article (article/get-by-id id)
           content {:title "Modificando Artículo"
@@ -236,7 +238,8 @@
                                (modify-article-partial article :total
                                                        #{:img :unidad :stk :lin :ramo :iva :pres :gan
                                                          :costo_unitario :costo_caja :precio_venta
-                                                         :ubica :prov :exis :codigo :nom_art :tam})
+                                                         :ubica :prov :exis :codigo :nom_art :tam}
+                                                       prev)
                                [:p.error-notice "No existe tal artículo"])
                              [:script "$('#codigo').focus();"]
                              submit-on-enter-js]
@@ -244,7 +247,7 @@
                    :nav-bar true}]
       (main-layout-incl content [:jquery :base-css :base-js :custom-css :subnav-js :modify-js]))))
 
-(defpage "/articulos/modificar/precios/:id/" {id :id}
+(defpage "/articulos/modificar/precios/:id/" {id :id :as prev}
   (let [article (article/get-by-id id)
         modifiable #{:pres :gan :iva :precio_venta :costo_caja :costo_unitario}
         content {:title "Modificando precios"
@@ -252,13 +255,13 @@
                  :active "Artículos"
                  :content [:div.container-fluid
                            (if (seq article)
-                             (modify-article-partial article :precios modifiable)
+                             (modify-article-partial article :precios modifiable prev)
                              [:p.error-notice "No existe tal artículo"])
                            [:script "$('#pres').focus();"]
                            submit-on-enter-js]}]
     (main-layout-incl content [:base-css :jquery :base-js :verify-js :modify-js])))
 
-(defpage "/articulos/modificar/codigo/:id/" {id :id}
+(defpage "/articulos/modificar/codigo/:id/" {id :id :as prev}
   (let [article (article/get-by-id id)
         modifiable #{:codigo}
         content {:title "Modificando código"
@@ -266,18 +269,18 @@
                  :active "Artículos"
                  :content [:div.container-fluid
                            (if (seq article)
-                             (modify-article-partial article :codigo modifiable)
+                             (modify-article-partial article :codigo modifiable prev)
                              [:p.error-notice "No existe tal artículo"])
                            [:script "$('#codigo').focus();"]]}]
     (main-layout-incl content [:base-css :jquery :base-js :verify-js :modify-js])))
 
-(defpage "/articulos/modificar/nombre/:id/" {id :id}
+(defpage "/articulos/modificar/nombre/:id/" {id :id :as prev}
   (let [article (article/get-by-id id)
         modifiable #{:nom_art}
         content {:title "Modificando nombre"
                  :nav-bar true
                  :active "Artículos"
-                 :content [:div.container (modify-article-partial article :nombre modifiable)
+                 :content [:div.container (modify-article-partial article :nombre modifiable prev)
                            [:script "$('#nom_art').focus();"]
                            submit-on-enter-js]}]
     (main-layout-incl content [:base-css :jquery :base-js])))
@@ -296,36 +299,36 @@
                                                     :total "total/"))]
 
     (cond
-      (= "Modificar" (:submit pst))
-      (let [changes (article/find-changes article (dissoc pst :submit))]
-        (if (seq changes)
-          (home-layout (assoc content :content
-                              [:div.container-fluid (confirm-changes-table id changes type-mod)
-                               submit-on-enter-js]))
-          (home-layout (assoc content :content
-                              [:div.container
-                               [:p.alert.alert-warning "No hay cambios para realizar"]
-                               [:div.form-actions
-                                (link-to {:class "btn btn-success"
-                                          :id "return"}
-                                         redirect-url
-                                         "Regresar")]
-                               (javascript-tag
-                                "$('body').keypress(function(event) {
+     (= "Modificar" (:submit pst))
+     (let [changes (article/find-changes article (dissoc pst :submit))]
+       (if (seq changes)
+         (home-layout (assoc content :content
+                             [:div.container-fluid (confirm-changes-table id changes type-mod)
+                              submit-on-enter-js]))
+         (home-layout (assoc content :content
+                             [:div.container
+                              [:p.alert.alert-warning "No hay cambios para realizar"]
+                              [:div.form-actions
+                               (link-to {:class "btn btn-success"
+                                         :id "return"}
+                                        redirect-url
+                                        "Regresar")]
+                              (javascript-tag
+                               "$('body').keypress(function(event) {
   var kc = event.keyCode || event.which;
   if ( kc == 13 )
     window.location = $('#return').attr('href');
 });")]))))
-      (= "Confirmar" (:submit pst))
-      (let [modified (article/update-article! id (dissoc pst :submit))]
-        (if (= :success modified)
-          (do (logs/add-logs! (:_id pst) :updated (dissoc pst :submit) date)
-              (session/flash-put! :messages '({:type "alert-success" :text "El artículo ha sido modificado"}))
-              (resp/redirect redirect-url))
-          (do (session/flash-put! :messages (for [[k es] modified e es]
-                                              {:type "alert-error" :text e}))
-              (resp/redirect (str "/articulos/modificar/" (name type-mod) "/" id "/")))))
-      :else "Invalid")))
+     (= "Confirmar" (:submit pst))
+     (let [modified (article/update-article! id (dissoc pst :submit))]
+       (if (= :success modified)
+         (do (logs/add-logs! (:_id pst) :updated (dissoc pst :submit) date)
+             (session/flash-put! :messages '({:type "alert-success" :text "El artículo ha sido modificado"}))
+             (resp/redirect redirect-url))
+         (do (session/flash-put! :messages (for [[k es] modified e es]
+                                             {:type "alert-error" :text e}))
+             (render (str "/articulos/modificar/" (name type-mod) "/" id "/") pst))))
+     :else "Invalid")))
 
 ;;; Search for an article
 (defpartial search-article-provider-js []
@@ -793,18 +796,19 @@
                  (article/get-by-search query))]
     (search-add-results-table data)))
 
-(defpartial add-article-row-partial [[k v] modifiable]
-  (letfn [(std-text [k v] (text-field {:class "article-new-value" :autocomplete "off" :id (name k)} k v))
+(defpartial add-article-row-partial [[k v] modifiable & [prev]]
+  (letfn [(std-text [k v] (text-field {:class "article-new-value" :autocomplete "off" :id (name k)}
+                                      k
+                                      (or (k prev) v)))
           (dis-text [k v] (text-field {:class "disabled" :disabled true :placeholder v} k v))]
     [:tr.article-row
      [:td.prop-name (article/verbose-names-new k)]
      [:td.new-value
       (cond
        (not (modifiable k)) [:div (dis-text k v) (hidden-field k v)]
-       (= :unidad k) (unit-select v)
-       (= :lin k) (lin-select v)
-       (= :ramo k) (std-text k v)
-       (= :iva k) (iva-select v)
+       (= :unidad k) (unit-select (or (k prev) v))
+       (= :lin k) (lin-select (or (k prev) v))
+       (= :iva k) (iva-select (or (k prev) v))
        :else (std-text k v))]
      [:td.helper
       (cond
@@ -817,10 +821,10 @@
          [:i.icon-chevron-down]]
         (str "Precio de venta previo: " v)])]]))
 
-(defpartial add-article-form [article modifiable]
+(defpartial add-article-form [article modifiable & [prev]]
   (let [verbose article/verbose-names-new
         date (utils/now)]
-    (form-to {:class "form form-horizontal"} [:post "/articulos/nuevo/"]
+    (form-to {:class "form form-horizontal"} [:post "/articulos/agregar/"]
       [:table.table.table-condensed
        [:tr
         [:th "Nombre de campo"]
@@ -829,7 +833,8 @@
        [:fieldset
         (map add-article-row-partial
              (article/sort-by-vec (dissoc article :prev) article/new-art-props-sorted)
-             (repeat modifiable))]]
+             (repeat modifiable)
+             (repeat prev))]]
       [:div.form-actions
        (submit-button {:class "btn btn-primary"} "Agregar este artículo")
        (link-to {:class "btn btn-danger"} "/" "Cancelar y regresar")])))
@@ -838,44 +843,56 @@
   (javascript-tag
    "$('form:first *:input[type!=hidden]:first').focus();"))
 
-(defpage "/articulos/agregar/codnom/:id/" {id :id}
+(defpage "/articulos/agregar/codnom/:_id/" {id :_id :as pst}
+
   (let [article (article/get-by-id id)
         modifiable #{:codigo :nom_art}
         title     "Alta por código y nombre"
         content {:title title
                  :active "Artículos"
-                 :content [:div.container-fluid (add-article-form article modifiable)
+                 :content [:div.container-fluid
+                           (when-not (empty? (:errors (article/errors-warnings article)))
+                             (let [next-url (str "/articulos/agregar/codnom/"
+                                                 id
+                                                 "/")]
+                               [:div.alert.alert-error
+                                [:p "Este artículo contiene errores, se recomienda corregirlos antes de intentar modificar el artículo en este módulo"]
+                                (link-to {:class "btn"} (str "/ajustes/errores/" id "/?next=" next-url) "Corregir errores")]))
+                           (add-article-form article modifiable pst)
                            focus-on-first-input-js]
                  :nav-bar true}]
     (main-layout-incl content [:base-css :search-css :jquery :base-js :jquery-ui :verify-js :modify-js])))
 
-(defpage "/articulos/agregar/" []
-  (let [modifiable #{:img :unidad :stk :lin :ramo :iva :pres :gan :costo_unitario :costo_caja :precio_venta :ubica :prov :exis :codigo :nom_art :tam}
+(defpage "/articulos/agregar/" {:as pst}
+  (let [modifiable #{:img :unidad :stk :lin :ramo :iva :pres :gan :costo_caja :precio_venta :ubica :prov :exis :codigo :nom_art :tam}
         content {:title "Alta total de un artículo"
                  :active "Artículos"
                  :nav-bar true
                  :content [:div.container-fluid
                            (add-article-form
                             (dissoc (article/map-to-article {}) :prev)
-                            modifiable)]}]
+                            modifiable
+                            pst)
+                           focus-on-first-input-js]}]
     (main-layout-incl content [:base-css :jquery :base-js :verify-js :modify-js])))
 
-(defpage [:post "/articulos/nuevo/"] {:as post}
-  (let [to-add (dissoc post :_id :prev)
+(defpage [:post "/articulos/agregar/"] {:as post}
+  (let [to-add (dissoc post :_id :prev :id)
         date (utils/now)
         added (article/add-article! to-add)]
     (if (= :success added)
       (let [new-id (:_id (article/get-by-match to-add))]
         (logs/add-logs! (str new-id) :added to-add date)
         (session/flash-put! :messages '({:type "alert-success" :text "El artículo ha sido agregado."}))
-        (resp/redirect "/articulos/"))
+        (resp/redirect (if (:_id post)
+                         "/articulos/agregar/codnom/"
+                         "/articulos/agregar/")))
       (do
         (session/flash-put! :messages (for [[k es] added e es]
-                                          {:type "alert-error" :text e}))
-        (resp/redirect (if (:_id post)
-                         (str "/articulos/agregar/codnom/" (:_id post) "/")
-                         "/articulos/agregar/"))))))
-
+                                        {:type "alert-error" :text e}))
+        (if-not (:_id post)
+          (render "/articulos/agregar/" post)
+          (GET--articulos--agregar--codnom-->_id-- post))))))
 
 ;;; Article images
 (defpartial show-image [img-path]

@@ -227,7 +227,8 @@
     (mod-map :gan (to-double (:gan m)))
     (mod-map :exis (to-int (:exis m)))
     (mod-map :codigo (:codigo m))
-    (mod-map :nom_art (:nom_art m))
+    (mod-map :nom_art (when (string? (:nom_art m))
+                        (str/upper-case (:nom_art m))))
     (mod-map :tam (:tam m))
     @res))
 
@@ -268,7 +269,8 @@
     (when (to-add :tam) (mod-map :tam (:tam m)))
     @res))
 
-(defn fix-maps [ms] (map map-to-article ms))
+(defn fix-maps [ms]
+  (map map-to-article ms))
 
 ;;; Deprecated
 (defn coerce-to-useful-types [ms]
@@ -393,7 +395,7 @@ csv of the articles"
   (keys (fetch-one article-coll)))
 
 (defn valid-barcode? [s]
-  (every? (comp is-int? str) s))
+  (every? #{\0 \1 \2 \3 \4 \5 \6 \7 \8 \9} s))
 
 (defn add-fields [article]
   (let [iva (when (valid-iva? (:iva article)) (:iva article))

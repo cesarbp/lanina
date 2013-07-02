@@ -58,7 +58,7 @@ function verify_name(name){
                 validate(id);
                 enable_submit();
             }
-        })
+        });
     } else {
         validate(id);
         enable_submit();
@@ -110,4 +110,4 @@ $(document).ready(function() {
         }
     });
 
-})
+});
