@@ -5,9 +5,14 @@
   (:require [lanina.models.credit :as credit]
             [lanina.utils :refer [coerce-to]]
             [hiccup.element :refer [link-to]]
-            [lanina.views.common :refer [home-layout]]
+            [lanina.views.common :refer [home-layout main-layout-incl]]
             [lanina.views.utils :refer [format-decimal flash-message]]
-            [noir.response :refer [redirect]]))
+            [noir.response :refer [redirect]]
+            [hiccup.element :refer [javascript-tag]]))
+
+(def focus-on-first-input-js
+  (javascript-tag
+   "$('form:first *:input[type!=hidden]:first').focus();"))
 
 (defpartial install-form
   []
@@ -24,12 +29,13 @@
             (submit-button {:class "btn btn-primary"} "Crear Estante")]))
 
 (defn credit-td
-  [{:keys [r c name article date]}]
+  [{:keys [r c name articles date]}]
   [:ul.unstyled {:style "text-align:center;"}
    [:li (if name
           (link-to (str "/credito/" r "/" c "/") name)
           (link-to (str "/credito/nuevo/" r "/" c "/") "Crear nuevo"))]
-   [:li (if article article "")]
+   (for [art articles]
+     [:li (:name art)])
    [:li (if date (str "Fecha: " date) "")]])
 
 (defpartial credits-table
@@ -54,21 +60,24 @@
    [:option {:value "months"} "Meses"]])
 
 (defpartial new-credit-form
-  [r c]
+  [r c n]
   (form-to {:class "form form-horizontal"} [:post (str "/credito/nuevo/" r "/" c "/")]
            [:legend "Nuevo crédito"]
            [:div.control-group
-            (label {:class "control-label"} :n "Nombre de la persona")
+            (label {:class "control-label"} :pname "Nombre de la persona")
             [:div.controls
-             (text-field {:autocomplete "off"} :n)]]
-           [:div.control-group
-            (label {:class "control-label"} :article "Nombre del artículo")
-            [:div.controls
-             (text-field {:autocomplete "off"} :article)]]
-           [:div.control-group
-            (label {:class "control-label"} :price "Precio del artículo")
-            [:div.controls
-             (text-field {:autocomplete "off"} :price)]]
+             (text-field {:autocomplete "off"} :pname)]]
+           (for [i (range n) :let [iname (keyword (str "article" i))
+                                   pname (keyword (str "price" i))]]
+             (list
+              [:div.control-group
+               (label {:class "control-label"} iname "Nombre del artículo")
+               [:div.controls
+                (text-field {:autocomplete "off"} iname)]]
+              [:div.control-group
+               (label {:class "control-label"} pname "Precio del artículo")
+               [:div.controls
+                (text-field {:autocomplete "off"} pname)]]))
            [:div.form-actions
             (submit-button {:class "btn btn-primary"} "Crear")
             (link-to {:class "btn btn-success"} "/credito/" "Regresar")]))
@@ -84,26 +93,35 @@
       [:td (format-decimal p)])]])
 
 (defpartial add-payment-form
-  [r c]
+  [r c articles]
   (form-to {:class "form-inline"} [:post (str "/credito/" r "/" c "/pago/")]
            (text-field {:autocomplete "off" :class "input-small"} :pay)
+           [:label "Liberar artículos:"]
+           (for [[{:keys [name purchased]} i] (map vector articles (range)) :when (not purchased)]
+             [:label.checkbox
+              (check-box (keyword (str "to-purchase" i)) false "true")
+              name])
            (submit-button {:class "btn btn-primary"} "Agregar Pago")))
 
 (defpartial show-credit
-  [{:keys [r c name payments article price date free]}]
+  [{:keys [r c name payments articles date free]}]
   [:ul.unstyled
    [:li "Cliente: " name]
-   [:li "Artículo: " article]
-   [:li "Precio: " price]
+   (for [{:keys [name price purchased]} articles]
+     (list
+      [:li "Artículo: " name]
+      [:li "Precio: " price]
+      [:li "Pagado: " (if purchased [:i.icon-ok] [:i.icon-remove])]
+      [:hr]))
    [:li "Fecha de Inicio: " date]
    [:li "Pagos"]
    [:li (if (seq payments)
           (payments-table payments)
           [:p.alert.alert-info "No ha realizado ningún pago"])]
-   [:li "Restante: " [:strong (format-decimal (credit/calc-remaining payments price))]]
+   [:li "Restante: " [:strong (format-decimal (credit/calc-remaining payments articles))]]
    [:li (if free
           [:p.notice "Los pagos ya se han completado"]
-          (add-payment-form r c))]])
+          (add-payment-form r c articles))]])
 
 (defpartial search-client-form
   []
@@ -142,12 +160,23 @@
                  :nav-bar true}]
     (home-layout content)))
 
-(defpage [:post "/credito/:r/:c/pago/"] {:keys [pay r c]}
+(defn parse-to-purchase
+  [pst]
+  (->> pst
+       (keys)
+       (map name)
+       (filter (partial re-seq #"to-purchase"))
+       (map (partial re-seq #"\d+"))
+       (map first)
+       (map (coerce-to Long))))
+
+(defpage [:post "/credito/:r/:c/pago/"] {:keys [pay r c] :as pst}
   (let [r ((coerce-to Long) r)
         c ((coerce-to Long) c)
         pay ((coerce-to Double) pay)
-        ans (when (and r c pay (< 0 pay)) (credit/add-payment! r c pay))]
-    (if ans
+        to-purchase (parse-to-purchase pst)
+        ans (when (and r c pay (< 0 pay)) (credit/add-payment! r c pay to-purchase))]
+    (if (= :success (:resp ans))
       (flash-message "Pago agregado" "success")
       (flash-message "El pago no pudo ser agregado" "error"))
     (if (:freed ans)
@@ -156,13 +185,31 @@
         (redirect "/credito/"))
       (redirect (str "/credito/" r "/" c "/")))))
 
-(defpage [:post "/credito/nuevo/:r/:c/"] {:keys [r c n article price]}
+(defn parse-articles
+  [pst]
+  (let [ks (->> pst
+                (keys)
+                (map name)
+                (filter (partial re-seq #"article"))
+                (map keyword))
+        ns (->> ks
+                (map name)
+                (map (partial re-seq #"\d+"))
+                (map first)
+                (map (coerce-to Long)))
+        ps (->> ns
+                (map (partial str "price"))
+                (map keyword))]
+    (into {}
+          (for [[k p i] (map vector ks ps (range)) :let [n ((coerce-to Double -1.0) (p pst))] :when (<= 0 n)]
+               {(k pst) n}))))
+
+(defpage [:post "/credito/nuevo/:r/:c/"] {:keys [r c pname] :as pst}
   (let [r ((coerce-to Long) r)
         c ((coerce-to Long) c)
-        price ((coerce-to Double) price)]
-    (if (and r c price (seq n) (seq article)
-               (< 0 price))
-      (when (credit/create-credit! r c n article price)
+        articles (parse-articles pst)]
+    (if (and r c (seq pname) (seq articles))
+      (when (credit/create-credit! r c pname articles)
         (flash-message "El crédito ha sido creado" "success"))
       (flash-message "El crédito no pudo ser creado" "error"))
     (redirect "/credito/")))
@@ -177,20 +224,33 @@
       (flash-message "Estante no creado, verifique sus entradas" "error"))
     (redirect "/credito/")))
 
-(defpage "/credito/nuevo/:r/:c/" {:keys [r c]}
+(defpartial ask-number-articles-form
+  [r c]
+  (form-to {:class "form form-horizontal"} [:get (str "/credito/nuevo/" r "/" c "/")]
+           [:div.control-group
+            (label {:class "control-label"} :n "Número de artículos")
+            [:div.controls
+             (text-field :n)]]
+           [:div.form-actions
+            (submit-button {:class "btn btn-primary"} "Continuar")]))
+
+(defpage "/credito/nuevo/:r/:c/" {:keys [r c n]}
   (let [r ((coerce-to Long) r)
         c ((coerce-to Long) c)
+        n ((coerce-to Long) n)
         available? (when (and r c) (credit/available? r c))
         content {:content [:div.container-fluid
-                           (if available?
-                             (new-credit-form r c)
-                             [:div.alert.alert-error
-                              [:p "Esta ubicación no está disponible"]
-                              (link-to {:class "btn btn-success"} "/credito/" "Regresar")])]
+                           (cond
+                            (and r c available? (not n)) (ask-number-articles-form r c)
+                            (and r c n available?) (new-credit-form r c n)
+                            :else [:div.alert.alert-error
+                                   [:p "Esta ubicación no está disponible"]
+                                   (link-to {:class "btn btn-success"} "/credito/" "Regresar")])
+                           focus-on-first-input-js]
                  :title "Nuevo Crédito"
                  :active "Créditos"
                  :nav-bar true}]
-    (home-layout content)))
+    (main-layout-incl content [:base-css :jquery])))
 
 (defpage "/credito/" []
   (let [installed? (credit/installed?)
@@ -203,9 +263,10 @@
              [:h2 "Instalación"]
              (install-form)))
         content {:content [:div.container-fluid
-                           c
-                           [:hr]
-                           (search-client-form)]
+                           (if installed?
+                             (list (search-client-form)
+                                   [:hr]))
+                           c]
                  :title "Créditos"
                  :nav-bar true
                  :active "Créditos"}]
@@ -234,3 +295,7 @@
                  :title "Créditos"
                  :active "Créditos"}]
     (home-layout content)))
+
+(defpage "/credito/restart/" []
+  (credit/restart!)
+  (redirect "/credito/"))

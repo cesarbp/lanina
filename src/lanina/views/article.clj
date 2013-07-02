@@ -436,21 +436,21 @@
 (defpage "/articulos/global/" []
   (let [url "/articulos/global/"
         content {:content (article-instant-search-form url)
-                 :title "Agregar por código nombre"
+                 :title "Consultas globales"
                  :active "Artículos"
                  :nav-bar true}]
     (main-layout-incl content [:base-css :search-css :jquery :base-js :search-js])))
 (defpage "/articulos/ventas/" []
   (let [url "/articulos/ventas/"
         content {:content (article-instant-search-form url)
-                 :title "Agregar por código nombre"
+                 :title "Consulta para ventas"
                  :active "Artículos"
                  :nav-bar true}]
     (main-layout-incl content [:base-css :search-css :jquery :base-js :search-js])))
 (defpage "/articulos/proveedor/" []
   (let [url "/articulos/proveedor/"
         content {:content (article-instant-search-form url)
-                 :title "Agregar por código nombre"
+                 :title "Consulta para proveedor"
                  :active "Artículos"
                  :nav-bar true}]
     (main-layout-incl content [:base-css :search-css :jquery :base-js :search-js])))

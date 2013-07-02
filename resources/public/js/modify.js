@@ -138,5 +138,14 @@ $(document).ready(function () {
         $('#precio_venta')[0].setSelectionRange(0,0);
         console.log('foo');
     });
-
+    $('form').submit(function () {
+        var ans = confirm("Desea hacer correcciones?");
+        if ( ans )
+        {
+            $('form:first *:input[type!=hidden]:first')[0].setSelectionRange(0,0);
+            $('form:first *:input[type!=hidden]:first').focus();
+            return false;
+        }
+        return true;
+    });
 });

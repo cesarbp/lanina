@@ -5,21 +5,28 @@
 
 (def credit-coll :credit)
 
-(def credit-fields #{:r :c :name :payments :article :price :date :free})
-
+(def credit-fields #{:r :c :name :payments :articles :date :free})
+(def articles-fields #{:name :price :purchased})
 (def verbose {:payments "Pagos"
               :name "Nombre"
               :article "Artículo"
               :price "Precio"
               :date "Fecha de inicio"})
 
+(defn new-articles
+  [articles]
+  (mapv (fn [[name price]]
+          {:name name
+           :price price
+           :purchased false})
+        articles))
+
 (defn new-credit
-  [[r c] name article price]
+  [[r c] name articles]
   {:r r
    :c c
    :name name
-   :article article
-   :price price
+   :articles articles
    :payments []
    :date nil})
 
@@ -32,7 +39,7 @@
   (create-collection! credit-coll)
   (insert! credit-coll {:n "setup" :rows r :columns c})
   (doseq [i (range r) c (range c)]
-    (insert! credit-coll (new-credit [i c] nil nil nil)))
+    (insert! credit-coll (new-credit [i c] nil nil)))
   true)
 
 (defn get-rc
@@ -47,7 +54,9 @@
 
 (defn available?
   ([r c] (available? [r c]))
-  ([l] (nil? (-> l get-credit :name seq))))
+  ([l] (let [cred (get-credit l)]
+         (or (nil? (:name cred))
+             (:free cred)))))
 
 (defn get-table
   []
@@ -61,39 +70,72 @@
   (collection-exists? credit-coll))
 
 (defn calc-remaining
-  [payments price]
+  [payments articles]
   (->> payments
        (reduce (fn [s [_ p]]
                     (+ s p))
                0)
-       (- price)
+       (- (reduce + (map :price articles)))
        (max 0)))
+
+(defn purchase-all-articles
+  [credit]
+  (let [n (count (:articles credit))]
+    (reduce #(update-in %1 [:articles %2 :purchased] (constantly true))
+            credit
+            (range n))))
 
 (defn verify-credit!
   [r c]
-  (let [{:keys [price payments] :as m} (get-credit r c)
+  (let [{:keys [payments articles] :as m} (get-credit r c)
+        price (reduce + (map :price articles))
         t (reduce + (map second payments))]
     (if (>= t price)
-      (let [ncredit (-> m (dissoc :r :c) (assoc :free true))]
+      (let [ncredit (-> m (dissoc :r :c) (assoc :free true) (purchase-all-articles))]
         (update! credit-coll m ncredit)
-        (insert! credit-coll (new-credit [r c] nil nil nil))
+        (insert! credit-coll (new-credit [r c] nil nil))
         true)
       false)))
 
+(defn purchaseable?
+  [credit art-ns pay]
+  (let [{:keys [articles payments]} credit
+        used-money (->> articles
+                        (filter :purchased)
+                        (map :price)
+                        (reduce +))
+        cost (->> art-ns
+                  (map articles)
+                  (map :price)
+                  (reduce +))
+        paid-so-far (reduce + (map second payments))
+        free-money (- (+ pay paid-so-far)
+                      used-money
+                      cost)]
+    (<= 0 free-money)))
+
 (defn add-payment!
-  [r c pay]
+  [r c pay to-purchase]
   (let [m (get-credit r c)
-        date (now)]
-    (update! credit-coll m (update-in m [:payments] conj [date pay]))
-    (let [freed (verify-credit! r c)]
-      {:resp :success :freed freed})))
+        date (now)
+        purchaseable? (purchaseable? m to-purchase pay)]
+    (if purchaseable?
+      (let [new-m (update-in m [:payments] conj [date pay])
+            new-m (reduce
+                   #(update-in %1 [:articles %2 :purchased] (constantly true))
+                   new-m
+                   to-purchase)]
+        (update! credit-coll m new-m)
+        (let [freed (verify-credit! r c)]
+          {:resp :success :freed freed}))
+      {:resp :error :error :not-purchaseable})))
 
 (defn create-credit!
-  [r c name article price]
+  [r c name articles]
   (let [cred (get-credit r c)]
     (when (available? r c)
       (let [new-cred (assoc cred
-                       :name name :article article :price price
+                       :name name :articles (new-articles articles)
                        :date (now))]
         (update! credit-coll cred new-cred)
         true))))
@@ -112,4 +154,8 @@
 
 (defn find-client
   [name]
-  (fetch credit-coll :where {:name (re-pattern (str "(?i)" name))} :sort {:date 1}))
+  (fetch credit-coll :where {:name (re-pattern (str "(?i)" name))} :sort {:date -1}))
+
+(defn restart!
+  []
+  (drop-coll! credit-coll))
