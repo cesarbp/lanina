@@ -8,6 +8,7 @@
             [lanina.models.article  :as article]
             [lanina.models.employee :as employee]
             [clj-time.core          :as time]
+            [lanina.views.utils :refer [now]]
             [noir.session           :as session]
             [lanina.models.shopping :as shop]
             [noir.response         :as resp]
@@ -47,7 +48,6 @@
                            [:script "$('input:eq(1)').focus();"]]
                  :nav-bar true
                  :active "Listas"}]
-    (println (seq arts))
     (main-layout-incl content [:base-css :jquery :base-js])))
 
 (defpartial assign-employees-row [[n ids]]
@@ -95,31 +95,32 @@
   (logs/remove-logs)
   "done!")
 
-(defpartial list-as-printed [employee date barcodes names]
+(defpartial list-as-printed [employee date barcodes names prices]
   [:pre.prettyprint.linenums {:style "max-width:235px;"}
    [:ol.linenums {:style "list-style-type:none;"}
     [:p
      [:li {:style "text-align:center;"} "\"L A N I Ñ A\""]
      [:li {:style "text-align:center;"} (str "LISTA PARA EMPLEADO: " (clojure.string/upper-case employee))]
      [:li {:style "text-align:center;"} (str "FECHA: " date)]
-     (map (fn [bc name]
-            [:p [:li  bc]
+     (map (fn [bc price name]
+            [:p [:li bc " " price]
              [:li name]])
-          barcodes names)]]])
+          barcodes prices names)]]])
 
 (defpage [:post "/listas/imprimir/"] {:as post}
   (let [remove (:remove post)
-        now (time/now)
-        date (str (format "%02d" (time/day now)) "/" (format "%02d" (time/month now)) "/" (format "%02d" (time/year now)))
+        date (now)
         employee (:employee post)
         ids (read-string (:ids post))
-        arts (map article/get-by-id ids)
+        arts (sort-by :nom_art (map article/get-by-id ids))
         barcodes (map :codigo arts)
         names    (map :nom_art arts)
+        prices (map :precio_venta arts)
         content {:title "Lista Impresa"
                  :nav-bar true
                  :active "Listas"
-                 :content [:div.container-fluid (list-as-printed employee date barcodes names)]}]
+                 :content [:div.container-fluid (list-as-printed employee date barcodes names prices)]}]
+    (printing/print-employee-list arts date employee)
     (when remove
       (doseq [id ids]
         (logs/remove-log! id))
@@ -178,28 +179,37 @@
 
 (defn fetch-prods
   [pairs]
-  (reduce (fn [acc [bc times]]
-            (let [article (get-article (name bc))
-                  name (:nom_art article)
-                  type (if (settings/valid-iva? (:iva article))
-                         (if (< 0 (:iva article))
-                           "gvdo"
-                           "exto")
-                         "exto")
-                  price (:costo_caja article)
-                  total (if (number? price) (* price times) 0.0)
-                  art {:type type :iva (:iva article) :quantity times :_id bc :codigo (:codigo article)
-                       :nom_art name :costo_caja price :costo_unitario (:costo_unitario article)
-                       :total total :pres (:pres article) :lin (:lin article) :prov (:prov article)
-                       :ramo (:ramo article)}]
-              (conj acc art)))
-          [] pairs))
+  (let [boxes (atom 0)
+        n-arts (atom 0)
+        grand-total (atom 0)
+        prods
+        (reduce (fn [acc [bc times]]
+                  (let [article (get-article (name bc))
+                        name (:nom_art article)
+                        type (if (settings/valid-iva? (:iva article))
+                               (if (< 0 (:iva article))
+                                 "gvdo"
+                                 "exto")
+                               "exto")
+                        price (:costo_caja article)
+                        total (if (number? price) (* price times) 0.0)
+                        art {:type type :iva (:iva article) :quantity times :_id bc :codigo (:codigo article)
+                             :nom_art name :costo_caja price :costo_unitario (:costo_unitario article)
+                             :total total :pres (:pres article) :lin (:lin article) :prov (:prov article)
+                             :ramo (:ramo article)}]
+                    (swap! boxes + (:quantity art))
+                    (swap! n-arts inc)
+                    (swap! grand-total + (:total art))
+                    (conj acc art)))
+                [] pairs)]
+    {:boxes @boxes :n-arts @n-arts :prods prods :total @grand-total}))
 
 (defpage "/listas/compras/nuevo/" {:as items}
   (let [pairs (sanitize-ticket items)
-        prods (fetch-prods pairs)
+        {:keys [prods boxes n-arts total]} (fetch-prods pairs)
+        prods (sort-by :nom_art prods)
         date (now)
         time (now-hour)]
     (shop/insert-purchase! prods date time)
-    (printing/print-purchase prods)
+    (printing/print-purchase prods boxes total n-arts date)
     (resp/redirect "/listas/compras/")))

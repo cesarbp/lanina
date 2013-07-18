@@ -294,14 +294,14 @@ function draw_artname_modal() {
     var modal_base = readFile('/js/art-name-modal.html');
     $('#main').append(modal_base);
     $('#art-name-modal').modal('toggle');
-    $('#art-name-input').focus();
+    $('#artname-quantity').focus();
 
 }
 function artnames_rows(arts){
     var template = '<tr class="art-name-pos selectable"><td>{bc}</td><td>{name}</td><td>{date}</td><td>{price}</td></tr>';
     var top = '<tr class="art-name-pos unselectable"><th>Código</th><th>Nombre</th><th>Fecha</th><th>Precio</th></tr>';
     return top + arts.map(function(o){
-        var price = o.precio_venta;
+        var price = o.costo_caja;
 
         var html = template.replace('{bc}', o['codigo']).replace('{name}', o['nom_art']).replace('{date}', o['date']).replace('{price}', parseFloat(price).toFixed(2).toString());
         return html;
@@ -336,7 +336,7 @@ function artname_table_selects() {
             add_article_row(name, quantity);
             remove_artname_modal();
         }
-    })
+    });
 }
 
 function add_artname() {

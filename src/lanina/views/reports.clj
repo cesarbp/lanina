@@ -86,7 +86,7 @@
       (for [n verbose]
         [:td {:style "cursor: hand; cursor: pointer;"} n [:i.icon-resize-vertical.pull-right]])]]
     [:tbody
-     (report-rows rows)]]])
+     (report-rows (take 500 rows))]]])
 
 (defpartial table-sorter-js
   []

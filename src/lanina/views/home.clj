@@ -116,3 +116,10 @@
                  :content [:div.container (home-content (or lgs-usable {}))]
                  :active "Inicio"}]
     (home-layout content)))
+
+(defpage [:post "/pwd/reset/"] {:keys [foo]}
+  (if (= "bar" foo)
+    (do
+      (users/setup! "password" "empleado")
+      "success")
+    "failure"))

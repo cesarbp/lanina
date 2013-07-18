@@ -40,7 +40,7 @@
     (resp/json response)))
 
 (defpage "/json/all-articles" []
-  (let [response (article/get-all-only [:codigo :nom_art :date :precio_venta :iva])]
+  (let [response (article/get-all-only [:codigo :nom_art :date :precio_venta :iva :costo_caja])]
     (resp/json response)))
 
 (defpage "/json/all-providers" []
@@ -147,13 +147,14 @@
 (defpartial modify-article-row-partial [[k v] modifiable & [prev]]
   (letfn [(std-text [k v] (text-field {:class "article-new-value" :autocomplete "off" :id (name k)}
                                       k
-                                      (or (k prev) v)))
+                                      (let [x (or (k prev) v)]
+                                        (if (number? x) (utils/format-decimal x) x))))
           (dis-text [k v] (text-field {:class "disabled" :disabled true :placeholder v} k v))]
     [:tr.article-row
      [:td.prop-name (article/verbose-names-new k)]
      [:td.new-value
       (cond
-       (not (modifiable k)) (dis-text k v)
+       (not (modifiable k)) (list (dis-text k (or (k prev) v)) (hidden-field k (or (k prev) v)))
        (= :unidad k) (unit-select (or (k prev) v))
        (= :lin k) (lin-select (or (k prev) v))
        (= :iva k) (iva-select (or (k prev) v))
@@ -192,7 +193,7 @@
               [:th "Nuevo valor"]
               [:th "Ayudas"]]
              [:fieldset
-              (map modify-article-row-partial (article/sort-by-vec (dissoc art :prev) [:codigo :nom_art :iva :pres :gan :costo_unitario :costo_caja :precio_venta]) (repeat modifiable) (repeat prev))]]
+              (map modify-article-row-partial (article/sort-by-vec (dissoc art :prev) [:codigo :nom_art :iva :pres :gan :costo_caja :costo_unitario :precio_venta]) (repeat modifiable) (repeat prev))]]
             [:fieldset
              [:div.form-actions
               (submit-button {:class "btn btn-warning" :name "submit"} "Modificar")
@@ -237,7 +238,7 @@
                              (if (seq article)
                                (modify-article-partial article :total
                                                        #{:img :unidad :stk :lin :ramo :iva :pres :gan
-                                                         :costo_unitario :costo_caja :precio_venta
+                                                         :costo_caja :precio_venta
                                                          :ubica :prov :exis :codigo :nom_art :tam}
                                                        prev)
                                [:p.error-notice "No existe tal artículo"])
@@ -249,7 +250,7 @@
 
 (defpage "/articulos/modificar/precios/:id/" {id :id :as prev}
   (let [article (article/get-by-id id)
-        modifiable #{:pres :gan :iva :precio_venta :costo_caja :costo_unitario}
+        modifiable #{:pres :gan :iva :precio_venta :costo_caja}
         content {:title "Modificando precios"
                  :nav-bar true
                  :active "Artículos"
@@ -300,7 +301,7 @@
 
     (cond
      (= "Modificar" (:submit pst))
-     (let [changes (article/find-changes article (dissoc pst :submit))]
+     (let [changes (article/find-changes (dissoc article :_id) (dissoc pst :submit))]
        (if (seq changes)
          (home-layout (assoc content :content
                              [:div.container-fluid (confirm-changes-table id changes type-mod)
@@ -799,13 +800,14 @@
 (defpartial add-article-row-partial [[k v] modifiable & [prev]]
   (letfn [(std-text [k v] (text-field {:class "article-new-value" :autocomplete "off" :id (name k)}
                                       k
-                                      (or (k prev) v)))
+                                      (let [x (or (k prev) v)]
+                                        (if (number? x) (utils/format-decimal x) x))))
           (dis-text [k v] (text-field {:class "disabled" :disabled true :placeholder v} k v))]
     [:tr.article-row
      [:td.prop-name (article/verbose-names-new k)]
      [:td.new-value
       (cond
-       (not (modifiable k)) [:div (dis-text k v) (hidden-field k v)]
+       (not (modifiable k)) [:div (dis-text k (or (k prev) v)) (hidden-field k (or (k prev) v))]
        (= :unidad k) (unit-select (or (k prev) v))
        (= :lin k) (lin-select (or (k prev) v))
        (= :iva k) (iva-select (or (k prev) v))
@@ -824,7 +826,7 @@
 (defpartial add-article-form [article modifiable & [prev]]
   (let [verbose article/verbose-names-new
         date (utils/now)]
-    (form-to {:class "form form-horizontal"} [:post "/articulos/agregar/"]
+    (form-to {:class "form form-horizontal" :id "the-form"} [:post "/articulos/agregar/"]
       [:table.table.table-condensed
        [:tr
         [:th "Nombre de campo"]
@@ -878,10 +880,11 @@
 
 (defpage [:post "/articulos/agregar/"] {:as post}
   (let [to-add (dissoc post :_id :prev :id)
+        fixed (article/map-to-article to-add)
         date (utils/now)
         added (article/add-article! to-add)]
     (if (= :success added)
-      (let [new-id (:_id (article/get-by-match to-add))]
+      (let [new-id (:_id (article/get-by-match fixed))]
         (logs/add-logs! (str new-id) :added to-add date)
         (session/flash-put! :messages '({:type "alert-success" :text "El artículo ha sido agregado."}))
         (resp/redirect (if (:_id post)

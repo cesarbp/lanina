@@ -194,20 +194,18 @@
       (do (session/flash-put! :messages (list {:type "alert-error" :text "El directorio especificado es inválido o no existe"}))
           (resp/redirect "/ajustes/")))))
 
+;;; TODO - find an efficient way to show errors
+
 (defpage "/ajustes/" []
-  (let [errors-warnings (error/find-errors-warnings)
-        error-count (:error-count errors-warnings)
-        warning-count (:warning-count errors-warnings)
+  (let [;; errors-warnings (error/find-errors-warnings)
+        ;; error-count (:error-count errors-warnings)
+        ;; warning-count (:warning-count errors-warnings)
         previous-backup-settings (model/get-backup-settings)
         content {:title "Ajustes"
                  :content [:div
                            [:div.container-fluid
                             {:style "background-image: url(\"../img/bedge_grunge.png\")"} (change-iva-form)]
                            [:div.container-fluid (change-password-form)]
-                           [:div.container-fluid
-                            {:style "background-image: url(\"../img/bedge_grunge.png\")"} (error-notice error-count)]
-                           [:div.container-fluid
-                            (warning-notice warning-count)]
                            [:div.container-fluid
                             (change-modify-threshold-form)]
                            [:div.container-fluid

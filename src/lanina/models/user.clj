@@ -18,7 +18,7 @@
 
 (def users-coll :users)
 
-(def users ["employee" "admin"])
+(def users ["admin" "employee"])
 
 (def verbose
   {"employee" "Empleado"
@@ -26,11 +26,11 @@
 
 (defn setup! [admin-pass employee-pass]
   (db/maybe-init)
-  (when-not (and (collection-exists? users-coll)  (seq (fetch-one users-coll :where {:name "empleado"})))
-    (db/maybe-init)
-    (create-collection! users-coll)
-    (insert! users-coll {:name "admin" :pass (crypt/encrypt admin-pass)})
-    (insert! users-coll {:name "employee" :pass (crypt/encrypt employee-pass)})))
+  (when (collection-exists? users-coll)
+    (drop-coll! users-coll))
+  (create-collection! users-coll)
+  (insert! users-coll {:name "admin" :pass (crypt/encrypt admin-pass)})
+  (insert! users-coll {:name "employee" :pass (crypt/encrypt employee-pass)}))
 
 (defn login! [user pass]
   "Logs in a user, creates the session and returns false if it fails"

@@ -35,6 +35,8 @@
            (deny-and-home))
 (pre-route "/reportes/*" []
            (deny-and-home))
+(pre-route "/impresiones/*" []
+           (deny-and-home))
 
 (pre-route "/articulos/*" []
            (deny-when-unsigned))

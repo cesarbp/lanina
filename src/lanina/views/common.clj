@@ -61,10 +61,7 @@
     :links
     [["De ventas"  "/reportes/"]
      ["De compras" "/reportes/compras/"]]}
-   {:title "Extras"
-    :links
-    [["Catálogos" "/catalogos/"]
-     ["Créditos" "/credito/"]]}
+   ["Catálogos" "/catalogos/"]
    {:title "Listas"
     :links
     [["Para empleados" "/listas/"]
@@ -72,6 +69,7 @@
    {:title "Herramientas"
     :links
     [["Ajustes de la BD"  "/ajustes/"]
+     ["Impresiones" "/impresiones/"]
      ["Respaldos" "/respaldos/"]]}
    ["Salir" "/salir/"]])
 

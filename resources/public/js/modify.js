@@ -136,9 +136,9 @@ $(document).ready(function () {
     });
     $('#precio_venta').on('select focus', function() {
         $('#precio_venta')[0].setSelectionRange(0,0);
-        console.log('foo');
     });
-    $('form').submit(function () {
+    $('#the-form').submit(function () {
+        console.log('bar');
         var ans = confirm("Desea hacer correcciones?");
         if ( ans )
         {
