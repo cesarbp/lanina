@@ -78,6 +78,10 @@
        (- (reduce + (map :price articles)))
        (max 0)))
 
+(defn calc-total
+  [articles]
+  (reduce + (map :price articles)))
+
 (defn purchase-all-articles
   [credit]
   (let [n (count (:articles credit))]

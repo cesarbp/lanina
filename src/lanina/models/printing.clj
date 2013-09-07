@@ -220,14 +220,50 @@
                   (center-string (str "Total: " (format-decimal total)) col-size))]
     (str header body)))
 
+(defn print-credit-text
+  [credit]
+  (let [col-size (get-col-size)
+        {:keys [articles payments name r c date]} credit
+        total (reduce + (map :price articles))
+        paid (reduce + (map second payments))
+        remaining (max 0 (- total paid))
+        last-payment (last payments)
+
+        arts-str (apply str
+                        (for [{:keys [name price]} articles]
+                          (str "\r\n" name "\r\n" (format-decimal price))
+                          ))]
+    (str (center-string "Pago por abonos" col-size)
+         "\r\n"
+         (center-string (str "Cliente: " name) col-size)
+         "\r\n"
+         (center-string (str "Abono #" r c) col-size)
+         "\r\n"
+         (center-string (str "Fecha inicio:" date) col-size)
+         "\r\n"
+         (center-string (str "Ultimo pago:" (first last-payment)) col-size)
+         "\r\n"
+         "Total a pagar:" (format-decimal total)
+         "\r\n"
+         "Pagado:" (format-decimal paid)
+         "\r\n"
+         "-----------------------"
+         "\r\n"
+         "Restante: " (format-decimal remaining)
+         "\r\n\r\n"
+         "Articulos:"
+         arts-str)))
+
 (defn print-method-1
   "Sends to LPT1"
   [s]
-  (try
-    (with-open [out (PrintWriter. (FileWriter. "lpt1"))]
-      (.print out s))
-    (catch Exception e
-      (println "Impresora no encontrada."))))
+  (let [s (apply str s (repeat 12 "\r\n"))]
+    (try
+      (println s)
+      (with-open [out (PrintWriter. (FileWriter. "lpt1"))]
+        (.print out s))
+      (catch Exception e
+        (println "Impresora no encontrada.")))))
 
 (defn print-method-2
   "Uses JtextArea."
@@ -296,4 +332,10 @@ and a file to read from"
 (defn print-employee-list
   [prods date employee]
   (-> (print-employee-list-text prods date employee)
+      (print-text)))
+
+(defn print-credit
+  [credit]
+  (-> credit
+      (print-credit-text)
       (print-text)))

@@ -61,7 +61,13 @@
     :links
     [["De ventas"  "/reportes/"]
      ["De compras" "/reportes/compras/"]]}
-   ["Catálogos" "/catalogos/"]
+   {:title "Extras"
+    :links
+    [[:header "Catálogos"]
+     ["Ver Catálogos" "/catalogos/"]
+     ["Ver Categorías" "/catalogos/categorias/"]
+     [:header "Créditos"]
+     ["Ver Créditos" "/credito/"]]}
    {:title "Listas"
     :links
     [["Para empleados" "/listas/"]
@@ -78,7 +84,13 @@
    ["Caja"      "/caja/"]
    ["Artículos" "/articulos/ventas/"]
    ["Tickets"   "/tickets/"]
-   ["Catálogos" "/catalogos/"]
+   {:title "Extras"
+    :links
+    [[:header "Catálogos"]
+     ["Ver Catálogos" "/catalogos/"]
+     ["Ver Categorías" "/catalogos/categorias/"]
+     [:header "Créditos"]
+     ["Ver Créditos" "/credito/"]]}
    ["Salir"     "/salir/"]])
 
 (defn fix-title

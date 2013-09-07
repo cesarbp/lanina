@@ -8,7 +8,8 @@
             [lanina.views.common :refer [home-layout main-layout-incl]]
             [lanina.views.utils :refer [format-decimal flash-message]]
             [noir.response :refer [redirect]]
-            [hiccup.element :refer [javascript-tag]]))
+            [hiccup.element :refer [javascript-tag]]
+            [lanina.models.printing :refer [print-credit]]))
 
 (def focus-on-first-input-js
   (javascript-tag
@@ -95,33 +96,39 @@
 (defpartial add-payment-form
   [r c articles]
   (form-to {:class "form-inline"} [:post (str "/credito/" r "/" c "/pago/")]
-           (text-field {:autocomplete "off" :class "input-small"} :pay)
+           (text-field {:autocomplete "off" :class "input-small" :placeholder "$$$"} :pay)
            [:label "Liberar artículos:"]
            (for [[{:keys [name purchased]} i] (map vector articles (range)) :when (not purchased)]
              [:label.checkbox
               (check-box (keyword (str "to-purchase" i)) false "true")
               name])
-           (submit-button {:class "btn btn-primary"} "Agregar Pago")))
+           (submit-button {:class "btn btn-primary"} "Agregar Pago e Imprimir")))
 
 (defpartial show-credit
   [{:keys [r c name payments articles date free]}]
-  [:ul.unstyled
-   [:li "Cliente: " name]
-   (for [{:keys [name price purchased]} articles]
-     (list
-      [:li "Artículo: " name]
-      [:li "Precio: " price]
-      [:li "Pagado: " (if purchased [:i.icon-ok] [:i.icon-remove])]
-      [:hr]))
-   [:li "Fecha de Inicio: " date]
-   [:li "Pagos"]
-   [:li (if (seq payments)
-          (payments-table payments)
-          [:p.alert.alert-info "No ha realizado ningún pago"])]
-   [:li "Restante: " [:strong (format-decimal (credit/calc-remaining payments articles))]]
-   [:li (if free
-          [:p.notice "Los pagos ya se han completado"]
-          (add-payment-form r c articles))]])
+  (let [total (credit/calc-total articles)
+        remaining (credit/calc-remaining payments articles)
+        paid (- total remaining)]
+    [:ul.unstyled
+     [:li "Cliente: " name]
+     (for [{:keys [name price purchased]} articles]
+       (list
+        [:li "Artículo: " name]
+        [:li "Precio: " price]
+        [:li "Pagado: " (if purchased [:i.icon-ok] [:i.icon-remove])]
+        [:hr]))
+     [:li "Fecha de Inicio: " date]
+     [:li "Pagos"]
+     [:li (if (seq payments)
+            (payments-table payments)
+            [:p.alert.alert-info "No ha realizado ningún pago"])]
+     [:li "Total a pagar: " [:strong (format-decimal total)]]
+     [:li "Pagado: " [:strong (format-decimal paid)]]
+     [:li "---------------------------------"]
+     [:li "Restante: " [:strong (format-decimal remaining)]]
+     [:li (if free
+            [:p.notice "Los pagos ya se han completado"]
+            (add-payment-form r c articles))]]))
 
 (defpartial search-client-form
   []
@@ -177,7 +184,8 @@
         to-purchase (parse-to-purchase pst)
         ans (when (and r c pay (< 0 pay)) (credit/add-payment! r c pay to-purchase))]
     (if (= :success (:resp ans))
-      (flash-message "Pago agregado" "success")
+      (do (flash-message "Pago agregado" "success")
+          (print-credit (credit/get-credit r c)))
       (flash-message "El pago no pudo ser agregado" "error"))
     (if (:freed ans)
       (do

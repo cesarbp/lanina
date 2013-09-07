@@ -15,7 +15,7 @@
     (resp/redirect "/entrar/")))
 
 (defn deny-and-home []
-  (deny-access "/inicio/"))
+  (deny-access "/ventas/"))
 
 (pre-route "/ajustes/*" []
            (deny-and-home))
@@ -37,6 +37,12 @@
            (deny-and-home))
 (pre-route "/impresiones/*" []
            (deny-and-home))
+(pre-route "/catalogos/:id/borrar/*" []
+           (deny-and-home))
+(pre-route "/catalogos/:id/modificar/*" []
+           (deny-and-home))
+(pre-route "/catalogos/categorias/borrar/" []
+           (deny-and-home))
 
 (pre-route "/articulos/*" []
            (deny-when-unsigned))
@@ -47,4 +53,10 @@
 (pre-route "/listas/*" []
            (deny-when-unsigned))
 (pre-route "/inicio/*" []
+           (deny-when-unsigned))
+(pre-route "/catalogos/" []
+           (deny-when-unsigned))
+(pre-route "/catalogos/categorias/" []
+           (deny-when-unsigned))
+(pre-route "/creditos/*" []
            (deny-when-unsigned))
