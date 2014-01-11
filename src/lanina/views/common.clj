@@ -11,12 +11,12 @@
   {
    :subnav-js      (include-js "/js/subnav.js")
    :custom-css     (include-css "/css/custom.css")
-   :base-css       (include-css "/css/bootstrap.min.css")
+   :base-css       (include-css "/css/bootstrap.css")
    :base-js        (include-js "/js/bootstrap.min.js")
    :base-resp-css  (include-css "/css/bootstrap-responsive.css")
    :search-css     (include-css "/css/search.css")
    :less           (include-js "/js/less.js")
-   :jquery         (include-js "/js/jquery.js")
+   :jquery         (include-js "/js/jquery1-10.js")
    :barcode-js     (include-js "/js/barcode.js")
    :trie-js        (include-js "/js/trie.js")
    :search-js      (include-js "/js/search.js")
@@ -30,6 +30,10 @@
    :art-res-js     (include-js "/js/article-results.js")
    :list-js        (include-js "/js/list.js")
    :tablesorter-js (include-js "/js/jquery.tablesorter.min.js")
+   :show-error-js  (include-js "/js/show_error.js")
+   :numbers-js     (include-js "/js/numbers.js")
+   :pistol-js      (include-js "/js/pistol.js")
+   :bill-js        (include-js "/js/bill.js")
    })
 
 ;;; Links on the nav
@@ -60,7 +64,8 @@
    {:title "Reportes"
     :links
     [["De ventas"  "/reportes/"]
-     ["De compras" "/reportes/compras/"]]}
+     ;["De compras" "/reportes/compras/"]
+     ]}
    {:title "Extras"
     :links
     [[:header "Catálogos"]
@@ -75,7 +80,7 @@
    {:title "Herramientas"
     :links
     [["Ajustes de la BD"  "/ajustes/"]
-     ["Impresiones" "/impresiones/"]
+     ;["Impresiones" "/impresiones/"]
      ["Respaldos" "/respaldos/"]]}
    ["Salir" "/salir/"]])
 

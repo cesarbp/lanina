@@ -139,8 +139,8 @@ $(document).ready(function () {
     });
     $('#the-form').submit(function () {
         console.log('bar');
-        var ans = confirm("Desea hacer correcciones?");
-        if ( ans )
+        var ans = confirm("Desea grabar el articulo? OK/ACEPTAR=GRABAR, CANCELAR=REGRESAR a hacer correcciones");
+        if ( !ans )
         {
             $('form:first *:input[type!=hidden]:first')[0].setSelectionRange(0,0);
             $('form:first *:input[type!=hidden]:first').focus();

@@ -1,6 +1,8 @@
 // Used to check for the existance of barcodes and article names
 
 var jn;
+var originalName;
+var originalBC;
 function validate(id) {
     $(id).removeClass("error");
     if ($(id + "-msg")) {
@@ -28,40 +30,36 @@ function enable_submit() {
 }
 
 function verify_bc(bc){
-    var id = "#codigo-control";
+    var id = "#codigo";
 
     if (bc.length > 0 && bc !== "0") {
         $.getJSON('/json/article', {'barcode':bc}, function (article) {
-            if (article && article.codigo) {
-                invalidate(id, "Ya existe este código");
-                disable_submit();
+            if ( article && article.codigo && article.codigo !== originalBC ) {
+                showError(id, "Ya existe este código");
             } else {
-                validate(id);
-                enable_submit();
+                removeError(id);
             }
         });
-    } else {
-        validate(id);
-        enable_submit();
+    } else if ( bc === "0" ) {
+        removeError(id);
+    } else if ( bc === "" ) {
+        showError(id, "El código no puede estar vacío");
     }
 }
 
 function verify_name(name){
-    var id = "#nom_art-control";
-    if (name.length > 0) {
+    var id = "#nom_art";
+    if ( name.length > 0 ) {
         name = name.toUpperCase();
         $.getJSON('/json/article-name', {'name':name}, function (article) {
-            if (article && article.codigo) {
-                invalidate(id, "Ya existe este nombre");
-                disable_submit();
+            if ( article && article.nom_art && article.nom_art !== originalName ) {
+                showError(id, "Ya existe este nombre");
             } else {
-                validate(id);
-                enable_submit();
+                removeError(id);
             }
         });
-    } else {
-        validate(id);
-        enable_submit();
+    } else if ( $(".error-bg").length === 0 ) {
+        showError(id, "El nombre no puede estar vacío");
     }
 }
 
@@ -75,13 +73,18 @@ var json = function (first_letter) {
         });
     });
     return res;
-}
+};
 
 $(document).ready(function() {
-    jn = $.getJSON('/json/all-articles', {}, function(results) {
+    originalBC = $("#codigo").val();
+    originalName = $("#nom_art").val();
+    var search_box_id = "#nom_art";
+    $.getJSON('/json/all-articles', {}, function(results) {
         jn = results.map(function(o) {
             return o['nom_art'];
         });
+        $(search_box_id).typeahead();
+        $(search_box_id).data('typeahead').source = jn;
     });
     $('#nom_art').attr('autocomplete', 'off');
     var bc_id = "#codigo-control";
@@ -94,20 +97,10 @@ $(document).ready(function() {
     });
 
     var trie = {};
-    var search_box_id = "#nom_art";
+
 
     $(search_box_id).on("keyup change", function () {
-        var inp = $(search_box_id).val();
 
-        if (inp.length === 1) {
-            $(search_box_id).typeahead();
-            $(search_box_id).data('typeahead').source = jn;
-        } else if (inp.length > 1) {
-            if (jn != null) {
-                $(search_box_id).typeahead();
-                $(search_box_id).data('typeahead').source = jn;
-            }
-        }
     });
 
 });

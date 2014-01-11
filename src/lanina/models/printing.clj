@@ -114,6 +114,30 @@
         side-spaces (apply str (repeat side \space))]
     (str side-spaces s)))
 
+(defn align-right
+  [s]
+  (format "%28s" s))
+
+(defn justify-number
+  [n]
+  (format "$ %6s" (format-decimal n)))
+
+(defn justify-bigger-number
+  [n]
+  (format "$ %7s" (format-decimal n)))
+
+(defn show-price
+  [n p t]
+  (align-right (str n " x " (format-decimal p) " = " (justify-number t))))
+
+(defn show-big-price
+  [n p t]
+  (format "%28s" (str n " x " (format-decimal p) " = " (justify-bigger-number t))))
+
+(defn show-text-price
+  [s p]
+  (align-right (str s (justify-number p))))
+
 (defn print-ticket-seq
   [prods pay total change ticket-number folio date]
   (let [col-size (get-col-size)
@@ -128,18 +152,20 @@
                 "\r\n"
                 (center-string (str "FOLIO:" folio) col-size)]
         footer ["\r\n"
-                "SUMA ==> $" (format-decimal total)
+                "-----------------------------"
                 "\r\n"
-                "CAMBIO ==> $" (format-decimal change)
+                (format "    SUMA ==>        $%7.2f" total)
                 "\r\n"
-                "EFECTIVO ==> $" (format-decimal pay)]
+                (format "  CAMBIO ==>        $%7.2f" change)
+                "\r\n"
+                (format "EFECTIVO ==>        $%7.2f" pay)]
         body (mapcat
               (fn [art]
                 ["\r\n"
                  (:nom_art art)
                  "\r\n"
-                 (str (:quantity art) " x " (format-decimal (:precio_venta art)))
-                 (str " = " (format-decimal (:total art)))])
+                 (show-price (:quantity art) (:precio_venta art)
+                             (:total art))])
               prods)]
     (concat header body footer)))
 
@@ -156,24 +182,29 @@
                 "\r\n"
                 (center-string "Listado de Compras en ticket" col-size)
                 "\r\n"
-                (center-string "Cantidad Costo Importe Codigo" col-size)
+                "-----------------------------"
+                "\r\n"
+                (center-string "Codigo Cantidad Costo Importe" col-size)
+                "\r\n"
+                "-----------------------------"
                 "\r\n"]
         body (mapcat (fn [art]
                        [(:nom_art art)
                         "\r\n"
-                        (str (:quantity art) " "
-                             (format-decimal (:costo_caja art))
-                             " " (format-decimal (:total art))
-                             " " (:codigo art))
+                        "Codigo: " (:codigo art)
+                        "\r\n"
+                        (show-big-price (:quantity art)
+                                        (:costo_caja art)
+                                        (:total art))
                         "\r\n"
                         (apply str (repeat col-size \-))
                         "\r\n"])
                      prods)
-        footer [(str "ARTICULOS......" n-arts)
+        footer [(str "ARTICULOS......    " n-arts)
                 "\r\n"
-                (str "No CAJAS......." boxes)
+                (str "No CAJAS.......    " boxes)
                 "\r\n"
-                (str "TOTAL.........." (format-decimal total))]]
+                (str "TOTAL..........    " (justify-bigger-number total))]]
     (concat header body footer)))
 
 (defn print-purchase-text
@@ -185,7 +216,7 @@
   (let [col-size (get-col-size)
         header (str (center-string "LA NIÑA" col-size)
                     "\r\n"
-                    (center-string (str "LISTA PARA EMPLEADO: " employee)
+                    (center-string (str "EMPLEADO: " employee)
                                    col-size)
                     "\r\n"
                     (center-string (str "FECHA: " date) col-size)
@@ -194,30 +225,44 @@
         (apply str
                (mapcat (fn [art]
                          ["\r\n"
-                          (str (:codigo art) " " (:precio_venta art))
+                          "---------------------------"
                           "\r\n"
-                          (:nom_art art)])
+                          (:nom_art art)
+                          "\r\n"
+                          (format "%-13s  %s" (:codigo art) (justify-number (:precio_venta art)))
+                          ])
                        prods))]
-    (str header body)))
+    (str header body "\r\n" "---------------------------")))
 
 (defn print-cashier-cut-text
   [tickets-n exto gvdo iva total date time]
   (let [col-size (get-col-size)
-        header (str (center-string "Corte de caja" col-size)
+        header (str "L O N J A  M E R C A N T I L"
                     "\r\n"
-                    (center-string  (str date " " time) col-size)
+                    (center-string "L A N I N A" col-size)
                     "\r\n"
-                    (center-string "------------" col-size)
-                    "\r\n")
-        body (str (center-string (str "Tickets: " tickets-n) col-size)
-                  "\r\n"
-                  (center-string (str "Exentos: " (format-decimal exto)) col-size)
-                  "\r\n"
-                  (center-string (str "Gravados: " (format-decimal gvdo)) col-size)
-                  "\r\n"
-                  (center-string (str "IVA: " (format-decimal iva)) col-size)
-                  "\r\n"
-                  (center-string (str "Total: " (format-decimal total)) col-size))]
+                    (center-string "RFC: ROHE5108278T7" col-size)
+                    "\r\n"
+                    (center-string "GUERRERO No.45  METEPEC. MEX." col-size)
+                    "\r\n"
+                    "---------------------------"
+                    "\r\n"
+                    "CORTE DEL DIA: " date
+                    "\r\n"
+                    "         HORA: " time)
+        body (str "\r\n\r\n"
+                  "EXENTOS: . . . . " (justify-bigger-number exto)
+                  "\r\n\r\n"
+                  "GRAVADOS . . . . " (justify-bigger-number gvdo)
+                  "\r\n\r\n"
+                  "GRAVADOS SIN IVA " (justify-bigger-number (- gvdo iva))
+                  "\r\n\r\n"
+                  "IVA 16% . . . .  " (justify-bigger-number iva)
+                  "\r\n\r\n"
+                  "SUMA . . . . . . " (justify-bigger-number total)
+                  "\r\n\r\n"
+                  "Clientes . . . . " tickets-n)]
+
     (str header body)))
 
 (defn print-credit-text
@@ -243,13 +288,15 @@
          "\r\n"
          (center-string (str "Ultimo pago:" (first last-payment)) col-size)
          "\r\n"
-         "Total a pagar:" (format-decimal total)
+         "----------------------------"
          "\r\n"
-         "Pagado:" (format-decimal paid)
+         "Total a pagar " (justify-number total)
          "\r\n"
-         "-----------------------"
+         "Pagado:       " (justify-number paid)
          "\r\n"
-         "Restante: " (format-decimal remaining)
+         "----------------------------"
+         "\r\n"
+         "Restante:     " (justify-number remaining)
          "\r\n\r\n"
          "Articulos:"
          arts-str)))
@@ -312,8 +359,7 @@ and a file to read from"
           2 print-method-2
           3 print-method-3
           4 print-method-4)]
-    (future (print-fn s))
-    (future (println s))))
+    (future (print-fn s))))
 
 (defn print-ticket
   [prods pay total change ticket-number folio date]

@@ -5,13 +5,15 @@
         [lanina.views.utils :only [now]])
   (:require [noir.server :as server]
             [lanina.models.utils :as db]
-            [lanina.models.db-backup :as db-backup]))
+            [lanina.models.db-backup :as db-backup])
+  (:import [java.util Locale]))
 
 (server/load-views-ns 'lanina.views)
 
 (defn -main [& m]
   (let [mode (keyword (or (first m) :dev))
         port (Integer. (get (System/getenv) "PORT" "8080"))]
+    (Locale/setDefault Locale/US)
     (println "Conectando a la base de datos")
     (db/maybe-init)
     (when-not (and (collection-exists? :articles) (< 0 (count (fetch :articles))))

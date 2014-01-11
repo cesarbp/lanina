@@ -62,6 +62,7 @@
 (def mongo-path "MongoDB/")
 (def mongo-data-path "MongoDB/data/")
 (def mongodump-path "MongoDB/bin/mongodump.exe")
+;(def mongodump-path "C:/home/bin/mongodb/bin/mongodump.exe")
 (def mongorestore-path "MongoDB/bin/mongorestore.exe")
 (def backups-dir "respaldos/")
 

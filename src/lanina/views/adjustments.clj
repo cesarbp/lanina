@@ -179,7 +179,7 @@
 (defpage [:post "/ajustes/iva/"] {:keys [iva]}
   (let [splt (clojure.string/split iva #"[,\s]+")
         mped (map article/to-double splt)
-        status (model/adjust-valid-ivas)]
+        status (model/adjust-valid-ivas mped)]
     (if (= :success status)
       (do (session/flash-put! :messages (list {:type "alert-success" :text "El IVA ha sido modificado"}))
           (resp/redirect "/ajustes/"))
@@ -206,12 +206,13 @@
                            [:div.container-fluid
                             {:style "background-image: url(\"../img/bedge_grunge.png\")"} (change-iva-form)]
                            [:div.container-fluid (change-password-form)]
-                           [:div.container-fluid
-                            (change-modify-threshold-form)]
-                           [:div.container-fluid
-                            {:style "background-image: url(\"../img/bedge_grunge.png\")"} (change-image-dir-form)]
-                           [:div.container-fluid
-                            (change-backup-settings-form previous-backup-settings)]]
+                           ;; [:div.container-fluid
+                           ;;  (change-modify-threshold-form)]
+                           ;; [:div.container-fluid
+                           ;;  {:style "background-image: url(\"../img/bedge_grunge.png\")"} (change-image-dir-form)]
+                           ;; [:div.container-fluid
+                           ;;  (change-backup-settings-form previous-backup-settings)]
+                           ]
                  :nav-bar true
                  :active "Herramientas"}]
     (home-layout content)))
@@ -270,7 +271,7 @@
         lst (cons fst rst)]
     [:select {:name :lin}
      (map (fn [v]
-            [:option {:value v} v])
+            [:option {:value v} (article/line-select v)])
           lst)]))
 
 (defpartial unit-select [orig]

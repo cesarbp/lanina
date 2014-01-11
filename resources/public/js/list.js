@@ -111,7 +111,7 @@ function ticket_links(barcode, quantity, increase) {
          }
     } else {
          var ticket_html = '<a id="ticket" on-click="draw_modal();" class="btn btn-primary" href="/listas/compras/nuevo/?' +
-                 req_html + '">F9 - Generar Compra</a>';
+                 req_html + '">Generar Compra</a>';
         var form_html = '<div id="gen-tickets" class="form-actions">' + ticket_html + '</div>';
         $("#main").append(form_html);
     }
@@ -309,7 +309,10 @@ function artnames_rows(arts){
 }
 
 function artname_table_selects() {
-    var i = -1;
+    var i = 0;
+    $('tr.selectable:eq(0)').addClass('row_selected');
+    var name = $('tr.selectable:eq(0)').children()[1].textContent;
+    $('#art-name-input').val(name);
     $(document).keydown(function(e) {
         if (e.keyCode === 40 && $('#art-name-modal').length > 0) {
             i = (i + 1 >= $('tr.selectable').length) ? $('tr.selectable').length - 1 : i + 1;

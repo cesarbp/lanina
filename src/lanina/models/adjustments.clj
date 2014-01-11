@@ -46,8 +46,10 @@
 (defn adjust-valid-ivas
   [ivas]
   (when (every? number? ivas)
-    (update! globals-coll (fetch-one globals-coll :where {:iva {:$ne nil}}) (mapv double ivas))
-    :success))
+    (let [ivas (seq (conj (set ivas) 0.0))]
+      (update! globals-coll (fetch-one globals-coll :where {:iva {:$ne nil}})
+               {:iva (mapv double ivas)})
+      :success)))
 
 ;;; If an article hasn't been modified in a time lower than this threshold it
 ;;; should be shown as a database error.

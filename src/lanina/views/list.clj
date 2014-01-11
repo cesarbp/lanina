@@ -19,7 +19,7 @@
   [:tr
    [:td (:codigo art)]
    [:td (:nom_art art)]
-   [:td (text-field {:autocomplete "off" :class "input-small" :placeholder "##"} (:_id art))]])
+   [:td (text-field {:autocomplete "off" :class "input-small" :placeholder "##"} (:_id art) "1")]])
 
 (defpartial art-table [arts]
   (form-to [:post "/listas/nueva/"]
@@ -27,16 +27,17 @@
        [:tr
         [:th "Código"]
         [:th "Nombre"]
-        [:th "Número"]]
+        [:th "Número de Grupo"]]
        (map art-row arts)
        [:tr
         [:div.form-actions
          (submit-button {:class "btn btn-primary"} "Continuar")]]]))
 
 (defpage "/listas/" []
-  (let [logs (filter (fn [l] (and (not (:cleared l))
-                                  (or (= "updated" (:type l))
-                                      (= "added"  (:type l)))))
+  (let [_ (clojure.pprint/pprint (logs/retrieve-all))
+        logs (filter (fn [l] (and (not (:cleared l))
+                                 (or (= "updated" (name (:type l)))
+                                     (= "added"  (name (:type l))))))
                      (logs/retrieve-all))
         arts (remove nil? (map (fn [l] (article/get-by-id-only (:art-id l) [:nom_art :codigo]))
                                logs))
@@ -51,27 +52,26 @@
     (main-layout-incl content [:base-css :jquery :base-js])))
 
 (defpartial assign-employees-row [[n ids]]
-  (let [employees employee/employee-list
-        arts (map (fn [id] (article/get-by-id-only id [:nom_art :codigo]))
+  (let [arts (map (fn [id] (article/get-by-id-only id [:nom_art :codigo]))
                   ids)]
     (form-to [:post "/listas/imprimir/"]
-        [:table.table.table-condensed
-         [:tr
-          [:th "Código"]
-          [:th "Nombre"]]
-         (map (fn [art] [:tr
-                         [:td (:codigo art)]
-                         [:td (:nom_art art)]]) arts)
-         [:div.form-actions
-          [:p (str "Grupo " n)]
-          (label {:class "control-label"} "employee" "Nombre de empleado")
-          (text-field {:autocomplete "off" :class "inline"} "employee")
-          [:label.checkbox.inline {:class "checkbox inline" :style "position:relative;left:10px;"}
-           (check-box :remove false)
-           "Quitar también los artículos"]
-          (hidden-field :ids (seq (map :_id arts)))
-          [:br]
-          (submit-button {:class "btn btn-primary"} "Imprimir")]])))
+             [:table.table.table-condensed
+              [:tr
+               [:th "Código"]
+               [:th "Nombre"]]
+              (map (fn [art] [:tr
+                             [:td (:codigo art)]
+                             [:td (:nom_art art)]]) arts)
+              [:div.form-actions
+               [:p (str "Grupo " n)]
+               (label {:class "control-label"} "employee" "Nombre de empleado")
+               (text-field {:autocomplete "off" :class "inline"} "employee")
+               [:label.checkbox.inline {:class "checkbox inline" :style "position:relative;left:10px;"}
+                (check-box :remove true)
+                "Quitar también los artículos"]
+               (hidden-field :ids (seq (map :_id arts)))
+               [:br]
+               (submit-button {:class "btn btn-primary"} "Imprimir")]])))
 
 (defpage [:post "/listas/nueva/"] {:as pst}
   (let [grouped (reduce

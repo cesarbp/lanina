@@ -3,7 +3,8 @@
   (:require [clj-time.core :as t]
             [clj-time.format :as tf]
             [clojure.string :as str]
-            [noir.session :as session]))
+            [noir.session :as session])
+  (:import [org.joda.time DateTime]))
 
 ;;; Fixme: adjust offset for daytime saving shenanigans
 (defn format-int [n]
@@ -25,17 +26,21 @@
   (:valid (fetch-one :settings :where {:utc-offset {:$ne nil}})))
 
 (defn now []
-  (let [time (t/to-time-zone (t/now) (t/time-zone-for-offset (get-current-utc)))]
+  (let [time (DateTime.)]
     (format "%d-%02d-%02d" (t/year time) (t/month time) (t/day time))))
 
 (defn now-with-time []
-  (let [time (t/to-time-zone (t/now) (t/time-zone-for-offset (get-current-utc)))]
+  (let [time (DateTime.)]
     (format "%d-%02d-%02dT%02d:%02d:%02d" (t/year time) (t/month time) (t/day time)
             (t/hour time) (t/minute time) (t/sec time))))
 
 (defn now-hour []
-  (let [time (t/to-time-zone (t/now) (t/time-zone-for-offset (get-current-utc)))]
+  (let [time (DateTime.)]
     (format "%02d:%02d:%02d" (t/hour time) (t/minute time) (t/sec time))))
+
+(defn now-year []
+  (let [time (DateTime.)]
+    (str (t/year time))))
 
 (defn fix-date
   "Assumes year has 4 digits. Returns date in dd-mm-yyyy format"

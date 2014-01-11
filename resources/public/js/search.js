@@ -17,44 +17,51 @@ var json2 = function () {
     $.getJSON(prov_url, {}, function(results) {
         var providers = results;
 
-        $('#provider-name').typeahead();
-        $('#provider-name').data('typeahead').source = results;
+        $('#provider-name').typeahead({
+            source:results,
+            updater: function(item) {
+                this.$element[0].value = item;
+                this.$element[0].form.submit();
+                return item;
+            }
+        });
+
     });
 };
 
 $(document).ready(function(){
-    json2();
-    jn = $.getJSON('/json/all-articles', {}, function(results) {
-        jn = results.map(function(o) {
-            return o['nom_art'];
+    if ( $('#provider-name').length > 0 ) {
+        json2();
+    }
+    else {
+        var search_box_id = "#search";
+        $.getJSON('/json/all-articles', {}, function(results) {
+            jn = results.map(function(o) {
+                return o['nom_art'];
+            });
+            $(search_box_id).typeahead({
+                source:jn,
+                updater: function(item) {
+                    this.$element[0].value = item;
+                    this.$element[0].form.submit();
+                    return item;
+                }
+            });
         });
-    });
-    $('#search').keydown(function(event) {
-        if ( event.ctrlKey || event.altKey )
-            event.preventDefault();
+        $('#search').keydown(function(event) {
+            if ( event.ctrlKey || event.altKey )
+                event.preventDefault();
 
-    });
-    var trie = {};
-    var search_box_id = "#search";
-    $('#search').focus();
+        });
 
-    $(search_box_id).keydown(function(event) {
-        if ( event.ctrlKey || event.altKey )
-            event.preventDefault();
+        $('#search').focus();
 
-    });
+        $(search_box_id).keydown(function(event) {
+            if ( event.ctrlKey || event.altKey )
+                event.preventDefault();
 
-    $(search_box_id).on("keyup change", function () {
-        var inp = $(search_box_id).val();
+        });
+    }
 
-        if (inp.length === 1) {
-            $(search_box_id).typeahead();
-            $(search_box_id).data('typeahead').source = jn;
-        } else if (inp.length > 1) {
-            if (jn != null) {
-                $(search_box_id).typeahead();
-                $(search_box_id).data('typeahead').source = jn;
-            }
-        }
-    });
+
 });

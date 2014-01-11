@@ -61,7 +61,7 @@
         [:li
          (text-field {:class "input-small" :style "position:relative;top:14px;text-align:right;width:40px;" :id "quantity-field" :onkeypress "return quantity_listener(this, event)" :autocomplete "off" :placeholder "F10 #"} "quantity")]
         [:li
-         (text-field {:class "input-small" :style "position:relative;top:14px;left:2px;text-align:right" :id "barcode-field" :onkeypress "return barcode_listener(this, event)" :autocomplete "off" :placeholder "F3 - Código"} "barcode")]
+         (text-field {:class "input-small only-numbers" :style "position:relative;top:14px;left:2px;text-align:right" :id "barcode-field" :onkeypress "return barcode_listener(this, event)" :autocomplete "off" :placeholder "F3 - Código"} "barcode")]
         [:li
          [:a {:style "color:white;position:relative;top:8px;"} "F4 - por nombre"]]]]]]))
 
@@ -72,11 +72,11 @@
      [:ul.nav
       [:li [:a "Artículos libres"]]
       [:li
-       (text-field {:class "input-small" :style "position:relative;top:10px;text-align:right;width:40px;" :id "unregistered-quantity" :onkeypress "return unregistered_listener(this, event)" :autocomplete "off" :placeholder "F5 #"} "unregistered-quantity" "")]
+       (text-field {:class "input-small only-numbers" :style "position:relative;top:10px;text-align:right;width:40px;" :id "unregistered-quantity" :onkeypress "return unregistered_listener(this, event)" :autocomplete "off" :placeholder "F5 #"} "unregistered-quantity" "")]
       [:li
-       (text-field {:class "input-small" :style "position:relative;top:10px;left:4px;text-align:right" :id "unregistered-price" :onkeypress "return unregistered_listener(this, event)" :autocomplete "off" :placeholder "F6 - Precio"} "unregistered-price")]
+       (text-field {:class "input-small only-numbers" :style "position:relative;top:10px;left:4px;text-align:right" :id "unregistered-price" :onkeypress "return unregistered_listener(this, event)" :autocomplete "off" :placeholder "F6 - Precio"} "unregistered-price")]
       [:li
-       (text-field {:class "input-small" :style "position:relative;top:10px;left:4px;text-align:right" :id "unregistered-name" :onkeypress "return unregistered_listener(this, event)" :autocomplete "off" :placeholder "F7 - Nombre"} "unregistered-price")]
+       (text-field {:class "input-small" :style "position:relative;top:10px;left:4px;text-align:right" :id "unregistered-name" :onkeypress "return unregistered_listener(this, event)" :autocomplete "off" :placeholder "F7 - Nombre"} "unregistered-name")]
       [:li
        [:a [:span {:style "position:relative;bottom:8px;"} "F8"] [:div.switch.switch-danger {:data-toggle "switch" :data-checkbox "gravado" :data-on "GVDO" :data-off "EXTO"}]]]
       [:li
@@ -84,7 +84,7 @@
 ]]]])
 
 (defpartial item-list []
-  [:table {:id "articles-table" :class "table table-condensed table-hover"}
+  [:table {:id "articles-table" :class "table table-condensed"}
    [:thead
     [:tr
      [:th#name-header "Artículo"]
@@ -107,7 +107,7 @@
                    :footer [:p "Gracias por su compra."]
                    :nav-bar true
                    :active "Ventas"}]
-      (main-layout-incl content [:base-css :search-css :switch-css :jquery :jquery-ui :base-js :shortcut :scroll-js :barcode-js :custom-css :switch-js]))
+      (main-layout-incl content [:base-css :search-css :switch-css :jquery :jquery-ui :base-js :shortcut :scroll-js :barcode-js :custom-css :switch-js :numbers-js]))
     (let [content {:title "Ventas"
                    :content [:div.container-fluid
                              [:div.alert.alert-error
@@ -116,6 +116,88 @@
                    :nav-bar true
                    :active "Ventas"}]
       (home-layout content))))
+
+(defpartial article-instant-search-form
+  [url]
+  (form-to {:class "form form-horizontal"} [:post url]
+           [:div.control-group
+            (label {:class "control-label"}
+                   :search "Buscar por código o nombre")
+            [:div.controls
+             (text-field {:id "search" :autocomplete "off"} :search)]]
+           [:div.form-actions
+            (submit-button {:class "btn btn-primary"} "Buscar")]))
+
+(defpage "/articulos/global/" []
+  (let [url "/articulos/global/"
+        content {:content (article-instant-search-form url)
+                 :title "Consultas globales"
+                 :active "Artículos"
+                 :nav-bar true}]
+    (main-layout-incl content [:base-css :jquery :base-js :search-js])))
+(defpage "/articulos/ventas/" []
+  (let [url "/articulos/ventas/"
+        content {:content (article-instant-search-form url)
+                 :title "Consulta para ventas"
+                 :active "Artículos"
+                 :nav-bar true}]
+    (main-layout-incl content [:base-css :jquery :base-js :search-js])))
+(defpage "/articulos/proveedor/" []
+  (let [url "/articulos/proveedor/"
+        content {:content (article-instant-search-form url)
+                 :title "Consulta para proveedor"
+                 :active "Artículos"
+                 :nav-bar true}]
+    (main-layout-incl content [:base-css :jquery :base-js :search-js])))
+(defpage "/articulos/agregar/codnom/" []
+  (let [url "/articulos/agregar/codnom/"
+        content {:content (article-instant-search-form url)
+                 :title "Agregar por código nombre"
+                 :active "Artículos"
+                 :nav-bar true}]
+    (main-layout-incl content [:base-css :jquery :base-js :search-js])))
+(defpage "/articulos/modificar/precios/" []
+  (let [url "/articulos/modificar/precios/"
+        content {:content (article-instant-search-form url)
+                 :title "Modificando precios"
+                 :active "Artículos"
+                 :nav-bar true}]
+    (main-layout-incl content [:base-css :jquery :base-js :search-js])))
+(defpage "/articulos/modificar/codigo/" []
+  (let [url "/articulos/modificar/codigo/"
+        content {:content (article-instant-search-form url)
+                 :title "Modificando código"
+                 :active "Artículos"
+                 :nav-bar true}]
+    (main-layout-incl content [:base-css :jquery :base-js :search-js])))
+(defpage "/articulos/modificar/nombre/" []
+  (let [url "/articulos/modificar/nombre/"
+        content {:content (article-instant-search-form url)
+                 :title "Modificando nombre"
+                 :active "Artículos"
+                 :nav-bar true}]
+    (main-layout-incl content [:base-css :jquery :base-js :search-js])))
+(defpage "/articulos/modificar/total/" []
+  (let [url "/articulos/modificar/total/"
+        content {:content (article-instant-search-form url)
+                 :title "Modificando artículo"
+                 :active "Artículos"
+                 :nav-bar true}]
+    (main-layout-incl content [:base-css :jquery :base-js :search-js])))
+(defpage "/articulos/eliminar/" []
+  (let [url "/articulos/eliminar/"
+        content {:content (article-instant-search-form url)
+                 :title "Eliminando artículos"
+                 :active "Artículos"
+                 :nav-bar true}]
+    (main-layout-incl content [:base-css :jquery :base-js :search-js])))
+(defpage "/articulos/corregir/" []
+  (let [url "/articulos/corregir/"
+        content {:content (article-instant-search-form url)
+                 :title "Corrigiendo errores"
+                 :active "Artículos"
+                 :nav-bar true}]
+    (main-layout-incl content [:base-css :jquery :base-js :search-js])))
 
 ;;; Modify/Add an article
 (defpartial iva-select [current]
@@ -129,11 +211,11 @@
           lst)]))
 
 (defpartial lin-select [orig]
-  (let [orig (if (seq orig) orig "ABARROTES")
+  (let [orig (if (seq orig) orig "ABA")
         remaining (vec (clojure.set/difference (set article/lines) #{orig}))
         fst [:select {:name :lin}
-             [:option {:value orig} orig]]]
-    (reduce (fn [acc line] (into acc [[:option {:value line} line]])) fst remaining)))
+             [:option {:value orig} (article/line-select orig)]]]
+    (reduce (fn [acc line] (into acc [[:option {:value line} (article/line-select line)]])) fst remaining)))
 
 (defpartial unit-select [unit]
   (let [orig (if (seq unit) unit "PIEZA")
@@ -145,10 +227,19 @@
 ;;; TODO - find a better way to use the prev stuff
 ;;; modifiable must be a set of keys
 (defpartial modify-article-row-partial [[k v] modifiable & [prev]]
-  (letfn [(std-text [k v] (text-field {:class "article-new-value" :autocomplete "off" :id (name k)}
+  (letfn [(std-text [k v] (text-field (if (#{:codigo :pres :gan :costo_caja :costo_unitario
+                                             :precio_venta :stk :exis} k)
+                                        {:class "article-new-value only-numbers" :autocomplete "off"
+                                         :id (name k)}
+                                        {:class "article-new-value" :autocomplete "off"
+                                         :id (name k)})
                                       k
                                       (let [x (or (k prev) v)]
-                                        (if (number? x) (utils/format-decimal x) x))))
+                                        (if (number? x) (utils/format-decimal x)
+                                            (if (seq x) x (if (#{:codigo :pres :gan :costo_caja
+                                                                 :costo_unitario :precio_venta
+                                                                 :stk :exis} k)
+                                                            "0" ""))))))
           (dis-text [k v] (text-field {:class "disabled" :disabled true :placeholder v} k v))]
     [:tr.article-row
      [:td.prop-name (article/verbose-names-new k)]
@@ -161,6 +252,8 @@
        :else (std-text k v))]
      [:td.helper
       (cond
+       (and (modifiable k) (= :codigo k)) (str "Código previo: " v)
+       (and (modifiable k) (= :nom_art k)) (str "Nombre previo: " v)
        (and (modifiable k) (= :gan k)) (str "Ganancia previa: " v)
        (and (modifiable k) (= :precio_venta k))
        [:div
@@ -171,33 +264,39 @@
         (str "Precio de venta previo: " v)])]]))
 
 (defpartial modify-article-partial [art type-mod modifiable & [prev]]
-  [:div
-   (when-not (empty? (:errors (article/errors-warnings art)))
-     (let [next-url (str "/articulos/modificar/"
-                         (case type-mod
-                           :total "total/"
-                           :precios "precios/"
-                           :codigo "codigo/"
-                           :nombre "nombre/")
-                         (:_id art)
-                         "/")]
-       [:div.alert.alert-error
-        [:p "Este artículo contiene errores, se recomienda corregirlos antes de intentar modificar el artículo en este módulo"]
-        (link-to {:class "btn"} (str "/ajustes/errores/" (:_id art) "/?next=" next-url) "Corregir errores")]))
-   (form-to {:class "form-horizontal" :id "modify-article-form" :name "modify-article"}
-            [:post (str "/articulos/modificando/" (:_id art) "/")]
-            (hidden-field :type-mod type-mod)
-            [:table.table.table-condensed.table-hover
-             [:tr
-              [:th "Nombre"]
-              [:th "Nuevo valor"]
-              [:th "Ayudas"]]
-             [:fieldset
-              (map modify-article-row-partial (article/sort-by-vec (dissoc art :prev) [:codigo :nom_art :iva :pres :gan :costo_caja :costo_unitario :precio_venta]) (repeat modifiable) (repeat prev))]]
-            [:fieldset
-             [:div.form-actions
-              (submit-button {:class "btn btn-warning" :name "submit"} "Modificar")
-              (link-to {:class "btn btn-danger"} "/articulos/" "Cancelar")]])])
+  (let [this-url (str "/articulos/modificar/"
+                      (case type-mod
+                        :total "total/"
+                        :precios "precios/"
+                        :codigo "codigo/"
+                        :nombre "nombre/"))]
+    [:div
+     (when-not (empty? (:errors (article/errors-warnings art)))
+       (let [next-url (str "/articulos/modificar/"
+                           (case type-mod
+                             :total "total/"
+                             :precios "precios/"
+                             :codigo "codigo/"
+                             :nombre "nombre/")
+                           (:_id art)
+                           "/")]
+         [:div.alert.alert-error
+          [:p "Este artículo contiene errores, se recomienda corregirlos antes de intentar modificar el artículo en este módulo"]
+          (link-to {:class "btn"} (str "/ajustes/errores/" (:_id art) "/?next=" next-url) "Corregir errores")]))
+     (form-to {:class "form-horizontal" :id "modify-article-form" :name "modify-article"}
+              [:post (str "/articulos/modificando/" (:_id art) "/")]
+              (hidden-field :type-mod type-mod)
+              [:table.table.table-condensed
+               [:tr
+                [:th "Nombre"]
+                [:th "Nuevo valor"]
+                [:th "Ayudas"]]
+               [:fieldset
+                (map modify-article-row-partial (article/sort-by-vec (dissoc art :prev) [:nom_art :codigo :iva :pres :gan :costo_caja :costo_unitario :precio_venta]) (repeat modifiable) (repeat prev))]]
+              [:fieldset
+               [:div.form-actions
+                (submit-button {:class "btn btn-warning" :name "submit"} "Modificar")
+                (link-to {:class "btn btn-danger"} this-url "Cancelar")]])]))
 
 ;;; TODO
 (defpartial confirm-changes-row [[k old new]]
@@ -208,19 +307,29 @@
    (hidden-field (name k) new)])
 
 (defpartial confirm-changes-table [id changes type-mod]
-  [:div.article-dialog
-   (form-to {:class "form-horizontal" :id "modify-article-form" :name "modify-article"} [:post (str "/articulos/modificando/" id "/")]
-            (hidden-field :type-mod type-mod)
-            [:table.table.table-condensed.table-hover
-             [:tr.table-header
-              [:th "Nombre"]
-              [:th "Valor Actual"]
-              [:th "Nuevo Valor"]]
-             (map confirm-changes-row changes)]
-            [:fieldset
-             [:div.form-actions
-              (submit-button {:class "btn btn-success" :name "submit" :value "Confirmar"} "Confirmar")
-              (link-to {:class "btn btn-danger"} "/articulos/" "Cancelar")]])])
+  (let [type-mod (if (keyword? type-mod) type-mod
+                     (keyword type-mod))
+        prev-url (str "/articulos/modificar/"
+                      (case type-mod
+                        :total "total/"
+                        :precios "precios/"
+                        :codigo "codigo/"
+                        :nombre "nombre/")
+                      id
+                      "/")]
+    [:div.article-dialog
+     (form-to {:class "form-horizontal" :id "modify-article-form" :name "modify-article"} [:post (str "/articulos/modificando/" id "/")]
+              (hidden-field :type-mod type-mod)
+              [:table.table.table-condensed
+               [:tr.table-header
+                [:th "Nombre"]
+                [:th "Valor Actual"]
+                [:th "Nuevo Valor"]]
+               (map confirm-changes-row changes)]
+              [:fieldset
+               [:div.form-actions
+                (submit-button {:class "btn btn-success" :name "submit" :value "Confirmar"} "Confirmar")
+                (link-to {:class "btn btn-danger"} prev-url "Cancelar")]])]))
 
 (def submit-on-enter-js
   (javascript-tag
@@ -239,14 +348,14 @@
                                (modify-article-partial article :total
                                                        #{:img :unidad :stk :lin :ramo :iva :pres :gan
                                                          :costo_caja :precio_venta
-                                                         :ubica :prov :exis :codigo :nom_art :tam}
+                                                         :ubica :prov :exis :nom_art :tam}
                                                        prev)
                                [:p.error-notice "No existe tal artículo"])
-                             [:script "$('#codigo').focus();"]
+                             [:script "$('#nom_art').focus();"]
                              submit-on-enter-js]
                    :active "Artículos"
                    :nav-bar true}]
-      (main-layout-incl content [:jquery :base-css :base-js :custom-css :subnav-js :modify-js]))))
+      (main-layout-incl content [:jquery :base-css :base-js :custom-css :verify-js :subnav-js :show-error-js :modify-js :numbers-js :pistol-js]))))
 
 (defpage "/articulos/modificar/precios/:id/" {id :id :as prev}
   (let [article (article/get-by-id id)
@@ -260,7 +369,7 @@
                              [:p.error-notice "No existe tal artículo"])
                            [:script "$('#pres').focus();"]
                            submit-on-enter-js]}]
-    (main-layout-incl content [:base-css :jquery :base-js :verify-js :modify-js])))
+    (main-layout-incl content [:base-css :jquery :base-js :show-error-js :verify-js :modify-js :numbers-js :pistol-js])))
 
 (defpage "/articulos/modificar/codigo/:id/" {id :id :as prev}
   (let [article (article/get-by-id id)
@@ -273,7 +382,7 @@
                              (modify-article-partial article :codigo modifiable prev)
                              [:p.error-notice "No existe tal artículo"])
                            [:script "$('#codigo').focus();"]]}]
-    (main-layout-incl content [:base-css :jquery :base-js :verify-js :modify-js])))
+    (main-layout-incl content [:base-css :jquery :base-js :show-error-js :verify-js :modify-js :numbers-js :pistol-js])))
 
 (defpage "/articulos/modificar/nombre/:id/" {id :id :as prev}
   (let [article (article/get-by-id id)
@@ -284,7 +393,7 @@
                  :content [:div.container (modify-article-partial article :nombre modifiable prev)
                            [:script "$('#nom_art').focus();"]
                            submit-on-enter-js]}]
-    (main-layout-incl content [:base-css :jquery :base-js])))
+    (main-layout-incl content [:base-css :jquery :base-js :show-error-js :verify-js :numbers-js :pistol-js])))
 
 (defpage [:post "/articulos/modificando/:id/"] {:as pst}
   (let [content {:title "Confirmar Cambios"
@@ -323,12 +432,18 @@
      (= "Confirmar" (:submit pst))
      (let [modified (article/update-article! id (dissoc pst :submit))]
        (if (= :success modified)
-         (do (logs/add-logs! (:_id pst) :updated (dissoc pst :submit) date)
+         (do (when (some #{:precio_venta} (keys pst))
+               (logs/add-logs! (:id pst) :updated (dissoc pst :submit) date))
              (session/flash-put! :messages '({:type "alert-success" :text "El artículo ha sido modificado"}))
              (resp/redirect redirect-url))
          (do (session/flash-put! :messages (for [[k es] modified e es]
                                              {:type "alert-error" :text e}))
-             (render (str "/articulos/modificar/" (name type-mod) "/" id "/") pst))))
+             (let [f (case (keyword type-mod)
+                       :precios GET--articulos--modificar--precios-->id--
+                       :codigo GET--articulos--modificar--codigo-->id--
+                       :nombre GET--articulos--modificar--nombre-->id--
+                       :total GET--articulos--modificar--total-->id--)]
+               (f pst)))))
      :else "Invalid")))
 
 ;;; Search for an article
@@ -353,7 +468,7 @@
                  :content [:div.container (search-article-provider-form) (search-article-provider-js)]
                  :active "Artículos"
                  :nav-bar true}]
-    (main-layout-incl content [:base-css :search-css :jquery :base-js :jquery-ui :trie-js :search-js])))
+    (main-layout-incl content [:base-css :jquery :base-js :search-js])))
 
 (defpartial search-results-row-employee [result]
   (when (seq result)
@@ -369,7 +484,7 @@
 (defpartial search-results-table-employee [results]
   (if (seq results)
     [:div.container-fluid
-     [:table.table.table-condensed.table-hover
+     [:table.table.table-condensed
       [:thead
        [:tr
         [:th#barcode-header "Código"]
@@ -406,7 +521,7 @@
 (defpartial search-results-table-admin [results]
   (if (seq results)
     [:div.container
-     [:table.table.table-condensed.table-hover
+     [:table.table.table-condensed
       [:tr
        [:th#barcode-header "Código"]
        [:th#name-header "Artículo"]
@@ -422,88 +537,6 @@
      [:div.form-actions
       (link-to {:class "btn btn-success"} "/articulos/" "Regresar a buscar otro artículo")]]
     [:p {:class "alert alert-error"} "No se encontraron resultados"]))
-
-(defpartial article-instant-search-form
-  [url]
-  (form-to {:class "form form-horizontal"} [:post url]
-           [:div.control-group
-            (label {:class "control-label"}
-                   :search "Buscar por código o nombre")
-            [:div.controls
-             (text-field {:id "search" :autocomplete "off"} :search)]]
-           [:div.form-actions
-            (submit-button {:class "btn btn-primary"} "Buscar")]))
-
-(defpage "/articulos/global/" []
-  (let [url "/articulos/global/"
-        content {:content (article-instant-search-form url)
-                 :title "Consultas globales"
-                 :active "Artículos"
-                 :nav-bar true}]
-    (main-layout-incl content [:base-css :search-css :jquery :base-js :search-js])))
-(defpage "/articulos/ventas/" []
-  (let [url "/articulos/ventas/"
-        content {:content (article-instant-search-form url)
-                 :title "Consulta para ventas"
-                 :active "Artículos"
-                 :nav-bar true}]
-    (main-layout-incl content [:base-css :search-css :jquery :base-js :search-js])))
-(defpage "/articulos/proveedor/" []
-  (let [url "/articulos/proveedor/"
-        content {:content (article-instant-search-form url)
-                 :title "Consulta para proveedor"
-                 :active "Artículos"
-                 :nav-bar true}]
-    (main-layout-incl content [:base-css :search-css :jquery :base-js :search-js])))
-(defpage "/articulos/agregar/codnom/" []
-  (let [url "/articulos/agregar/codnom/"
-        content {:content (article-instant-search-form url)
-                 :title "Agregar por código nombre"
-                 :active "Artículos"
-                 :nav-bar true}]
-    (main-layout-incl content [:base-css :search-css :jquery :base-js :search-js])))
-(defpage "/articulos/modificar/precios/" []
-  (let [url "/articulos/modificar/precios/"
-        content {:content (article-instant-search-form url)
-                 :title "Modificando precios"
-                 :active "Artículos"
-                 :nav-bar true}]
-    (main-layout-incl content [:base-css :search-css :jquery :base-js :search-js])))
-(defpage "/articulos/modificar/codigo/" []
-  (let [url "/articulos/modificar/codigo/"
-        content {:content (article-instant-search-form url)
-                 :title "Modificando código"
-                 :active "Artículos"
-                 :nav-bar true}]
-    (main-layout-incl content [:base-css :search-css :jquery :base-js :search-js])))
-(defpage "/articulos/modificar/nombre/" []
-  (let [url "/articulos/modificar/nombre/"
-        content {:content (article-instant-search-form url)
-                 :title "Modificando nombre"
-                 :active "Artículos"
-                 :nav-bar true}]
-    (main-layout-incl content [:base-css :search-css :jquery :base-js :search-js])))
-(defpage "/articulos/modificar/total/" []
-  (let [url "/articulos/modificar/total/"
-        content {:content (article-instant-search-form url)
-                 :title "Modificando artículo"
-                 :active "Artículos"
-                 :nav-bar true}]
-    (main-layout-incl content [:base-css :search-css :jquery :base-js :search-js])))
-(defpage "/articulos/eliminar/" []
-  (let [url "/articulos/eliminar/"
-        content {:content (article-instant-search-form url)
-                 :title "Eliminando artículos"
-                 :active "Artículos"
-                 :nav-bar true}]
-    (main-layout-incl content [:base-css :search-css :jquery :base-js :search-js])))
-(defpage "/articulos/corregir/" []
-  (let [url "/articulos/corregir/"
-        content {:content (article-instant-search-form url)
-                 :title "Corrigiendo errores"
-                 :active "Artículos"
-                 :nav-bar true}]
-    (main-layout-incl content [:base-css :search-css :jquery :base-js :search-js])))
 
 (defn search-article-result
   [q url]
@@ -678,8 +711,9 @@
 (defpartial show-article-tables [article]
   (let [verbose article/verbose-names-new
         art-split (partition-all (/ (count verbose) 3) article)
+        art-map (if (map? article) article (into {} article))
         double? (fn [v] (= java.lang.Double (class v)))
-        iva (if (and (number? (:iva article)) (== 0 (:iva article)))
+        iva (if (and (number? (:iva art-map)) (== 0 (:iva art-map)))
               false true)
         row (fn [[k v]]
               [:tr {:id (name k)}
@@ -709,8 +743,8 @@
                   (article/get-by-id id))
         article-extras (article/add-fields article)
         art-name (:nom_art article)
-        art-no-prevs (article/sort-by-vec (dissoc article-extras :prev)
-                                          [:_id :codigo :nom_art :img :pres :iva :gan :costo_unitario :costo_caja :precio_venta :cu_extra :ccj_extra :prev_extra])
+        art-no-prevs (article/sort-by-vec (dissoc article-extras :prev :_id)
+                                          [:codigo :nom_art :img :pres :iva :gan :costo_unitario :costo_caja :precio_venta :cu_extra :ccj_extra :prev_extra])
         content {:title (str art-name " | Consulta global")
                  :active "Artículos"
                  :nav-bar true
@@ -798,10 +832,19 @@
     (search-add-results-table data)))
 
 (defpartial add-article-row-partial [[k v] modifiable & [prev]]
-  (letfn [(std-text [k v] (text-field {:class "article-new-value" :autocomplete "off" :id (name k)}
+  (letfn [(std-text [k v] (text-field (if (#{:codigo :pres :gan :costo_caja :costo_unitario
+                                             :precio_venta :stk :exis} k)
+                                        {:class "article-new-value only-numbers" :autocomplete "off"
+                                         :id (name k)}
+                                        {:class "article-new-value" :autocomplete "off"
+                                         :id (name k)})
                                       k
                                       (let [x (or (k prev) v)]
-                                        (if (number? x) (utils/format-decimal x) x))))
+                                        (if (number? x) (utils/format-decimal x)
+                                            (if (seq x) x (if (#{:codigo :pres :gan :costo_caja
+                                                                 :costo_unitario :precio_venta
+                                                                 :stk :exis} k)
+                                                            "0" ""))))))
           (dis-text [k v] (text-field {:class "disabled" :disabled true :placeholder v} k v))]
     [:tr.article-row
      [:td.prop-name (article/verbose-names-new k)]
@@ -814,14 +857,12 @@
        :else (std-text k v))]
      [:td.helper
       (cond
-       (and (modifiable k) (= :gan k)) (str "Ganancia previa: " v)
        (and (modifiable k) (= :precio_venta k))
        [:div
         [:a.btn {:onclick "return prev_up();"}
          [:i.icon-chevron-up]]
         [:a.btn {:onclick "return prev_down();"}
-         [:i.icon-chevron-down]]
-        (str "Precio de venta previo: " v)])]]))
+         [:i.icon-chevron-down]]])]]))
 
 (defpartial add-article-form [article modifiable & [prev]]
   (let [verbose article/verbose-names-new
@@ -848,7 +889,7 @@
 (defpage "/articulos/agregar/codnom/:_id/" {id :_id :as pst}
 
   (let [article (article/get-by-id id)
-        modifiable #{:codigo :nom_art}
+        modifiable #{:nom_art :codigo}
         title     "Alta por código y nombre"
         content {:title title
                  :active "Artículos"
@@ -863,7 +904,7 @@
                            (add-article-form article modifiable pst)
                            focus-on-first-input-js]
                  :nav-bar true}]
-    (main-layout-incl content [:base-css :search-css :jquery :base-js :jquery-ui :verify-js :modify-js])))
+    (main-layout-incl content [:base-css :search-css :jquery :base-js :jquery-ui :show-error-js :verify-js :modify-js :numbers-js :pistol-js])))
 
 (defpage "/articulos/agregar/" {:as pst}
   (let [modifiable #{:img :unidad :stk :lin :ramo :iva :pres :gan :costo_caja :precio_venta :ubica :prov :exis :codigo :nom_art :tam}
@@ -876,7 +917,7 @@
                             modifiable
                             pst)
                            focus-on-first-input-js]}]
-    (main-layout-incl content [:base-css :jquery :base-js :verify-js :modify-js])))
+    (main-layout-incl content [:base-css :jquery :base-js :show-error-js :verify-js :modify-js :numbers-js  :pistol-js])))
 
 (defpage [:post "/articulos/agregar/"] {:as post}
   (let [to-add (dissoc post :_id :prev :id)
@@ -919,3 +960,7 @@
 (defpage "/articles/reset/" []
   (article/setup!)
   "done!")
+
+(defpage "/logs/reset/" []
+  (logs/remove-logs)
+  "Success")

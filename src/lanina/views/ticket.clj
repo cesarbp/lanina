@@ -116,7 +116,15 @@
                          "exto")
                   price (:precio_venta article)
                   total (if (number? price) (* price times) 0.0)
-                  art {:type type :iva (:iva article) :quantity times :_id bc :codigo (:codigo article) :nom_art name :precio_venta price :total total}]
+                  before-tax (if (= "gvdo" type)
+                               (/ total (+ 1.0 (/ (:iva article) 100)))
+                               total)
+                  price-before-tax (if (= "gvdo" type)
+                                     (/ price (+ 1.0 (/ (:iva article) 100)))
+                                     price)
+                  taxed (- total before-tax)
+                  art {:type type :iva (:iva article) :quantity times :_id bc :codigo (:codigo article) :nom_art name :precio_venta price :total total :unidad (:unidad article) :before-tax before-tax
+                       :price-before-tax price-before-tax :taxed taxed}]
               (conj acc art)))
           [] pairs))
 
@@ -152,7 +160,6 @@ $(document).ready(function() {
         prov-ticketn ((coerce-to Long) (:ticketn items))]
     (when (= ticketn prov-ticketn)
       (let [{pay :pay pairs :pairs} (sanitize-ticket items)
-
             prods (fetch-prods pairs)
             total (reduce + (map :total prods))
             change (if pay (- pay total) 0)
@@ -233,7 +240,8 @@ $(document).ready(function() {
      [:td (format "%.2f" pay)]
      [:td (format "%.2f" (- pay total))]
      [:td (link-to {:class "btn btn-success"} (str "/tickets/folio/" folio "/") "Consultar")]
-     [:td (link-to {:class "btn btn-primary"} (str "/tickets/folio/" folio "/imprimir/") "Imprimir")]]))
+     [:td (link-to {:class "btn btn-primary"} (str "/tickets/folio/" folio "/imprimir/") "Imprimir")]
+     [:td (link-to {:class "btn btn-warning"} (str "/tickets/folio/" folio "/factura/") "Generar Factura")]]))
 
 (defpartial ticket-results-table [tickets]
   [:table.table.table-condensed
@@ -248,15 +256,16 @@ $(document).ready(function() {
    (map ticket-results-row tickets)])
 
 (defpage "/tickets/buscar/" {:keys [date folio]}
-  (let [results (if (seq date)
-                  (ticket/search-by-date date)
+  (let [results (if (seq folio)
                   (ticket/search-by-folio (try (Long. folio)
-                                               (catch Exception e 0))))
+                                               (catch Exception e 0)))
+                  (ticket/search-by-date date))
         disp (if (seq results)
                (ticket-results-table results)
                [:p {:class "alert alert-error"} "No se encontraron resultados"])
         content {:title "Resultados de la búsqueda"
-                 :content [:div.container-fluid disp]
+                 :content [:div.container-fluid disp
+                           (link-to {:class "btn btn-success"} "/tickets/" "Regresar")]
                  :nav-bar true
                  :active "Tickets"}]
     (home-layout content)))
@@ -355,13 +364,14 @@ $(document).ready(function() {
         pay   (:pay ticket)
         prods (:articles ticket)
         total (reduce + (map :total prods))
-        change (- pay total)
+        change (Math/abs (- pay total))
         number (:ticket-number ticket)
         date (:date ticket)
         time (:time ticket)]
     [:div.container-fluid
      [:div.form-actions
-      (link-to {:class "btn btn-primary"} (str "/tickets/folio/" folio "/imprimir/") "Imprimir ticket")]
+      (link-to {:class "btn btn-primary"} (str "/tickets/folio/" folio "/imprimir/") "Imprimir ticket")
+      (link-to {:class "btn btn-warning"} (str "/tickets/folio/" folio "/factura/") "Generar factura")]
      [:hr]
      (printed-ticket prods pay total change number folio date time)]))
 
@@ -377,7 +387,7 @@ $(document).ready(function() {
                  :active "Tickets"}]
     (home-layout content)))
 
-(defpage "/tickets/folio/:folio/imprimir" {folio :folio}
+(defpage "/tickets/folio/:folio/imprimir/" {folio :folio}
   (let [ticket (ticket/get-by-folio ((coerce-to Long 0) folio))
         prods (:articles ticket)
         total (reduce + (map :total prods))

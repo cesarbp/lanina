@@ -45,7 +45,7 @@
            [:legend "Respaldar la base de datos en otro directorio"]
            [:p.alert "Respaldar a una USB o a otro directorio."]
            [:div.control-group
-            (label {:class "control-label"} :dest "Dirección del directorio a donde se desee crear el respaldo. Por lo general una memoria USB.")
+            (label {:class "control-label"} :dest "Dirección del directorio a donde se desee crear el respaldo. Por lo general una memoria USB. ESTE DIRECTORIO DEBE DE EXISTIR. Ejemplo: G:\\respaldos")
             [:div.controls
              (text-field :dest)]]
            [:div.form-actions

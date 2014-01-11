@@ -239,7 +239,7 @@
                              (choose-shown-category-form)]
                             [:div.span6
                              (choose-entry-type-form)]]
-                           [:p.alert.alert-warning
+                           [:h2.alert.alert-warning
                             "Para buscar use CTRL + F"]
                            (show-catalogs cat)]
                  :active "Extras"

@@ -60,6 +60,7 @@
 
 (defn coerce-fields
   [fields-vals fields-types]
+  (prn fields-vals fields-types)
   (reduce (fn [m [k s]]
             (let [v (case (fields-types k)
                       "fecha" (fix-date s)
@@ -142,6 +143,58 @@
         (destroy! catalogs-coll c))
       (destroy! catalog-types-coll {:type cat})
       :success)))
+
+;;======================
+;; To install clients ;;
+;;======================
+
+(defn install-clients!
+  []
+  (destroy! catalog-types-coll {:type "CLIENTES"})
+  (destroy! catalogs-coll {:TIPO "CLIENTES"})
+  (insert! catalog-types-coll
+           {:type "CLIENTES"
+            :fields-types {"NOMBRE" "cadena"
+                           "RFC" "cadena"
+                           "CALLE" "cadena"
+                           "COLONIA" "cadena"
+                           "MUNICIPIO" "cadena"
+                           "ESTADO" "cadena"
+                           "NUMERO-EXT" "cadena"
+                           "CP" "entero"
+                           "CORREO" "cadena"
+                           "NUMERO DE CATALOGO" "entero"
+                           "TIPO" "cadena"}}))
+
+(defn get-client-by-name
+  [name]
+  (let [name (str name)
+        name (clojure.string/upper-case name)]
+    (dissoc (fetch-one catalogs-coll :where {"NOMBRE" name})
+            :_id)))
+
+(defn get-all-client-names
+  []
+  (map :NOMBRE (fetch catalogs-coll :where {:TIPO "CLIENTES"} :only ["NOMBRE"])))
+
+(defn add-client!
+  [name rfc correo calle numero-ext colonia municipio cp estado]
+  (when (and (seq name)
+             (seq rfc)
+             (seq calle))
+    (destroy! catalogs-coll {:TIPO "CLIENTES"
+                             :RFC rfc})
+    (insert! catalogs-coll {:TIPO "CLIENTES"
+                            :NOMBRE name
+                            :RFC rfc
+                            :CALLE calle
+                            :COLONIA colonia
+                            :MUNICIPIO municipio
+                            :ESTADO estado
+                            :NUMERO-EXT numero-ext
+                            :CP cp
+                            :CORREO correo
+                            (keyword "NUMERO DE CATALOGO") (get-next-cat-number)})))
 
 ;;======================
 ;; To install láminas ;;

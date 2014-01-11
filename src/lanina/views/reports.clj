@@ -93,6 +93,7 @@
   [:script "$(document).ready(function(){ $(\"#report\").tablesorter(); });"])
 
 (defn report-vars [n tipo desde hasta periodo]
+  (prn desde hasta)
   (cond (and (seq desde) (seq hasta))
         [:range (model/gen-report-data desde hasta)]
         (seq desde)

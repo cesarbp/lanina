@@ -28,7 +28,7 @@
 (defn fix-articles
   [articles]
   (for [a articles]
-    {:art_id (:_id a) :quantity (:quantity a) :nom_art (:nom_art a) :iva (:iva a)
+    {:art_id (:_id a) :quantity (:quantity a) :nom_art (:nom_art a) :iva (:iva a) :type (:type a)
      :precio_venta (:precio_venta a) :codigo (:codigo a) :total (* (:precio_venta a) (:quantity a))}))
 
 (defn insert-ticket [ticketn total pay articles date]

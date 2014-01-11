@@ -151,18 +151,18 @@ function ticket_links(barcode, quantity, increase) {
         var ticketn = get_ticket_number();
         var ticket_html = '<a id="ticket" on-click="draw_modal();" class="btn btn-primary" href="/tickets/nuevo/?ticketn=' + ticketn +
                 '&' + req_html + '">F9 - Generar Ticket</a>';
-        var bill_html = '<a id="bill" on-click="draw_modal();" class="btn btn-success" href="/facturas/nuevo/?ticketn=' + ticketn +
-                '&' + req_html + '">F10 - Generar Factura</a>';
+        var bill_html = '<a id="bill" class="btn btn-success" href="/facturas/nuevo/?ticketn=' + ticketn +
+                '&' + req_html + '">Generar Factura</a>';
         var form_html = '<div id="gen-tickets" class="form-actions">' + ticket_html + bill_html + '</div>';
         $("#main").append(form_html);
         $('#ticket').click(function() {
             draw_modal();
             return false;
         });
-        $('#bill').click(function() {
-            draw_modal();
-            return false;
-        });
+        // $('#bill').click(function() {
+        //     draw_modal();
+        //     return false;
+        // });
         shortcut.add("F9", function() {
             draw_modal();
         });
@@ -654,7 +654,7 @@ function draw_artname_modal() {
     var modal_base = readFile('/js/art-name-modal.html');
     $('#main').append(modal_base);
     $('#art-name-modal').modal('toggle');
-    $('#art-name-input').focus();
+    $('#artname-quantity').focus();
 
 }
 function artnames_rows(arts){
@@ -698,6 +698,7 @@ function artname_table_selects() {
             var name = $('#art-name-input').val();
             add_article_row(name, quantity);
             remove_artname_modal();
+            $('#barcode-field').focus();
         }
     });
 }
@@ -724,7 +725,7 @@ function artname_input_listener(){
             var code = e.keyCode;
             if (code === 27) {
                 remove_artname_modal();
-            } else if ($('#art-name-input').val().length === 5 && art_names) {
+            } else if ($('#art-name-input').val().length === 4 && art_names) {
                 var first_three = $('#art-name-input').val();
                 var html =
                     artnames_rows(art_names.filter(function(o){
@@ -737,19 +738,20 @@ function artname_input_listener(){
                 $('#art-name-input').blur();
                 artname_table_selects();
             }
-        })
+        });
     }
 }
 
 // Ugly as f copypaste
 $(document).ready(function(){
+
+    var trie = {};
+    var jn;
+
     $.getJSON('/json/all-articles', {}, function(results) {
         art_names = results;
     });
 
-    var trie = {};
-    var search_box_id = "#article-field";
-    var jn;
     shortcut.add("F3", function() {
         $("#barcode-field").focus();
     });
@@ -775,19 +777,6 @@ $(document).ready(function(){
         $('[data-toggle="switch"]').switchbtn('toggle');
     });
 
-    $(search_box_id).on("keyup change", function () {
-        var inp = $(search_box_id).val();
-        if (inp.length === 1) {
-            jn = json(inp);
-            $(search_box_id).typeahead();
-            $(search_box_id).data('typeahead').source = jn;
-        } else if (inp.length > 1) {
-            if (jn != null) {
-                $(search_box_id).typeahead();
-                $(search_box_id).data('typeahead').source = jn;
-            }
-        }
-    });
     $('#barcode-field').focus();
 
     $('#unregistered-quantity').tooltip({

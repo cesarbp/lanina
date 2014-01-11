@@ -168,28 +168,73 @@
    :tam "Tamaño"})
 
 (defn verbose-extra-fields [iva]
+  (prn iva)
   {:cu_extra (if iva "Costo unitario sin IVA" "Costo unitario con IVA")
    :ccj_extra (if iva "Costo de caja sin IVA" "Costo de caja con IVA")
    :prev_extra (if iva "Precio de venta sin IVA" "Precio de venta con IVA")})
 
 (def lines
-  ["ABARROTES" "ROPA" "CARNES" "DESECHABLES" "DULCES" "MEDICAMENTOS" "FERRETERIA" "JARCERIA" "JUGUETES" "LACTEOS" "MATERIALES" "MERCERIA" "PANES" "PAPELERIA" "PERFUMERIA" "PLASTICOS" "REGALOS" "SEMILLAS" "VINOS" "OTROS"])
+  [
+   "ABA"
+   "ROP"
+   "CAR"
+   "DES"
+   "DUL"
+   "MED"
+   "FER"
+   "JAR"
+   "JUG"
+   "LAC"
+   "MAT"
+   "MER"
+   "PAN"
+   "PAP"
+   "PER"
+   "PLA"
+   "REG"
+   "SEM"
+   "VIN"
+   "OTROS"])
+
+(def line-select
+  {"ABA" "ABARROTES"
+   "ROP" "ROPA"
+   "CAR" "CARNES"
+   "DES" "DESECHABLES"
+   "DUL" "DULCES"
+   "MED" "MEDICAMENTOS"
+   "FER" "FERRETERIA"
+   "JAR" "JARCERIA"
+   "JUG" "JUGUETES"
+   "LAC" "LACTEOS"
+   "MAT" "MATERIALES"
+   "MER" "MERCERIA"
+   "PAN" "PANES"
+   "PAP" "PAPELERIA"
+   "PER" "PERFUMERIA"
+   "PLA" "PLASTICOS"
+   "REG" "REGALOS"
+   "SEM" "SEMILLAS"
+   "VIN" "VINOS"
+   "OTROS" "OTROS"})
 
 (def units
   ["PIEZA" "KILO" "METRO" "PAQUETE" "BOTELLA" "BOTE" "CAJA" "FRASCO" "BOLSA"])
 
 ;;; Initialize the db
 
-(defn to-int [s]
-  (try (Integer/valueOf (str s))
-       (catch Exception e
-         nil)))
-
 (defn to-double
   [s]
   (try (Double/valueOf (str s))
        (catch Exception e
          nil)))
+
+(defn to-int [s]
+  (try (Long/valueOf (str s))
+       (catch Exception e
+         (try (long (to-double s))
+              (catch Exception e
+                nil)))))
 
 (defn sanitize-price [orig-map new-map iva-kw noiva-kw]
   (cond (not (:iva new-map)) 0.0
@@ -450,9 +495,10 @@ csv of the articles"
     (if-let [n (get-by-name (:nom_art m))]
       (when-not (and id (= id (:_id n)))
         (add-error :nom_art "Este nombre de artículo ya existe")))
-    (if-let [n (get-by-barcode (:codigo m))]
-      (when-not (and id (= id (:_id n)))
-        (add-error :codigo "Este código de barras ya existe")))
+    (when (not= "0" (:codigo m))
+      (if-let [n (get-by-barcode (:codigo m))]
+        (when-not (and id (= id (:_id n)))
+          (add-error :codigo "Este código de barras ya existe"))))
     ;; (when-not (> thresh (days-ago (:date m)))
     ;;   (add-error :date "Lleva demasiado tiempo sin una modificación"))
     (when-not (:img m) (add-warning :img "No contiene imagen"))
