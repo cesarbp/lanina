@@ -28,6 +28,15 @@ function get_ganancia() {
 function get_presentacion() {
     return parseInt(get_value('pres'));
 }
+function get_mayoreo_cantidad() {
+    return parseInt(get_value('mayoreo_cantidad'));
+}
+function get_mayoreo_descuento() {
+    return parseFloat(get_value('mayoreo_descuento'));
+}
+function get_mayoreo_precio() {
+    return parseFloat(get_value('mayoreo_precio'));
+}
 
 function calc_gan() {
     var prev = get_precio_venta();
@@ -62,6 +71,23 @@ function calc_cu() {
     }
 }
 
+function calc_pm() {
+    console.log("pm");
+    var dm = get_mayoreo_descuento();
+    var prev = get_precio_venta();
+    var pm = prev * (1.0 - (dm / 100.0));
+    $('#mayoreo_precio').val(pm.toFixed(2).toString());
+}
+
+function calc_dm() {
+    var pm = get_mayoreo_precio();
+    var prev = get_precio_venta();
+    if ( prev > 0 ) {
+        var dm = (1 - (pm / prev)) * 100;
+        $('#mayoreo_descuento').val(dm.toFixed(2).toString());
+    }
+}
+
 function well_rounded(n) {
     return (n - 1) % 10 !== 0;
 }
@@ -84,6 +110,8 @@ function prev_up() {
         $('#precio_venta').val(correct.toString());
 
         calc_gan();
+        calc_pm();
+        calc_dm();
     }
     $('#precio_venta').focus();
 }
@@ -106,8 +134,46 @@ function prev_down() {
         $('#precio_venta').val(correct.toString());
 
         calc_gan();
+        calc_pm();
+        calc_dm();
     }
     $('#precio_venta').focus();
+}
+
+function mprev_up() {
+    var mp = get_mayoreo_precio();
+    if ( mp ) {
+        var ceiled = Math.ceil(mp * 10);
+        if (ceiled === mp * 10)
+            ceiled = ceiled + 1;
+        var correct;
+        if ( well_rounded(ceiled) )
+            correct = (ceiled / 10).toFixed(2);
+        else
+            correct = ((ceiled + 1) / 10).toFixed(2);
+
+        $('#mayoreo_precio').val(correct.toString());
+
+        calc_dm();
+    }
+}
+
+function mprev_down() {
+    var mp = get_mayoreo_precio();
+    if ( mp ) {
+        var floored = Math.floor(mp * 10);
+        if (floored === mp * 10)
+            floored = floored - 1;
+        var correct;
+        if ( well_rounded(floored) )
+            correct = (floored / 10).toFixed(2);
+        else
+            correct = ((floored - 1) / 10).toFixed(2);
+
+        $('#mayoreo_precio').val(correct.toString());
+
+        calc_dm();
+    }
 }
 
 
@@ -130,15 +196,24 @@ $(document).ready(function () {
     });
     $('#gan').blur(function() {
         calc_prev();
+        calc_pm();
+        calc_dm();
     });
     $('#precio_venta').blur(function() {
         calc_gan();
+        calc_pm();
+        calc_dm();
+    });
+    $('#mayoreo_descuento').blur(function () {
+        calc_pm();
+    });
+    $('#mayoreo_precio').blur(function() {
+        calc_dm();
     });
     $('#precio_venta').on('select focus', function() {
         $('#precio_venta')[0].setSelectionRange(0,0);
     });
     $('#the-form').submit(function () {
-        console.log('bar');
         var ans = confirm("Desea grabar el articulo? OK/ACEPTAR=GRABAR, CANCELAR=REGRESAR a hacer correcciones");
         if ( !ans )
         {

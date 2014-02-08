@@ -66,7 +66,7 @@
          [:a {:style "color:white;position:relative;top:8px;"} "F4 - por nombre"]]]]]]))
 
 (defpartial add-unregistered-form []
-  [:div#free-articles.navbar.navbar-fixed-bottom
+  [:div#free-articles.navbar.navbar-fixed-bottom {:style "margin-bottom: 40px;"}
    [:div.navbar-inner
     [:div.container-fluid
      [:ul.nav
@@ -138,14 +138,14 @@
 (defpage "/articulos/ventas/" []
   (let [url "/articulos/ventas/"
         content {:content (article-instant-search-form url)
-                 :title "Consulta para ventas"
+                 :title "Consulta para Ventas"
                  :active "Artículos"
                  :nav-bar true}]
     (main-layout-incl content [:base-css :jquery :base-js :search-js])))
 (defpage "/articulos/proveedor/" []
   (let [url "/articulos/proveedor/"
         content {:content (article-instant-search-form url)
-                 :title "Consulta para proveedor"
+                 :title "Consulta para Compras"
                  :active "Artículos"
                  :nav-bar true}]
     (main-layout-incl content [:base-css :jquery :base-js :search-js])))
@@ -228,7 +228,8 @@
 ;;; modifiable must be a set of keys
 (defpartial modify-article-row-partial [[k v] modifiable & [prev]]
   (letfn [(std-text [k v] (text-field (if (#{:codigo :pres :gan :costo_caja :costo_unitario
-                                             :precio_venta :stk :exis} k)
+                                             :precio_venta :stk :exis :mayoreo_descuento
+                                             :mayoreo_cantidad :mayoreo_precio} k)
                                         {:class "article-new-value only-numbers" :autocomplete "off"
                                          :id (name k)}
                                         {:class "article-new-value" :autocomplete "off"
@@ -243,7 +244,7 @@
           (dis-text [k v] (text-field {:class "disabled" :disabled true :placeholder v} k v))]
     [:tr.article-row
      [:td.prop-name (article/verbose-names-new k)]
-     [:td.new-value
+     [:td.new-value {:style "font-weight: bold;"}
       (cond
        (not (modifiable k)) (list (dis-text k (or (k prev) v)) (hidden-field k (or (k prev) v)))
        (= :unidad k) (unit-select (or (k prev) v))
@@ -261,7 +262,17 @@
          [:i.icon-chevron-up]]
         [:a.btn {:onclick "return prev_down();"}
          [:i.icon-chevron-down]]
-        (str "Precio de venta previo: " v)])]]))
+        (str "Precio de venta previo: " v)]
+       (and (modifiable k) (= :mayoreo_cantidad k)) (str "C. Mayoreo previa " v)
+       (and (modifiable k) (= :mayoreo_precio k))
+       [:div
+        [:a.btn {:onclick "return mprev_up();"}
+         [:i.icon-chevron-up]]
+        [:a.btn {:onclick "return mprev_down();"}
+         [:i.icon-chevron-down]]
+        (str "P. Mayoreo previo: " v)]
+       (and (modifiable k) (= :mayoreo_descuento k)) (str "D. Mayoreo previo " v)
+       )]]))
 
 (defpartial modify-article-partial [art type-mod modifiable & [prev]]
   (let [this-url (str "/articulos/modificar/"
@@ -289,12 +300,18 @@
               [:table.table.table-condensed
                [:tr
                 [:th "Nombre"]
-                [:th "Nuevo valor"]
+                [:th "Nuevo Valor"]
                 [:th "Ayudas"]]
                [:fieldset
-                (map modify-article-row-partial (article/sort-by-vec (dissoc art :prev) [:nom_art :codigo :iva :pres :gan :costo_caja :costo_unitario :precio_venta]) (repeat modifiable) (repeat prev))]]
-              [:fieldset
-               [:div.form-actions
+                (map modify-article-row-partial
+                    (article/sort-by-vec (dissoc art :prev)
+                                          [:nom_art :codigo :iva :pres :gan :costo_caja
+                                           :costo_unitario :precio_venta
+                                           :mayoreo_cantidad :mayoreo_descuento
+                                           :mayoreo_precio]) (repeat modifiable) (repeat prev))]]
+
+              [:div.navbar.navbar-fixed-bottom
+               [:div.navbar-inner {:style "text-align: center;"}
                 (submit-button {:class "btn btn-warning" :name "submit"} "Modificar")
                 (link-to {:class "btn btn-danger"} this-url "Cancelar")]])]))
 
@@ -303,7 +320,7 @@
   [:tr.article-row
    [:td.prop-name (article/verbose-names-new k)]
    [:td.orig-value old]
-   [:td.new-value new]
+   [:td.new-value {:style "font-weight: bold;"} new]
    (hidden-field (name k) new)])
 
 (defpartial confirm-changes-table [id changes type-mod]
@@ -346,7 +363,9 @@
                    :content [:div.container-fluid
                              (if (seq article)
                                (modify-article-partial article :total
-                                                       #{:img :unidad :stk :lin :ramo :iva :pres :gan
+                                                       #{:img :unidad :stk :lin :ramo :iva :pres
+                                                         :gan :mayoreo_cantidad :mayoreo_precio
+                                                         :mayoreo_descuento
                                                          :costo_caja :precio_venta
                                                          :ubica :prov :exis :nom_art :tam}
                                                        prev)
@@ -359,7 +378,8 @@
 
 (defpage "/articulos/modificar/precios/:id/" {id :id :as prev}
   (let [article (article/get-by-id id)
-        modifiable #{:pres :gan :iva :precio_venta :costo_caja}
+        modifiable #{:pres :gan :iva :precio_venta :costo_caja :mayoreo_cantidad :mayoreo_precio
+                     :mayoreo_descuento}
         content {:title "Modificando precios"
                  :nav-bar true
                  :active "Artículos"
@@ -744,16 +764,18 @@
         article-extras (article/add-fields article)
         art-name (:nom_art article)
         art-no-prevs (article/sort-by-vec (dissoc article-extras :prev :_id)
-                                          [:codigo :nom_art :img :pres :iva :gan :costo_unitario :costo_caja :precio_venta :cu_extra :ccj_extra :prev_extra])
+                                          [:codigo :nom_art :img :pres :iva :gan :costo_unitario :costo_caja :precio_venta :cu_extra :ccj_extra :prev_extra :mayoreo_cantidad :mayoreo_precio :mayoreo_descuento])
         content {:title (str art-name " | Consulta global")
                  :active "Artículos"
                  :nav-bar true
                  :content [:div.container-fluid
                            (show-different-versions-form article (str "/articulos/global/" id "/"))
                            (show-article-tables art-no-prevs)
-                           [:div.form-actions (link-to {:class "btn btn-success"}
-                                                       "/articulos/global/"
-                                                       "Regresar a buscar artículos")]
+                           [:div.navbar.navbar-fixed-bottom
+                            [:div.navbar-inner {:style "text-align: center;"}
+                             (link-to {:class "btn btn-success"}
+                                      "/articulos/global/"
+                                      "Regresar a buscar artículos")]]
                            (highlight-js :precio_venta)]}]
     (main-layout-incl content [:base-css :jquery :base-js])))
 
@@ -765,14 +787,16 @@
         article (article/add-fields article)
         art-no-prevs (dissoc article :prev)
         art-sorted (article/sort-by-vec art-no-prevs
-                                        [:codigo :nom_art :img :pres :iva :gan :precio_venta :prev_extra :tam])
-        content {:title "Consulta para ventas"
+                                        [:codigo :nom_art :img :pres :iva :gan :precio_venta :prev_extra :tam :mayoreo_cantidad :mayoreo_precio :mayoreo_descuento])
+        content {:title "Consulta para Ventas"
                  :active "Artículos"
                  :content [:div.container-fluid (show-article-tables art-sorted)
                            (show-different-versions-form article (str "/articulos/ventas/" id "/"))
-                           [:div.form-actions (link-to {:class "btn btn-success"}
-                                                       "/articulos/ventas/"
-                                                       "Regresar a buscar artículos")]
+                           [:div.navbar.navbar-fixed-bottom
+                            [:div.navbar-inner {:style "text-align: center;"}
+                             (link-to {:class "btn btn-success"}
+                                      "/articulos/ventas/"
+                                      "Regresar a buscar artículos")]]
                            (highlight-js :precio_venta)]}]
     (home-layout content)))
 
@@ -785,15 +809,17 @@
         art-no-prevs (dissoc article :prev)
         art-sorted (article/sort-by-vec art-no-prevs
                                         [:codigo :nom_art :pres :prov :iva :costo_unitario :costo_caja :cu_extra :ccj_extra :date])
-        content {:title "Consulta para proveedor"
+        content {:title "Consulta para Compras"
                  :active "Artículos"
                  :content [:div.container-fluid
                            (show-different-versions-form article (str "/articulos/proveedor/" id "/"))
                            (show-article-tables art-sorted)
 
-                           [:div.form-actions (link-to {:class "btn btn-success"}
-                                                       "/articulos/proveedor/"
-                                                       "Regresar a buscar artículos")]
+                           [:div.navbar.navbar-fixed-bottom
+                            [:div.navbar-inner {:style "text-align: center;"}
+                             (link-to {:class "btn btn-success"}
+                                      "/articulos/proveedor/"
+                                      "Regresar a buscar artículos")]]
                            (highlight-js :costo_caja)]}]
     (home-layout content)))
 
@@ -833,7 +859,8 @@
 
 (defpartial add-article-row-partial [[k v] modifiable & [prev]]
   (letfn [(std-text [k v] (text-field (if (#{:codigo :pres :gan :costo_caja :costo_unitario
-                                             :precio_venta :stk :exis} k)
+                                             :precio_venta :stk :exis :mayoreo_cantidad
+                                             :mayoreo_precio :mayoreo_descuento} k)
                                         {:class "article-new-value only-numbers" :autocomplete "off"
                                          :id (name k)}
                                         {:class "article-new-value" :autocomplete "off"
@@ -862,6 +889,13 @@
         [:a.btn {:onclick "return prev_up();"}
          [:i.icon-chevron-up]]
         [:a.btn {:onclick "return prev_down();"}
+         [:i.icon-chevron-down]]]
+
+       (and (modifiable k) (= :mayoreo_precio k))
+       [:div
+        [:a.btn {:onclick "return mprev_up();"}
+         [:i.icon-chevron-up]]
+        [:a.btn {:onclick "return mprev_down();"}
          [:i.icon-chevron-down]]])]]))
 
 (defpartial add-article-form [article modifiable & [prev]]
@@ -878,9 +912,10 @@
              (article/sort-by-vec (dissoc article :prev) article/new-art-props-sorted)
              (repeat modifiable)
              (repeat prev))]]
-      [:div.form-actions
-       (submit-button {:class "btn btn-primary"} "Agregar este artículo")
-       (link-to {:class "btn btn-danger"} "/" "Cancelar y regresar")])))
+      [:div.navbar.navbar-fixed-bottom
+       [:div.navbar-inner {:style "text-align:center;"}
+        (submit-button {:class "btn btn-primary"} "Agregar este artículo")
+        (link-to {:class "btn btn-danger"} "/" "Cancelar y regresar")]])))
 
 (def focus-on-first-input-js
   (javascript-tag
@@ -907,7 +942,7 @@
     (main-layout-incl content [:base-css :search-css :jquery :base-js :jquery-ui :show-error-js :verify-js :modify-js :numbers-js :pistol-js])))
 
 (defpage "/articulos/agregar/" {:as pst}
-  (let [modifiable #{:img :unidad :stk :lin :ramo :iva :pres :gan :costo_caja :precio_venta :ubica :prov :exis :codigo :nom_art :tam}
+  (let [modifiable #{:img :unidad :stk :lin :ramo :iva :pres :gan :costo_caja :precio_venta :ubica :prov :exis :codigo :nom_art :tam  :mayoreo_cantidad :mayoreo_precio :mayoreo_descuento}
         content {:title "Alta total de un artículo"
                  :active "Artículos"
                  :nav-bar true

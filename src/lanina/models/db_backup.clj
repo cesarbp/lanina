@@ -61,9 +61,10 @@
 
 (def mongo-path "MongoDB/")
 (def mongo-data-path "MongoDB/data/")
-(def mongodump-path "MongoDB/bin/mongodump.exe")
-;(def mongodump-path "C:/home/bin/mongodb/bin/mongodump.exe")
-(def mongorestore-path "MongoDB/bin/mongorestore.exe")
+;(def mongodump-path "MongoDB/bin/mongodump.exe")
+(def mongodump-path "C:/home/bin/mongodb/bin/mongodump.exe")
+;(def mongorestore-path "MongoDB/bin/mongorestore.exe")
+(def mongorestore-path "C:/home/bin/mongodb/bin/mongorestore.exe")
 (def backups-dir "respaldos/")
 
 (defn there-are-backups?
@@ -133,6 +134,7 @@ already exists it fails."
          (try @(sh [mongodump-path
                     "--db" "lanina"
                     "--out" out])
+              (println out)
               (zip-and-delete! out date)
               (println "Respaldo hecho")
               (when (= backups-dir target-dir)

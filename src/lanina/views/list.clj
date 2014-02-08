@@ -34,8 +34,7 @@
          (submit-button {:class "btn btn-primary"} "Continuar")]]]))
 
 (defpage "/listas/" []
-  (let [_ (clojure.pprint/pprint (logs/retrieve-all))
-        logs (filter (fn [l] (and (not (:cleared l))
+  (let [logs (filter (fn [l] (and (not (:cleared l))
                                  (or (= "updated" (name (:type l)))
                                      (= "added"  (name (:type l))))))
                      (logs/retrieve-all))

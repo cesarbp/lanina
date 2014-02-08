@@ -67,15 +67,24 @@ function addAlert(text) {
 
 function article_row(article, quantity) {
     var id = article._id;
+    quantity = parseInt(quantity);
+    var mayoreo = false;
     var price = article.precio_venta;
+    if ( article.mayoreo_cantidad > 0 &&
+         article.mayoreo_precio > 0 &&
+         quantity >= article.mayoreo_cantidad ) {
+        mayoreo = true;
+        price = article.mayoreo_precio;
+    }
 
     var name = article.nom_art;
 
-    var total = price * parseInt(quantity);
+    var total = price * quantity;
+    var price_class = mayoreo ? "art_price label label-info" : "art_price";
 
     var html = '<tr class="article-row" id=' + id + '><td class="art_name">' +
         name.toString() + '<td class="art_quantity">' +
-        quantity.toString() + '</td><td class="art_price">' +
+        quantity.toString() + '</td><td class="' + price_class + '">' +
         price.toFixed(2).toString() + '</td>' + '</td><td class="art_total">' +
         total.toFixed(2).toString() + '</td>' +
         '<td><a class="btn" onclick="add_article_row(\'' + id + '\',1);"><i class="icon-chevron-up"></i></a>' +
@@ -153,7 +162,7 @@ function ticket_links(barcode, quantity, increase) {
                 '&' + req_html + '">F9 - Generar Ticket</a>';
         var bill_html = '<a id="bill" class="btn btn-success" href="/facturas/nuevo/?ticketn=' + ticketn +
                 '&' + req_html + '">Generar Factura</a>';
-        var form_html = '<div id="gen-tickets" class="form-actions">' + ticket_html + bill_html + '</div>';
+        var form_html = '<div id="gen-tickets" class="navbar navbar-fixed-bottom"><div class="navbar-inner" style="text-align: center">' + ticket_html + bill_html + '</div></div>';
         $("#main").append(form_html);
         $('#ticket').click(function() {
             draw_modal();
@@ -288,11 +297,26 @@ function add_article_row(denom, n) {
             remove_article_row(id);
             return 0;
         }
-        var total = parseFloat(price) * new_quantity;
-
+        var total;
+        var mayoreo = false;
+        if ( article.mayoreo_cantidad > 0 &&
+             article.mayoreo_precio > 0 &&
+             new_quantity >= article.mayoreo_cantidad ) {
+            total = article.mayoreo_precio * new_quantity;
+            mayoreo = true;
+        } else {
+            total = parseFloat(price) * new_quantity;
+        }
         // Modify the html
         $(html_id).children()[1].innerHTML = new_quantity.toString();
         $(html_id).children()[3].innerHTML = total.toFixed(2).toString();
+        if ( mayoreo === true ) {
+            $(html_id).children()[2].innerHTML = article.mayoreo_precio.toFixed(2).toString();
+            $($(html_id).children()[2]).addClass("label label-info");
+        } else {
+            $(html_id).children()[2].innerHTML = article.precio_venta.toFixed(2).toString();
+            $($(html_id).children()[2]).removeClass("label label-info");
+        }
         if ( $(html_id).length !== 0 )
                 ticket_links(id, new_quantity, (n > 0));
     }
@@ -484,6 +508,7 @@ function split_url (a) {
         var type = getType(denom);
         var price;
         if ( type === 'id' )
+            // shouldnt be used
             $.ajax({url: '/json/article/id', dataType: 'json', data: {id: denom}, async: false, success: function(article) {
                 if ( article && article._id )
                 {
@@ -504,19 +529,30 @@ function split_url (a) {
         if ( denom === 'ticketn' ) continue;
         quant = parseInt(match[2]);
         type = getType(denom);
-        price = getPrice(denom);
+
         name = '';
         bc = '';
         if ( type === 'id' )
-            $.ajax({url: '/json/article/id', dataType: 'json', data: {id: denom}, async: false, success: function(article) {
-                if (article && article._id)
+            $.ajax({url: '/json/article/id', dataType: 'json', data: {id: denom},
+                    async: false, success: function(article) {
+                if (article && article._id) {
                     name = article.nom_art;
+                    if ( article.mayoreo_cantidad > 0 &&
+                         article.mayoreo_precio > 0 &&
+                         quant >= article.mayoreo_cantidad ) {
+                        price = article.mayoreo_precio;
+
+                    } else {
+                        price = article.precio_venta;
+                    }
+                }
             }});
         else
         {
             var article = parseUnregistered(denom);
             bc = '0';
             name = article.nom_art;
+            price = getPrice(denom);
         }
 
         res.push([bc, name, quant, price, quant * price]);

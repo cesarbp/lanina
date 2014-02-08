@@ -1,9 +1,12 @@
 // stop barcode gun from fucking up everything
 $(document).ready(function(){
-    $('input').keydown(function(event) {
+    $('body').keydown(function(event) {
         if ( event.ctrlKey || event.altKey ) {
             event.preventDefault();
         }
+    });
+    $('input').keydown(function(event) {
+
         if ( event.keyCode === 13 && $(this).attr('id') === 'codigo' ) {
             event.preventDefault();
             $(this).blur();

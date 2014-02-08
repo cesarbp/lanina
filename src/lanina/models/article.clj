@@ -88,10 +88,13 @@
    :exis
    :codigo
    :nom_art
-   :tam])
+   :tam
+   :mayoreo_cantidad
+   :mayoreo_precio
+   :mayoreo_descuento])
 
 (def new-art-props-sorted
-  [:nom_art :codigo :pres :gan :iva :costo_caja :costo_unitario :precio_venta :prov :lin :ramo :tam :exis :ubica :img])
+  [:nom_art :codigo :pres :gan :iva :costo_caja :costo_unitario :precio_venta :mayoreo_cantidad :mayoreo_descuento :mayoreo_precio :prov :lin :ramo :tam :exis :ubica :img])
 
 ;;; points to the correct data type on each field to solve some dbf <-> mongo
 ;;; conversion headaches
@@ -118,7 +121,9 @@
    :nom_art ""
    :codigo ""
    :tam ""
-   })
+   :mayoreo_cantidad 0
+   :mayoreo_precio 0.0
+   :mayoreo_descuento 0.0})
 
 (def verbose-names
   {:img "Nombre de imagen"
@@ -165,7 +170,10 @@
    :exis "En existencia"
    :codigo "Código de barras"
    :nom_art "Nombre de artículo"
-   :tam "Tamaño"})
+   :tam "Tamaño"
+   :mayoreo_cantidad "Cantidad para mayoreo"
+   :mayoreo_precio "Precio de mayoreo"
+   :mayoreo_descuento "Descuento de mayoreo"})
 
 (defn verbose-extra-fields [iva]
   (prn iva)
@@ -174,8 +182,7 @@
    :prev_extra (if iva "Precio de venta sin IVA" "Precio de venta con IVA")})
 
 (def lines
-  [
-   "ABA"
+  ["ABA"
    "ROP"
    "CAR"
    "DES"
@@ -275,6 +282,9 @@
     (mod-map :nom_art (when (string? (:nom_art m))
                         (str/upper-case (:nom_art m))))
     (mod-map :tam (:tam m))
+    (mod-map :mayoreo_cantidad (or (to-int (:mayoreo_cantidad m)) 0))
+    (mod-map :mayoreo_precio (or (to-double (:mayoreo_precio m)) 0.0))
+    (mod-map :mayoreo_descuento (or (to-double (:mayoreo_descuento m)) 0.0))
     @res))
 
 (defn map-to-article-only
@@ -312,6 +322,17 @@
     (when (to-add :codigo) (mod-map :codigo (:codigo m)))
     (when (to-add :nom_art) (mod-map :nom_art (:nom_art m)))
     (when (to-add :tam) (mod-map :tam (:tam m)))
+    (when (to-add :mayoreo_cantidad) (mod-map :mayoreo_cantidad
+                                              (or
+                                               (to-int (:mayoreo_cantidad m))
+                                               0)))
+    (when (to-add :mayoreo_precio) (mod-map :mayoreo_precio
+                                            (or (to-double (:mayoreo_precio m))
+                                                0.0)))
+    (when (to-add :mayoreo_descuento) (mod-map :mayoreo_descuento
+                                               (or
+                                                (to-double (:mayoreo_descuento m))
+                                                0.0)))
     @res))
 
 (defn fix-maps [ms]
@@ -428,7 +449,10 @@ csv of the articles"
 
 (defn get-by-name [name]
   (id-to-str
-   (fetch-one article-coll :where {:nom_art name} :only [:nom_art :codigo :precio_venta :costo_caja])))
+   (fetch-one article-coll :where {:nom_art name}
+              :only
+              [:nom_art :codigo :precio_venta :costo_caja
+               :mayoreo_cantidad :mayoreo_precio])))
 
 (defn get-by-provider [prov]
   (map id-to-str
@@ -461,7 +485,10 @@ csv of the articles"
   "Get an article by its barcode"
   [bc]
   (id-to-str
-   (fetch-one article-coll :where {:codigo bc} :only [:_id :codigo :nom_art :iva :precio_venta :costo_caja :iva])))
+   (fetch-one article-coll :where {:codigo bc}
+              :only
+              [:_id :codigo :nom_art :iva :precio_venta :costo_caja :iva
+               :mayoreo_cantidad :mayoreo_precio])))
 
 (defn get-by-search
   "Search for an article name"
@@ -551,6 +578,18 @@ csv of the articles"
       (add-error :codigo "Código de barras inválido"))
     (when-not (and (string? (:nom_art m)) (seq (:nom_art m)))
       (add-error :nom_art "No tiene nombre de artículo"))
+    (prn "cant" (:mayoreo_cantidad m)
+             "prec" (:mayoreo_precio m)
+             "desc" (:mayoreo_descuento m))
+    (when-not (and (number? (:mayoreo_cantidad m))
+                   (>= (:mayoreo_cantidad m) 0))
+      (add-error :mayoreo_cantidad "Cantidad de mayoreo inválida"))
+    (when-not (and (number? (:mayoreo_precio m))
+                   (>= (:mayoreo_precio m) 0))
+      (add-error :mayoreo_precio "Precio de mayoreo inválido"))
+    (when-not (and (number? (:mayoreo_descuento m))
+                   (>= (:mayoreo_descuento m) 0))
+      (add-error :mayoreo_descuento "Descuento de mayoreo inválido"))
     (if (or (seq (:errors @res)) (seq (:warnings @res)))
       (do (swap! res conj {:_id (:_id m)})
           @res)

@@ -265,6 +265,35 @@
 
     (str header body)))
 
+(defn print-cashier-partial-cut-text
+  [date time flows]
+  (let [col-size (get-col-size)
+        header (str "L O N J A  M E R C A N T I L"
+                    "\r\n"
+                    (center-string "L A N I N A" col-size)
+                    "\r\n"
+                    (center-string "RFC: ROHE5108278T7" col-size)
+                    "\r\n"
+                    (center-string "GUERRERO No.45  METEPEC. MEX." col-size)
+                    "\r\n"
+                    "---------------------------"
+                    "\r\n"
+                    "CORTE PARCIAL DE CAJA"
+                    "\r\n"
+                    "FECHA: " date
+                    "\r\n"
+                    "HORA:  " time)
+        body  (apply str
+                     (map (fn [{:keys [time type amount]}]
+                            (str "\r\n"
+                                 "---------------------------"
+                                 "\r\n"
+                                 (format "  %-9s %s" type time)
+                                 "\r\n"
+                                 (format "  $ %5.2f" amount)))
+                          flows))]
+    (str header body)))
+
 (defn print-credit-text
   [credit]
   (let [col-size (get-col-size)
@@ -373,6 +402,11 @@ and a file to read from"
 (defn print-cashier-cut
   [tickets-n exto gvdo iva total date time]
   (-> (print-cashier-cut-text tickets-n exto gvdo iva total date time)
+      (print-text)))
+
+(defn print-cashier-partial-cut
+  [date time flows]
+  (-> (print-cashier-partial-cut-text date time flows)
       (print-text)))
 
 (defn print-employee-list

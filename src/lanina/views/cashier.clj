@@ -9,6 +9,7 @@
   (:require [lanina.models.user :as users]
             [lanina.models.cashier :as cashier]
             [noir.response :as resp]
+            [lanina.models.printing :as print]
             [lanina.views.utils :as utils]))
 
 (defpartial cashier-form
@@ -32,7 +33,7 @@
                 [:div.form-actions
                  (submit-button {:class "btn btn-primary" :name :submit} "Continuar")
                  (when adm
-                   (submit-button {:class "btn btn-danger" :name :close} "Cerrar la caja"))])
+                   (submit-button {:class "btn btn-danger" :name :close} "Cerrar la caja e Imprimir Corte Parcial"))])
        (if adm
          (form-to {:class "form-horizontal"} [:post "/caja/modificar/"]
                   [:div.control-group
@@ -76,16 +77,21 @@
 (defpage [:post "/caja/modificar/"] {:keys [add withdraw submit close open amt]}
   (let [resp
         (cond submit (cond (and (seq add) (is-number? add))
-                           (cashier/add-money! ((coerce-to Double) add))
+                           (cashier/add-money! ((coerce-to Double) add)
+                                               "DEPOSITO")
                            (and (seq withdraw) (is-number? withdraw))
                            (cashier/withdraw-money! ((coerce-to Double) withdraw)))
-              close (cashier/close-cashier)
+              close (let [date (utils/now)
+                          time (utils/now-hour)]
+                      (cashier/close-cashier)
+                      (print/print-cashier-partial-cut date time
+                                                       (cashier/get-flows date)))
               open (when (and (seq amt)) (is-number? amt)
                          (cashier/open-cashier ((coerce-to Double) amt))))]
     (if resp
       (do
         ;(flash-message "Operación exitosa." "success")
-        (resp/redirect "/ventas/"))
+        (resp/redirect "/caja/"))
       (do
         (flash-message "Error. Verifique sus entradas." "error")
         (resp/redirect "/caja/")))))

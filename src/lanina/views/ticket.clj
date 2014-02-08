@@ -108,13 +108,19 @@
   [pairs]
   (reduce (fn [acc [bc times]]
             (let [article (get-article (name bc))
+                  mayoreo_cantidad (:mayoreo_cantidad article)
+                  mayoreo_precio (:mayoreo_precio article)
                   name (:nom_art article)
                   type (if (settings/valid-iva? (:iva article))
                          (if (< 0 (:iva article))
                            "gvdo"
                            "exto")
                          "exto")
-                  price (:precio_venta article)
+                  price (if (and (> mayoreo_precio 0)
+                                 (> mayoreo_cantidad 0)
+                                 (>= times mayoreo_cantidad))
+                          mayoreo_precio
+                          (:precio_venta article))
                   total (if (number? price) (* price times) 0.0)
                   before-tax (if (= "gvdo" type)
                                (/ total (+ 1.0 (/ (:iva article) 100)))
